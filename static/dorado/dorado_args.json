@@ -1,0 +1,55 @@
+ [
+    {
+      "name": "dorado_basecaller",
+      "description": "Basecall nanopore data. Use this for standard basecalling and modified base detection.",
+      "args": {
+        "model": "Basecalling model (e.g., rna004_130bps_hac@v5.3.0). Required.",
+        "data": "Input POD5 or FAST5 file or directory path.",
+        "output_dir": "Directory to write output files.",
+        "reference": "Path to reference for alignment. [nargs=0..1] [default: \"\"]",
+        "modified_bases": "List of modified bases (e.g., m6A_DRACH). Used with --modified-bases.",
+        "modified_bases_models": "Path(s) to custom models. Used with --modified-bases-models. Note: The --modified-bases-models in Dorado typically follows the naming convention: [Base Model Name]_[Modified Name]@v[Version Number]. If the user requests m6A_DRACH, please refer to the model naming format provided in the context or RAG results. If the precise model path cannot be determined, please leave it blank in ToolCall and allow the Validator node to automatically complete it.",
+        "modified_bases_threshold": "Probability threshold (0-1). Optional.",
+        "device": "Compute device (auto, cpu, cuda).",
+        "recursive": "Set to true if data is a directory.",
+        "extra_args": "Any other flags (e.g., --emit-moves, --min-qscore). Note: --emit-moves is REQUIRED for signal-level analysis like mod detection."
+      }
+    },
+    {
+      "name": "dorado_aligner",
+      "description": "Alignment uses `minimap2` and by default uses the `lr:hq` preset. This can be overridden by passing a minimap option string, `--mm2-opts`, using the '-x ' option and/or individual options such as -k and -w to set kmer and window size respectively. Usage: dorado aligner [--help] [--recursive] [--output-dir VAR] [--emit-summary] [--bed-file VAR] [--threads VAR] [--max-reads VAR] [--verbose]... [--mm2-opts VAR] index reads",
+      "args": {}
+    },
+    {
+      "name": "dorado_duplex",
+      "description": "",
+      "args": {}
+    },
+    {
+      "name": "dorado_demux",
+      "description": "",
+      "args": {}
+    },
+    {
+      "name": "dorado_correct",
+      "description": "",
+      "args": {}
+    },
+    {
+      "name": "dorado_polish",
+      "description": "",
+      "args": {}
+    },
+    {
+      "name": "dorado_summary",
+      "description": "Usage: dorado [--help] [--separator VAR] [--verbose]... reads",
+      "args": {
+        "reads": "SAM/BAM file produced by dorado basecaller."
+      }
+    },
+    {
+      "name": "dorado_trim",
+      "description": "",
+      "args": {}
+    }
+  ]

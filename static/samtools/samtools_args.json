@@ -1,0 +1,50 @@
+ [
+    {
+      "name": "samtools_view",
+      "description": "Convert between SAM, BAM, and CRAM formats. Use this to filter reads, select regions, or convert file types.",
+      "args": {
+        "input": "Input BAM/SAM/CRAM file path.",
+        "output_file": "Output file path (e.g., filtered.bam).",
+        "format": "Output format, e.g., -b for BAM, -C for CRAM.",
+        "regions": "Region string (e.g., 'chr1:100-200').",
+        "filter_flags": "Include/Exclude flags (e.g., -F 4 to exclude unmapped).",
+        "extra_args": "Any additional flags (e.g., -h, -q 20). Note: If converting to BAM, ensure -b is included."
+      }
+    },
+    {
+      "name": "samtools_sort",
+      "description": "Sort alignments by leftmost coordinates or by read name.",
+      "args": {
+        "input": "Input BAM file path.",
+        "output_file": "Output sorted BAM file path.",
+        "threads": "Number of threads to use (default: 1).",
+        "memory": "Memory per thread (e.g., 4G).",
+        "extra_args": "Any other flags (e.g., -n for sort by name)."
+      }
+    },
+    {
+      "name": "samtools_index",
+      "description": "Index a coordinate-sorted BAM or CRAM file for fast random access.",
+      "args": {
+        "input": "Input sorted BAM file path.",
+        "extra_args": "Additional flags (e.g., -b for BAI format if needed)."
+      }
+    },
+    {
+      "name": "samtools_faidx",
+      "description": "Index/extract sequence from a FASTA file.",
+      "args": {
+        "input": "Reference FASTA file.",
+        "region": "Optional region to extract.",
+        "extra_args": "Additional flags."
+      }
+    },
+    {
+      "name": "samtools_flagstat",
+      "description": "Get statistics on the BAM file (e.g., number of mapped/unmapped reads).",
+      "args": {
+        "input": "Input BAM file path.",
+        "output_file": "Optional file to save statistics output."
+      }
+    }
+  ]
