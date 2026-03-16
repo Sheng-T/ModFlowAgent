@@ -7,7 +7,9 @@ from agent_graph.state import AgentState
 
 
 from utils.common_utils import other_path
-
+import os
+# 告诉 PyTorch 灵活分配显存段，减少碎片导致的 OOM
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 def run_interactive_mode(app):
     print("\n" + "=" * 20 + " BioAgent 已启动 (输入 'exit' 退出) " + "=" * 20)

@@ -1,15 +1,15 @@
 # Samtools Document
 
-## 文档章节: samtools(1) manual page
+# 工具文档: samtools(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools – Utilities for the Sequence Alignment/Map (SAM) format 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [addreplacerg](samtools-addreplacerg.html) -r 'ID:fish' -r 'LB:1334' -r 'SM:alpha' -o output.bam input.bam 
 
@@ -91,7 +91,7 @@ samtools [tview](samtools-tview.html) aln.sorted.bam ref.fasta
 
 samtools [view](samtools-view.html) -bt ref_list.txt -o aln.bam aln.sam.gz 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Samtools is a set of utilities that manipulate alignments in the SAM (Sequence Alignment/Map), BAM, and CRAM formats. It converts between the formats, does sorting, merging and indexing, and can retrieve reads in any regions swiftly. 
 
@@ -101,7 +101,7 @@ Samtools is also able to open files on remote FTP or HTTP(S) servers if the file
 
 If an index is needed, samtools looks for the index suffix appended to the filename, and if that isn't found it tries again without the filename suffix (for example **in.bam.bai** followed by **in.bai**). However if an index is in a completely different location or has a different name, both the main data filename and index filename can be pasted together with **##idx##**. For example **/data/in.bam##idx##/indices/in.bam.bai** may be used to explicitly indicate where the data and index files reside. 
 
-# COMMANDS
+## COMMANDS
 
 Each command has its own man page which can be viewed using e.g. **man samtools-view** or with a recent GNU man using **man samtools view**. Below we have a brief summary of syntax and sub-command description. 
 
@@ -454,7 +454,7 @@ samtools reset [**-o** _FILE_] [**-x** /**\--remove-tag** _tag_list_] [**\--keep
 
 Removes alignment information from records, producing an unaligned SAM, BAM or CRAM file. Flags are reset, header tags are updated or removed as appropriate, and auxiliary tags are removed or retained as specified. Note that the sort order is unchanged. 
 
-# SAMTOOLS OPTIONS
+## SAMTOOLS OPTIONS
 
 These are options that are passed after the **samtools** command, before any sub-command is specified. 
 
@@ -473,7 +473,7 @@ Display the version numbers and copyright information for samtools and the impor
 
 Display the full samtools version number in a machine-readable format. 
 
-# GLOBAL COMMAND OPTIONS
+## GLOBAL COMMAND OPTIONS
 
 Several long-options are shared between multiple samtools sub-commands: **\--input-fmt** , **\--input-fmt-option** , **\--output-fmt** , **\--output-fmt-option** , **\--reference** , **\--write-index** , and **\--verbosity**. The input format is auto-detected and specifying the format is unnecessary, so this option is rarely offered. Note that not all subcommands have all options. Consult the subcommand help for more details. 
 
@@ -690,7 +690,7 @@ To convert a SAM to a compressed BAM using BAI indexing:
 
 The **\--verbosity** _INT_ option sets the verbosity level for samtools and HTSlib. The default is 3 (HTS_LOG_WARNING); 2 reduces warning messages and 0 or 1 also reduces some error messages, while values greater than 3 produce increasing numbers of additional warnings and logging messages. 
 
-# FILTER EXPRESSIONS
+## FILTER EXPRESSIONS
 
 Filter expressions are used as an on-the-fly checking of incoming SAM, BAM or CRAM records, discarding records that do not match the specified expression. 
 
@@ -793,7 +793,7 @@ Functions that apply only to numeric values:
 **pow(x, y)**|  Power function, **x** to the power of **y**  
 **exp(x)**|  Base-e exponential, equivalent to **pow(e,x)**  
   
-# ENVIRONMENT VARIABLES
+## ENVIRONMENT VARIABLES
 
 **HTS_PATH**
     
@@ -822,7 +822,7 @@ To pre-populate the REF_CACHE a script **misc/seq_cache_populate.pl** is provide
 
 For example if you use **seq_cache_populate -subdirs 2 -root /local/ref_cache** to create 2 nested subdirectories (the default), each consuming 2 characters of the MD5sum, then REF_CACHE must be set to **/local/ref_cache/%2s/%2s/%s**. 
 
-# REFERENCE SEQUENCES
+## REFERENCE SEQUENCES
 
 The CRAM format requires use of a reference sequence for both reading and writing. 
 
@@ -840,7 +840,7 @@ Look for MD5 in each element of the REF_PATH environment variable.
 
 Look for a local file listed in the UR: header tag. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Import SAM to BAM when **@SQ** lines are present in the header: 
         
@@ -860,11 +860,11 @@ where _ref.fa.fai_ is generated automatically by the **faidx** command.
         samtools view -C -T ref.fa aln.bam > aln.cram
         
 
-# AUTHOR
+## AUTHOR
 
 Heng Li from the Sanger Institute wrote the original C version of samtools. Bob Handsaker from the Broad Institute implemented the BGZF library. Petr Danecek and Heng Li wrote the VCF/BCF implementation. James Bonfield from the Sanger Institute developed the CRAM implementation. Other large code contributions have been made by John Marshall, Rob Davies, Martin Pollard, Andrew Whitwham, Valeriu Ohan, Vasudeva Sarma (all while primarily at the Sanger Institute), with numerous other smaller but valuable contributions. See the per-command manual pages for further authorship. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools-addreplacerg_](samtools-addreplacerg.html) (1), [_samtools-ampliconclip_](samtools-ampliconclip.html) (1), [_samtools-ampliconstats_](samtools-ampliconstats.html) (1), [_samtools-bedcov_](samtools-bedcov.html) (1), [_samtools-calmd_](samtools-calmd.html) (1), [_samtools-cat_](samtools-cat.html) (1), [_samtools-checksum_](samtools-checksum.html) (1), [_samtools-collate_](samtools-collate.html) (1), [_samtools-consensus_](samtools-consensus.html) (1), [_samtools-coverage_](samtools-coverage.html) (1), [_samtools-cram-size_](samtools-cram-size.html) (1), [_samtools-depad_](samtools-depad.html) (1), [_samtools-depth_](samtools-depth.html) (1), [_samtools-dict_](samtools-dict.html) (1), [_samtools-faidx_](samtools-faidx.html) (1), [_samtools-fasta_](samtools-fasta.html) (1), [_samtools-fastq_](samtools-fastq.html) (1), [_samtools-fixmate_](samtools-fixmate.html) (1), [_samtools-flags_](samtools-flags.html) (1), [_samtools-flagstat_](samtools-flagstat.html) (1), [_samtools-fqidx_](samtools-fqidx.html) (1), [_samtools-head_](samtools-head.html) (1), [_samtools-idxstats_](samtools-idxstats.html) (1), [_samtools-import_](samtools-import.html) (1), [_samtools-index_](samtools-index.html) (1), [_samtools-markdup_](samtools-markdup.html) (1), [_samtools-merge_](samtools-merge.html) (1), [_samtools-mpileup_](samtools-mpileup.html) (1), [_samtools-phase_](samtools-phase.html) (1), [_samtools-quickcheck_](samtools-quickcheck.html) (1), [_samtools-reference_](samtools-reference.html) (1), [_samtools-reheader_](samtools-reheader.html) (1), [_samtools-reset_](samtools-reset.html) (1), [_samtools-rmdup_](samtools-rmdup.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_samtools-split_](samtools-split.html) (1), [_samtools-stats_](samtools-stats.html) (1), [_samtools-targetcut_](samtools-targetcut.html) (1), [_samtools-tview_](samtools-tview.html) (1), [_samtools-view_](samtools-view.html) (1), [_bcftools_](bcftools.html) (1), [_sam_](sam.html) (5), [_tabix_](tabix.html) (1) _ref-cache(1)_
 
@@ -878,24 +878,24 @@ Bcftools website: <<http://samtools.github.io/bcftools>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-addreplacerg(1) manual page
+# 工具文档: samtools-addreplacerg(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools addreplacerg – adds or replaces read group tags 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [addreplacerg](samtools-addreplacerg.html) [**-r** _rg-line_ | **-R** _rg-ID_] [**-m** _mode_] [**-u**] [**-o** _out.bam_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Adds or replaces read group tags in a file. Also allows for adding and updating @RG lines in the header. 
 
-# OPTIONS
+## OPTIONS
 
 **-r** _STRING_
     
@@ -939,11 +939,11 @@ Do not add a @PG line to the header of the output file.
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Martin Pollard from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-split_](samtools-split.html) (1) 
 
@@ -953,20 +953,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-ampliconclip(1) manual page
+# 工具文档: samtools-ampliconclip(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools ampliconclip – clip reads using a BED file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [ampliconclip](samtools-ampliconclip.html) [**-o** _out.file_] [**-f** _stat.file_] [**\--soft-clip**] [**\--hard-clip**] [**\--both-ends**] [**\--strand**] [**\--clipped**] [**\--fail**] [**\--filter-len** _INT_] [**\--fail-len** _INT_] [**\--unmap-len** _INT_] [**\--no-excluded**] [**\--rejects-file** _rejects.file_] [**\--original**] [**\--keep-tag**] [**\--tolerance**] [**\--no-PG**] [**-u**] **-b** _bed.file in.file_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Clips the ends of read alignments if they intersect with regions defined in a BED file. While this tool was originally written for clipping read alignment positions which correspond to amplicon primer locations it can also be used in other contexts. 
 
@@ -976,7 +976,7 @@ By default the reads are soft clipped and clip is only done from the 5' end.
 
 Some things to be aware of. While ordering is not significant, adjustments to the left most mapping position (_POS_) will mean that coordinate sorted files will need resorting. In such cases the sorting order in the header is set to unknown. Clipping of reads results in template length (_TLEN_) being incorrect. This can be corrected by **samtools fixmates**. Any _MD_ and _NM_ aux tags will also be incorrect, which can be fixed by **samtools calmd**. By default _MD_ and _NM_ tags are removed though if the output is in CRAM format these tags will be automatically regenerated. 
 
-# OPTIONS
+## OPTIONS
 
 **-b** _FILE_
     
@@ -1078,11 +1078,11 @@ The amount of latitude given in matching regions to alignments. Default 5 bases.
 
 Do not at a PG line to the header. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Andrew Whitwham and Rob Davies, both from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_samtools-fixmate_](samtools-fixmate.html) (1), [_samtools-calmd_](samtools-calmd.html) (1) 
 
@@ -1092,20 +1092,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-ampliconstats(1) manual page
+# 工具文档: samtools-ampliconstats(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools ampliconstats – produces statistics from amplicon sequencing alignment file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [ampliconstats](samtools-ampliconstats.html) [_options_] _primers.bed_ _in.sam_ |_in.bam_ |_in.cram_... 
 
-# DESCRIPTION
+## DESCRIPTION
 
 samtools ampliconstats collects statistics from one or more input alignment files and produces tables in text format. The output can be visualized graphically using plot-ampliconstats. 
 
@@ -1240,13 +1240,13 @@ Note that the file specific sections are interleaved, ordered first by file and 
 
 The combined sections (C*) follow the same format as the file specific sections, with a different key. For simplicity of parsing they also have a filename column which is filled out with "COMBINED". These rows contain stats aggregated across all input files. 
 
-# SS / AMPLICON
+## SS / AMPLICON
 
 This section is once per file and includes summary information to be utilised for scaling of plots, for example the total number of amplicons and files present, tool version number, and command line arguments. The second column is the filename or "COMBINED". This is followed by the reference name (unless single-ref mode is enabled), and the summary statistic name and value. 
 
 The AMPLICON section is a reformatting of the input BED file. Each line consists of the reference name (unless single-ref mode is enable), the amplicon number and the _start_ -_end_ coordinates of the left and right primers. Where multiple primers are available these are comma separated, for example **10-30,15-40** in the left primer column indicates two primers have been multiplex together covering genome coordinates 10-30 inclusive and 14-40 inclusively. 
 
-# CSS SECTION
+## CSS SECTION
 
 This section consists of summary counts for the entire set of input files. These may be useful for automatic scaling of plots. 
 
@@ -1255,7 +1255,7 @@ This section consists of summary counts for the entire set of input files. These
 **Number of files**|  Total number of SAM, BAM or CRAM files  
 **End of summary**|  Always the last item. Marker for end of CSS block.  
   
-# FSS SECTION
+## FSS SECTION
 
 This lists summary statistics specific to an individual input file. The values reported are: 
 
@@ -1266,29 +1266,29 @@ This lists summary statistics specific to an individual input file. The values r
 ****| a known primer location  
 **matching sequences**|  Number of sequences allocated to an amplicon  
   
-# FREADS / CREADS SECTION
+## FREADS / CREADS SECTION
 
 For each amplicon, this simply reports the count of reads that have been assigned to it. A read is assigned to an amplicon if the start and/or end of the read is within a specified number of bases of the primer sites listed in the bed file. This distance is controlled via the -m option. 
 
-# FRPERC / CRPERC SECTION
+## FRPERC / CRPERC SECTION
 
 For each amplicon, this lists what percentage of reads were assigned to this amplicon out of the total number of assigned reads. This may be used to diagnose how uniform this distribution is. 
 
 Note this is a pure read count and has no relation to amplicon size. 
 
-# FDEPTH / CDEPTH / FVDEPTH / CVDEPTH SECTION
+## FDEPTH / CDEPTH / FVDEPTH / CVDEPTH SECTION
 
 Using the reads assigned to each amplicon and their start / end locations on that reference, computed using the POS and CIGAR fields, we compute the total number of bases aligned to this amplicon and corresponding the average depth. The VDEPTH variants are filtered to only include templates with end-to-end coverage across the amplicon. These can be considered to be "valid" or "usable" templates and give an indication of the minimum depth for the amplicon rather than the average depth. 
 
 To compute the depth the length of the amplicon is computed using the innermost set of primers, if multiple choices are listed in the bed file. 
 
-# FPCOV / CPCOV SECTION
+## FPCOV / CPCOV SECTION
 
 Similar to the FDEPTH section, this is a binary status of covered or not covered per position in each amplicon. This is then expressed as a percentage by dividing by the amplicon length, which is computed using the innermost set of primers covering this amplicon. 
 
 The minimum depth necessary to constitute a position as being "covered" is specifiable using the -d option. 
 
-# FTCOORD / CTCOORD / FAMP / CAMP SECTION
+## FTCOORD / CTCOORD / FAMP / CAMP SECTION
 
 It is possible for an amplicon to be produced using incorrect primers, giving rise to extra-long amplicons (typically double or treble length). 
 
@@ -1302,7 +1302,7 @@ The FAMP / CAMP section is a simple count per amplicon of the number of template
 
 Note FAMP / CAMP amplicon number 0 is the summation of data for all amplicons (1 onwards). 
 
-# FDP_ALL / CDP_ALL / FDP_VALID / CDP_VALID section
+## FDP_ALL / CDP_ALL / FDP_VALID / CDP_VALID section
 
 These are for depth plots per base rather than per amplicon. They distinguish between all reads in all templates, and only reads in templates considered to be "valid". Such templates have both reads (if paired) matching known primer locations from he same amplicon and have full length coverage across the entire amplicon. 
 
@@ -1312,7 +1312,7 @@ The difference between the VALID and ALL plots represents additional data that f
 
 The lines start with the type keyword, file / sample name, reference name (unless single-ref mode is enabled), followed by a variable number of tab separated tuples consisting of _depth,length_. The length field is a basic form of run-length encoding where all depth values within a specified fraction of each other (e.g. >= (1-fract)*midpoint and <= (1+fract)*midpoint) are combined into a single run. This fraction is controlled via the **-D** option. 
 
-# OPTIONS
+## OPTIONS
 
 **-f, --required-flag** _INT|STR_
     
@@ -1386,7 +1386,7 @@ This adjustment does not have to be precise as the --pos-margin field permits so
 
 Number of BAM/CRAM (de)compression threads to use in addition to main thread [0]. 
 
-# EXAMPLE
+## EXAMPLE
 
 To run ampliconstats on a directory full of CRAM files and then produce a series of PNG images named "mydata*.png": 
     
@@ -1395,11 +1395,11 @@ To run ampliconstats on a directory full of CRAM files and then produce a series
     plot-ampliconstats -size 1200,900 mydata astats
     
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-ampliconclip_](samtools-ampliconclip.html) (1) [_samtools-stats_](samtools-stats.html) (1), [_samtools-flags_](samtools-flags.html) (1) 
 
@@ -1409,24 +1409,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-bedcov(1) manual page
+# 工具文档: samtools-bedcov(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools bedcov – reports coverage over regions in a supplied BED file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [bedcov](samtools-bedcov.html) [_options_] _region.bed_ _in1.sam_ |_in1.bam_ |_in1.cram_[...] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Reports the total read base count (i.e. the sum of per base read depths) for each genomic region specified in the supplied BED file. The regions are output as they appear in the BED file and are 0-based. Columns 1-3 are chrom/start/end as per the input BED file, followed by N columns of coverages (for N input BAMs), then (if given -d), N columns of bases-at-depth-X, then (if given -c) N columns of read counts. 
 
-# OPTIONS
+## OPTIONS
 
 **-Q, --min-MQ** _INT_
     
@@ -1475,11 +1475,11 @@ If this option is set, it will allows user to specify customized index file loca
 
 copied to the output. When it is not available, a header is created with field names matching the fields listed in the GA4GH BED specification. The **-c** and **-d** options can add further per-file columns named _in1.sam_ _count and _in1.sam_ _depth along with _in1.sam_ _count. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -1489,20 +1489,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-calmd(1) manual page
+# 工具文档: samtools-calmd(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools calmd – calculates MD and NM tags 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [calmd](samtools-calmd.html) [**-Eeubr**] [**-C** _capQcoef_] _aln.bam_ _ref.fasta_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Generate the MD tag. If the MD tag is already present, this command will give a warning if the MD tag generated is different from the existing tag. Output SAM by default. 
 
@@ -1512,7 +1512,7 @@ Note that some aligners do not include sequence or confidence values in secondar
 
 Calmd works best on position-sorted input files, as with these it can stream through the reference sequence and so doesn't have to store much reference data at any one time. For other orderings, it may have to switch to a caching mode which keeps the reference sequences in memory. This will result in calmd using more memory (up to the full size of the reference) than it would in the position-sorted case. Note also that versions of samtools calmd up to 1.16.1 should only be used on position sorted inputs as they could be very slow when run on other orderings. 
 
-# OPTIONS
+## OPTIONS
 
 **-A**
     
@@ -1559,7 +1559,7 @@ Do not add a @PG line to the header of the output file.
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Dump BAQ applied alignment for other SNP callers: 
         
@@ -1568,11 +1568,11 @@ Number of input/output compression threads to use in addition to main thread [0]
 
 It adds and corrects the **NM** and **MD** tags at the same time. The **calmd** command also comes with the **-C** option, the same as the one in **mpileup**. Apply if it helps. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-mpileup_](samtools-mpileup.html) (1) 
 
@@ -1582,24 +1582,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-cat(1) manual page
+# 工具文档: samtools-cat(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools cat – concatenate files together 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [cat](samtools-cat.html) [**-b** _list_] [**-h** _header.sam_] [**-o** _out.bam_] _in1.bam_ _in2.bam_ [ ... ] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Concatenate BAMs or CRAMs. Although this works on either BAM or CRAM, all input files must be the same format as each other. The sequence dictionary of each input file must be identical, although this command does not check this. This command uses a similar trick to **reheader** which enables fast BAM concatenation. 
 
-# OPTIONS
+## OPTIONS
 
 **-b** _FOFN_
     
@@ -1649,7 +1649,7 @@ This can also be combined with the range option above to operate of parts of tha
 
 Do not add a @PG line to the header of the output file. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Extract a specific chromosome from a CRAM file, outputting to a new CRAM. 
         
@@ -1684,11 +1684,11 @@ Do not add a @PG line to the header of the output file.
         
         
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. Updated for CRAM by James Bonfield (also Sanger Institute). 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -1698,21 +1698,21 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-checksum(1) manual page
+# 工具文档: samtools-checksum(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools checksum – produces checksums of SAM / BAM / CRAM content 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools checksum** [_options_] _in.sam_ |_in.bam_ |_in.cram_ |_in.fastq_ [ ... ]   
 **samtools checksum -m** [_options_] _in.checksum_ [ ... ] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 With no options, this produces an order agnostic checksum of sequence, quality, read-name and barcode related aux data in a SAM, BAM, CRAM or FASTQ file. The CRC32 checksum is used, combined together in a multiplicative prime field of size (2<<31)-1. 
 
@@ -1730,7 +1730,7 @@ With the **-O** option the checksums become record order specific. Combined toge
 
 When performing such validation, it is also useful to enable data sanitisation first, as CRAM can fix up certain types of inconsistencies including common issues such as MAPQ and CIGAR strings for unaligned data. 
 
-# OUTPUT
+## OUTPUT
 
 The output format consists of a machine readable table of checksums and human readable text starting with a "#" character. 
 
@@ -1799,7 +1799,7 @@ An example output can be seen below.
     [...cut...]
     
 
-# OPTIONS
+## OPTIONS
 
 **-@**_COUNT_
     
@@ -1910,7 +1910,7 @@ Note the "all" row merging cannot be done when the two levels of order-specific 
 
 Increase verbosity. At level 1 or higher this also shows rows that have zero count values, which can aid machine parsing. 
 
-# EXAMPLES
+## EXAMPLES
 
   * To check that an aligned and position sorted file contains the same data as the pre-alignment FASTQ: 
         
@@ -1958,12 +1958,12 @@ Note as no barcode tags exist, the "+aux" column is the same as the "flag+seq" c
         diff in.chksum split.chksum
         
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield from the Sanger Institute.   
 Inspired by bamseqchksum, written by David Jackson of Sanger Institute and amended by German Tischler. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-view_](samtools-view.html) (1), 
 
@@ -1973,20 +1973,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-collate(1) manual page
+# 工具文档: samtools-collate(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools collate – shuffles and groups reads together by their names 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [collate](samtools-collate.html) [_options_] _in.sam_ |_in.bam_ |_in.cram_ [_< prefix>_] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Shuffles and groups reads together by their names. A faster alternative to a full query name sort, **collate** ensures that reads of the same name are grouped together in contiguous groups, but doesn't make any guarantees about the order of read names between groups. 
 
@@ -2002,7 +2002,7 @@ Fast mode keeps a buffer of alignments in memory so that it can write out most p
 
 While collate normally randomises the ordering of read pairs, fast mode does not. Position-dependent biases that would normally be broken up can remain in the fast collate output. It is therefore not a good idea to use fast mode when preparing data for programs that expect randomly ordered paired reads. For example using fast collate instead of the standard mode may lead to significantly different results from aligners that estimate library insert sizes on batches of reads. 
 
-# OPTIONS
+## OPTIONS
 
 **-O**
     
@@ -2054,11 +2054,11 @@ Do not add a @PG line to the header of the output file.
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute and extended by Andrew Whitwham. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-sort_](samtools-sort.html) (1) 
 
@@ -2068,20 +2068,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-consensus(1) manual page
+# 工具文档: samtools-consensus(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools consensus – produces a consensus FASTA/FASTQ/PILEUP 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [consensus](samtools-consensus.html) [**-saAMq**] [**-r** _region_] [**-f** _format_] [**-l** _line-len_] [**-d** _min-depth_] [**-C** _cutoff_] [**-c** _call-fract_] [**-H** _het-fract_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Generate consensus from a SAM, BAM or CRAM file based on the contents of the alignment records. The consensus is written either as FASTA, FASTQ, or a pileup oriented format. This is selected using the **-f** _FORMAT_ option. 
 
@@ -2097,7 +2097,7 @@ The second method is a simple frequency counting algorithm, summing either +1 fo
 
 The summed share of a specific base type is then compared against the total possible and if this is above the **\--call-fract** _fraction_ parameter then the most likely base type is called, or "N" otherwise (or absent if it is a gap). The **\--ambig** option permits generation of ambiguity codes instead of "N", provided the minimum fraction of the second most common base type to the most common is above the **\--het-fract** _fraction_**.**
 
-# OPTIONS
+## OPTIONS
 
 General options that apply to both algorithms: 
 
@@ -2322,7 +2322,7 @@ Specifies predefined sets of configuration parameters. Acceptable values for _ST
 
 \--qual-calibration :ultima \--homopoly-fix 0.3 --low-MQ 10 --scale-MQ 2 --het-scale 0.37 
 
-# EXAMPLES
+## EXAMPLES
 
 Create a modified FASTA reference that has a 1:1 coordinate correspondence with the original reference used in alignment. 
     
@@ -2336,11 +2336,11 @@ Create a FASTQ file for the contigs with aligned data, including insertions.
     samtools consensus -f fastq in.bam -o cons.fq
     
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-mpileup_](samtools-mpileup.html) (1), 
 
@@ -2350,20 +2350,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-coverage(1) manual page
+# 工具文档: samtools-coverage(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools coverage – produces a histogram or table of coverage per chromosome 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [coverage](samtools-coverage.html) [_options_] [_in1.sam_ |_in1.bam_ |_in1.cram_ [_in2.sam_ |_in2.bam_ |_in2.cram_] [...]] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Computes the coverage at each position or region and draws an ASCII-art histogram or tabulated text. 
 
@@ -2382,7 +2382,7 @@ The tabulated form uses the following headings.
 **meanbaseq**|  Mean baseQ in covered region  
 **meanmapq**|  Mean mapQ of selected reads  
   
-# OPTIONS
+## OPTIONS
 
 Input options: 
 
@@ -2468,7 +2468,7 @@ Show specified region. Format: chr:start-end.
 
 Shows command help. 
 
-# EXAMPLES
+## EXAMPLES
 
 Running coverage in tabular mode, on a specific region, with tabs shown as spaces for clarity in this man page. 
     
@@ -2524,11 +2524,11 @@ An example of the histogram output is below, with ASCII block characters replace
     
     
 
-# AUTHOR
+## AUTHOR
 
 Written by Florian P Breitwieser. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-depth_](samtools-depth.html) (1), 
 
@@ -2538,20 +2538,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-cram-size(1) manual page
+# 工具文档: samtools-cram-size(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools cram-size – list a break down of data types in a CRAM file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [cram-size](samtools-cram-size.html) [**-ve**] [**-o** _file_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Produces a summary of CRAM block Content ID numbers and their associated Data Series stored within them. Optionally a more detailed breakdown of how each data series is encoded per container may also be listed using the **-e** or **\--encodings** option. 
 
@@ -2605,7 +2605,7 @@ f| fqzcomp| FQZComp quality codec
 n| tok3-rans| Name tokeniser with rANS encoding  
 n| tok3-arith| Name tokeniser with Arithmetic encoding  
   
-# OPTIONS
+## OPTIONS
 
 **-o** _FILE_
     
@@ -2624,7 +2624,7 @@ CRAM uses an Encoding, which describes how the data is serialised into a data bl
 
 This option list CRAM record encoding map and tag encoding map. This shows the data series, the associated CRAM encoding method, such as HUFFMAN, BETA or EXTERNAL, and any parameters associated with that encoding. The output may be large as this is information per container rather than a single set of summary statistics at the end of processing. 
 
-# EXAMPLES
+## EXAMPLES
 
 The basic summary of block Content ID sizes for a CRAM file: 
     
@@ -2676,11 +2676,11 @@ List encoding methods per CRAM Data Series. The two letter series are the standa
         ...
     
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), 
 
@@ -2690,24 +2690,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-depad(1) manual page
+# 工具文档: samtools-depad(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools depad – convert padded BAM to unpadded BAM 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [depad](samtools-depad.html) [**-SsCu1**] [**-T** _ref.fa_] [**-o** _output_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Converts a BAM aligned against a padded reference to a BAM aligned against the depadded reference. The padded reference may contain verbatim "*" bases in it, but "*" bases are also counted in the reference numbering. This means that a sequence base-call aligned against a reference "*" is considered to be a cigar match ("M" or "X") operator (if the base-call is "A", "C", "G" or "T"). After depadding the reference "*" bases are deleted and such aligned sequence base-calls become insertions. Similarly transformations apply for deletions and padding cigar operations. 
 
-# OPTIONS
+## OPTIONS
 
 **-S**
     
@@ -2749,11 +2749,11 @@ Specifies the output filename. By default output is sent to stdout.
 
 Do not add a @PG line to the header of the output file. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute with extensions by Peter Cock from the James Hutton Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -2763,24 +2763,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-depth(1) manual page
+# 工具文档: samtools-depth(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools depth – computes the read depth at each position or region 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [depth](samtools-depth.html) [_options_] [_in1.sam_ |_in1.bam_ |_in1.cram_ [_in2.sam_ |_in2.bam_ |_in2.cram_] [...]] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Computes the depth at each position or region. 
 
-# OPTIONS
+## OPTIONS
 
 **-a**
     
@@ -2876,7 +2876,7 @@ Include reads with deletions in depth computation.
 
 For the overlapping section of a read pair, count only the bases of the first read. Note this algorithm changed in 1.13 so the results may differ slightly to older releases. 
 
-# CAVEATS
+## CAVEATS
 
 It may appear that "samtools depth" is simply "samtools mpileup" with some of the columns removed, and indeed earlier versions of this command were just this. However both then and now there are subtle differences in parameters which make the two not entirely comparable. Differences, other than the obvious speed benefits, include: 
 
@@ -2894,11 +2894,11 @@ It may appear that "samtools depth" is simply "samtools mpileup" with some of th
 
   * If a reference is specified to "mpileup" the BAQ algorithm will be used to adjust quality values, although it can be disabled. "Depth" never uses BAQ. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li and James Bonfield from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-mpileup_](samtools-mpileup.html) (1), [_samtools-coverage_](samtools-coverage.html) (1), [_samtools-sort_](samtools-sort.html) (1) 
 
@@ -2908,24 +2908,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-dict(1) manual page
+# 工具文档: samtools-dict(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools dict – create a sequence dictionary file from a fasta file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [dict](samtools-dict.html) _ref.fasta_ |_ref.fasta.gz_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Create a sequence dictionary file from a fasta file. 
 
-# OPTIONS
+## OPTIONS
 
 **-a, --assembly** _STR_
     
@@ -2962,11 +2962,11 @@ Specify the species for the SP tag.
 
 Specify the URI for the UR tag. Defaults to the absolute path of _ref.fasta_ unless reading from stdin. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Shane McCarthy from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_bcftools_](bcftools.html) (1), _bwa_(1), [_sam_](sam.html) (5), [_tabix_](tabix.html) (1) 
 
@@ -2980,20 +2980,20 @@ Bcftools website: <<http://samtools.github.io/bcftools>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-faidx(1) manual page
+# 工具文档: samtools-faidx(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools faidx – indexes or queries regions from a fasta file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [faidx](samtools-faidx.html) _ref.fasta_ [_region1_ [...]] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Index reference sequence in the FASTA format or extract subsequence from indexed reference sequence. If no region is specified, **faidx** will index the file and create _< ref.fasta>.fai_ on the disk. If regions are specified, the subsequences will be retrieved and printed to stdout in the FASTA format. 
 
@@ -3003,7 +3003,7 @@ The sequences in the input file should all have different names. If they do not,
 
 FASTQ files can be read and indexed by this command. Without using **\--fastq** any extracted subsequence will be in FASTA format. 
 
-# OPTIONS
+## OPTIONS
 
 **-o, --output** _FILE_
     
@@ -3090,11 +3090,11 @@ Create index for the output sequence data along with the output, in same path as
 
 Set the number of extra threads for operations on compressed files. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li, with modifications by Andrew Whitwham and Robert Davies, all from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-fasta_](samtools-fasta.html) (1), [_samtools-fqidx_](samtools-fqidx.html) (1), [_samtools-fastq_](samtools-fastq.html) (1) 
 
@@ -3104,21 +3104,21 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-fasta(1) manual page
+# 工具文档: samtools-fasta(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools-fasta, samtools-fastq – converts a SAM/BAM/CRAM file to FASTA or FASTQ 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [fastq](samtools-fastq.html) [_options_] _in.bam_   
 samtools [fasta](samtools-fasta.html) [_options_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Converts a BAM or CRAM into either FASTQ or FASTA format depending on the command invoked. The files will be automatically compressed if the file names have a .gz, .bgz, or .bgzf extension. 
 
@@ -3148,7 +3148,7 @@ The sequence generated will be for the entire sequence recorded in the SAM recor
 
 The filter options order of precedence is -d/-D, -f, -F, --rf and -G. 
 
-# OPTIONS
+## OPTIONS
 
 **-n**
     
@@ -3317,7 +3317,7 @@ Tag with which to backup the removed soft-clip data, default is 's0'.
 
 Avoids backup of data removed as part of soft-clip removal, **\--no-sc** option. 
 
-# EXAMPLES
+## EXAMPLES
 
 Starting from a coordinate sorted file, output paired reads to separate files, discarding singletons, supplementary and secondary reads. The resulting files can be used with, for example, the **bwa** aligner. 
     
@@ -3338,15 +3338,15 @@ Output paired reads in a single file, discarding supplementary and secondary rea
     samtools fastq -0 /dev/null -s single.fq -N in_name.bam > paired.fq
     
 
-# BUGS
+## BUGS
 
   * The way of specifying output files is far too complicated and easy to get wrong. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li, with modifications by Martin Pollard and Jennifer Liddle, all from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-faidx_](samtools-faidx.html) (1), [_samtools-fqidx_](samtools-fqidx.html) (1) [_samtools-import_](samtools-import.html) (1) 
 
@@ -3356,30 +3356,30 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: Redirecting…
+# 工具文档: Redirecting…
 
-# Redirecting…
+## Redirecting…
 
 Please click [here](samtools-fasta.html) if not redirected automatically. 
 
-## 文档章节: samtools-fixmate(1) manual page
+# 工具文档: samtools-fixmate(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools fixmate – fills in mate coordinates and insert size fields. 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [fixmate](samtools-fixmate.html) [**-rpcmu**] [**-O** _format_] _in.nameSrt.bam out.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Fill in mate coordinates, ISIZE and mate related flags from a name-sorted or name-collated alignment. 
 
-# OPTIONS
+## OPTIONS
 
 **-r**
     
@@ -3435,11 +3435,11 @@ Number of input/output compression threads to use in addition to main thread [0]
 
 Perform basic sanitizing of records. _FLAGs_ is a comma-separated list of keywords, defined in the _samtools-view_(1) man page. By default all FLAGs are enabled. Use **-z off** to disable this. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-markdup_](samtools-markdup.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_samtools-collate_](samtools-collate.html) (1) 
 
@@ -3449,20 +3449,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-flags(1) manual page
+# 工具文档: samtools-flags(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools flags – convert between textual and numeric flag representation. 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [flags](samtools-flags.html) _FLAGS_... 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Convert between textual and numeric flag representation. 
 
@@ -3482,11 +3482,11 @@ Each _FLAGS_ argument may be either an integer (in decimal, hexadecimal, or octa
 **0x400**|  DUP| PCR or optical duplicate  
 **0x800**|  SUPPLEMENTARY| supplementary alignment  
   
-# AUTHOR
+## AUTHOR
 
 Written by Petr Danacek from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -3496,20 +3496,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-flagstat(1) manual page
+# 工具文档: samtools-flagstat(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools flagstat – counts the number of alignments for each FLAG type 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [flagstat](samtools-flagstat.html) _in.sam_ |_in.bam_ |_in.cram_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Does a full pass through the input file to calculate and print statistics to stdout. 
 
@@ -3602,7 +3602,7 @@ with mate mapped to a different chr (mapQ>=5)
 
 0x1 (PAIRED) bit set and neither 0x4 (UNMAP) nor 0x8 (MUNMAP) bits set and MRNM not equal to RNAME and MAPQ >= 5 
 
-# ALTERNATIVE OUTPUT FORMATS
+## ALTERNATIVE OUTPUT FORMATS
 
 The **-O** option can be used to select two alternative formats for the output. 
 
@@ -3620,7 +3620,7 @@ The **properly paired** and **singletons** counts work in a similar way but the 
 
 In the **tsv** and **json** formats, these percentages are listed in separate categories **mapped %** , **primary mapped %** , **properly paired %** , and **singletons %**. If the percentage cannot be calculated (because the total is zero) then in the **default** and **tsv** formats it will be reported as `N/A'. In the **json** format, it will be reported as a JSON `null' value. 
 
-# OPTIONS
+## OPTIONS
 
 **-@**_INT_
     
@@ -3632,11 +3632,11 @@ Set number of additional threads to use when reading the file.
 
 Set the output format. _FORMAT_ can be set to `default', `json' or `tsv' to select the default, JSON or tab-separated values output format. If this option is not used, the default format will be selected. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-idxstats_](samtools-idxstats.html) (1), [_samtools-stats_](samtools-stats.html) (1) 
 
@@ -3646,20 +3646,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-fqidx(1) manual page
+# 工具文档: samtools-fqidx(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools fqidx – indexes or queries regions from a fastq file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [fqidx](samtools-fqidx.html) _ref.fastq_ [_region1_ [...]] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Index reference sequence in the FASTQ format or extract subsequence from indexed reference sequence. If no region is specified, **fqidx** will index the file and create _< ref.fastq>.fai_ on the disk. If regions are specified, the subsequences will be retrieved and printed to stdout in the FASTQ format. 
 
@@ -3669,7 +3669,7 @@ The sequences in the input file should all have different names. If they do not,
 
 **samtools fqidx** should only be used on fastq files with a small number of entries. Trying to use it on a file containing millions of short sequencing reads will produce an index that is almost as big as the original file, and searches using the index will be very slow and use a lot of memory. 
 
-# OPTIONS
+## OPTIONS
 
 **-o, --output** _FILE_
     
@@ -3751,11 +3751,11 @@ Create index for the output sequence data along with the output, in same path as
 
 Set the number of extra threads for operations on compressed files. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li, with modifications by Andrew Whitwham and Robert Davies, all from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-faidx_](samtools-faidx.html) (1), [_samtools-fasta_](samtools-fasta.html) (1), [_samtools-fastq_](samtools-fastq.html) (1) 
 
@@ -3765,26 +3765,26 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-head(1) manual page
+# 工具文档: samtools-head(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools head – view SAM/BAM/CRAM file headers 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools head** [**-h** _INT_] [**-n** _INT_] [_FILE_] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 By default, prints all headers from the specified input file to standard output in SAM format. The input alignment file may be in SAM, BAM, or CRAM format; if no _FILE_ is specified, standard input will be read. With appropriate options, only some of the headers and/or additionally some of the alignment records will be printed. 
 
 The **samtools head** command outputs SAM headers exactly as they appear in the input file; in particular, it never adds an @PG header itself. (Other **samtools** commands add such @PG headers to facilitate provenance tracking in analysis pipelines, but because **samtools head** never outputs more than a handful of alignment records it is unsuitable for use in such contexts anyway.) 
 
-# OPTIONS
+## OPTIONS
 
 **-h, --headers** _INT_
     
@@ -3796,11 +3796,11 @@ Display only the first _INT_ header lines. By default, all header lines are disp
 
 Also display the first _INT_ alignment records. By default, no alignment records are displayed. 
 
-# AUTHOR
+## AUTHOR
 
 Written by John Marshall from the University of Glasgow. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-view_](samtools-view.html) (1) 
 
@@ -3808,20 +3808,20 @@ Written by John Marshall from the University of Glasgow.
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-idxstats(1) manual page
+# 工具文档: samtools-idxstats(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools idxstats – reports alignment summary statistics 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [idxstats](samtools-idxstats.html) _in.sam_ |_in.bam_ |_in.cram_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Retrieve and print stats in the index file corresponding to the input file. Before calling idxstats, the input BAM file should be indexed by samtools index. 
 
@@ -3829,7 +3829,7 @@ If run on a SAM or CRAM file or an unindexed BAM file, this command will still p
 
 The output is TAB-delimited with each line consisting of reference sequence name, sequence length, # mapped read-segments and # unmapped read-segments. It is written to stdout. Note this may count reads multiple times if they are mapped more than once or in multiple fragments. 
 
-# OPTIONS
+## OPTIONS
 
 **-X**
     
@@ -3838,11 +3838,11 @@ This option will allow the user to specify a customised index file location. e.g
 
 **samtools idxstat [options] -X /data_folder/data.bam /index_folder/index.bai**
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-flagstat_](samtools-flagstat.html) (1), [_samtools-index_](samtools-index.html) (1), [_samtools-stats_](samtools-stats.html) (1) 
 
@@ -3852,20 +3852,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-import(1) manual page
+# 工具文档: samtools-import(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools import – converts FASTQ files to unmapped SAM/BAM/CRAM 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [import](samtools-import.html) [_options_] [ _fastq_file_ ... ] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Reads one or more FASTQ files and converts them to unmapped SAM, BAM or CRAM. The input files may be automatically decompressed if they have a .gz extension. 
 
@@ -3877,7 +3877,7 @@ The filenames may be explicitly labelled using **-1** and **-2** for READ1 and R
 
 The Illumina CASAVA identifiers may also be processed when the **-i** option is given. This tag will be processed for READ1 / READ2, whether or not the read failed processing (QCFAIL flag), and the barcode sequence which will be added to the **BC** tag. This can be an alternative to explicitly specifying the index files, although note that doing so will not fill out the barcode quality tag. 
 
-# OPTIONS
+## OPTIONS
 
 **-s** _FILE_
     
@@ -3965,7 +3965,7 @@ Output BAM or CRAM as uncompressed data.
 
 This looks for any SAM-format auxiliary tags in the comment field of a fastq read name. These must match the <alpha-num><alpha-num>:<type>:<data> pattern as specified in the SAM specification. _TAGLIST_ can be blank or ***** to indicate all tags should be copied to the output, otherwise it is a comma-separated list of tag types to include with all others being discarded. 
 
-# EXAMPLES
+## EXAMPLES
 
 Convert a single-ended fastq file to an unmapped CRAM. Both of these commands perform the same action. 
     
@@ -4007,11 +4007,11 @@ Convert a pair of CASAVA barcoded fastq files to unmapped CRAM with an increment
         samtools fastq -1 out_1.fq -2 out_2.fq -i --index-format "i*i*"
     
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield of the Wellcome Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-fastq_](samtools-fastq.html) (1) 
 
@@ -4021,22 +4021,22 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-index(1) manual page
+# 工具文档: samtools-index(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools index – indexes SAM/BAM/CRAM files 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools index -M** [**-bc**] [**-m** _INT_] _FILE FILE_ [_FILE_...] 
 
 **samtools index** [**-bc**] [**-m** _INT_] _aln.sam_ |_aln.bam_ |_aln.cram_ [_out.index_] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Index coordinate-sorted BGZIP-compressed SAM, BAM or CRAM files for fast random access. Note for SAM this only works if the file has been BGZF compressed first. (The first synopsis with multiple input _FILE_ s is only available with Samtools 1.16 or later.) 
 
@@ -4048,7 +4048,7 @@ When no output filename is specified, for a CRAM file _aln.cram_ , index file _a
 
 The BAI index format can handle individual chromosomes up to 512 Mbp (2^29 bases) in length. If your input file might contain reads mapped to positions greater than that, you will need to use a CSI index. 
 
-# OPTIONS
+## OPTIONS
 
 **-b, --bai**
     
@@ -4080,11 +4080,11 @@ Write the output index to _FILE_. (Currently may only be used when exactly one a
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-idxstats_](samtools-idxstats.html) (1), [_samtools-view_](samtools-view.html) (1) 
 
@@ -4094,20 +4094,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-markdup(1) manual page
+# 工具文档: samtools-markdup(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools markdup – mark duplicate alignments in a coordinate sorted file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [markdup](samtools-markdup.html) [**-l** _length_] [**-r**] [**-T**] [**-S**] [**-s**] [**-f** _file_] [**\--json**] [**-d** _distance_] [**-c**] [**-t**] [**\---duplicate-count**] [**-m**] [**\--mode**] [**\--include-fails**] [**\--no-PG**] [**-u**] [**\--no-multi-dup**] [**\--read-coords**] [**\--coords-order**] [**\--barcode-tag**] [**\--barcode-name**] [**\--barcode-rgx**] [**\--use-read-groups**] _in.algsort.bam out.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Mark duplicate alignments from a coordinate sorted file that has been run through **samtools fixmate** with the **-m** option. This program relies on the MC and ms tags that fixmate provides. 
 
@@ -4121,7 +4121,7 @@ For more details please see:
 
 <<http://www.htslib.org/algorithms/duplicate.html>>
 
-# OPTIONS
+## OPTIONS
 
 **-l** _INT_
     
@@ -4238,7 +4238,7 @@ Do not add a PG line to the output file.
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# STATISTICS
+## STATISTICS
 
 Entries are:   
 **COMMAND** : the command line.   
@@ -4262,7 +4262,7 @@ Estimated library size makes various assumptions e.g. the library consists of un
 
 Excluded reads are those marked as secondary, supplementary or unmapped. By default QC failed reads are also excluded but can be included as an option. Excluded reads are not used for calculating duplicates. They can optionally be marked as duplicates if they have a primary that is also a duplicate. 
 
-# EXAMPLES
+## EXAMPLES
 
 This first collate command can be omitted if the file is already name ordered or collated: 
     
@@ -4312,11 +4312,11 @@ To use a barcode from the read name matching the Illumina example of _NDX550136:
 
 It is possible that complex regular expressions may slow the running of the program. It would be best to keep them simple. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Andrew Whitwham from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_samtools-collate_](samtools-collate.html) (1), [_samtools-fixmate_](samtools-fixmate.html) (1) 
 
@@ -4326,22 +4326,22 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-merge(1) manual page
+# 工具文档: samtools-merge(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools merge – merges multiple sorted files into a single file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools merge** [_options_] **-o** _out.bam_ [_options_] _in1.bam_ ... _inN.bam_
 
 **samtools merge** [_options_] _out.bam_ _in1.bam_ ... _inN.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Merge multiple sorted alignment files, producing a single sorted output file that contains all the input records and maintains the existing sort order. 
 
@@ -4449,7 +4449,7 @@ Do not add a @PG line to the header of the output file.
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Attach the **RG** tag while merging sorted alignments: 
         
@@ -4464,11 +4464,11 @@ The value in a **RG** tag is determined by the file name the read is coming from
         samtools merge [options] -X <out.bam> </data_folder/in1.bam> [</data_folder/in2.bam> ... </data_folder/inN.bam>] </index_folder/index1.bai> [</index_folder/index2.bai> ... </index_folder/indexN.bai>]
         
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_sam_](sam.html) (5) 
 
@@ -4478,20 +4478,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-mpileup(1) manual page
+# 工具文档: samtools-mpileup(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools mpileup – produces "pileup" textual format from an alignment 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [mpileup](samtools-mpileup.html) [**-EB**] [**-C** _capQcoef_] [**-r** _reg_] [**-f** _in.fa_] [**-l** _list_] [**-Q** _minBaseQ_] [**-q** _minMapQ_] _in.bam_ [_in2.bam_ [_..._]] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Generate text pileup output for one or multiple BAM files. Each input file produces a separate group of pileup columns in the output. 
 
@@ -4499,7 +4499,7 @@ Note that there are two orthogonal ways to specify locations in the input file; 
 
 Unmapped reads are not considered and are always discarded. By default secondary alignments, QC failures and duplicate reads will be omitted, along with low quality bases and some reads in high depth regions. See the **\--ff** , **-Q** and **-d** options for changing this. 
 
-## Pileup Format
+### Pileup Format
 
 Pileup format consists of TAB-separated lines, with each line representing the pileup of reads at a single genomic position. 
 
@@ -4541,7 +4541,7 @@ Deleted bases are shown as “*” on both strands unless **\--reverse-del** is 
 
 Any output column that would be empty, such as a tag which is not present or the filtered sequence depth is zero, is reported as "*". This ensures a consistent number of columns across all reported positions. 
 
-# OPTIONS
+## OPTIONS
 
 **-6, --illumina1.3+**
     
@@ -4785,7 +4785,7 @@ BAQ is turned on when a reference file is supplied using the **-f** option. To d
 
 It is possible to store precalculated BAQ values in a SAM BQ:Z tag. Samtools mpileup will use the precalculated values if it finds them. The **-E** option can be used to make it ignore the contents of the BQ:Z tag and force it to recalculate the BAQ scores by making a new alignment. 
 
-# EXAMPLES
+## EXAMPLES
 
 Using range: With implicit index files in1.bam.<ext> and in2.sam.gz.<ext>, 
     
@@ -4834,11 +4834,11 @@ Using all possible alignmentes: To show all possible alignments, either of below
     samtools mpileup -A -B -d 0 -f ref_file.fa -Q 0 --ff 0 -x in.sam
     
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-depth_](samtools-depth.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_bcftools_](bcftools.html) (1) 
 
@@ -4848,24 +4848,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-phase(1) manual page
+# 工具文档: samtools-phase(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools phase – call and phase heterozygous SNPs 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [phase](samtools-phase.html) [**-AF**] [**-k** _len_] [**-b** _prefix_] [**-q** _minLOD_] [**-Q** _minBaseQ_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Call and phase heterozygous SNPs. 
 
-# OPTIONS
+## OPTIONS
 
 **-A**
     
@@ -4902,11 +4902,11 @@ Minimum base quality to be used in het calling. [13]
 
 Do not add a @PG line to the header of the output file. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -4916,20 +4916,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-quickcheck(1) manual page
+# 工具文档: samtools-quickcheck(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools quickcheck – a rapid sanity check on input files 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [quickcheck](samtools-quickcheck.html) [_options_] _in.sam_ |_in.bam_ |_in.cram_ [ ... ] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Quickly check that input files appear to be intact. Checks that beginning of the file contains a valid header (all formats) containing at least one target sequence and then seeks to the end of the file and checks that an end-of-file (EOF) is present and intact (BAM and CRAM only). 
 
@@ -4937,7 +4937,7 @@ Data in the middle of the file is not read since that would be much more time co
 
 This command will exit with a non-zero exit code if any input files don't have a valid header or are missing an EOF block. Otherwise it will exit successfully (with a zero exit code). 
 
-# OPTIONS
+## OPTIONS
 
 **-v**
     
@@ -4954,11 +4954,11 @@ Quiet mode: disables warning messages on stderr about files that fail. If both -
 
 Expect unmapped input data, so do not require targets in the header. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Josh Randall from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -4968,20 +4968,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-reference(1) manual page
+# 工具文档: samtools-reference(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools reference – extracts an embedded reference from a CRAM file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [reference](samtools-reference.html) [**-q**] [**-r** _region_] [**-o** _out.fa_] _in.cram_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Creates the reference from aligned data using either the MD:Z auxiliary tags or an embedded reference in a CRAM file. The output is a FASTA file. 
 
@@ -4989,7 +4989,7 @@ For the embedded reference mode (**-e**) this operation is fast, but only works 
 
 For SAM/BAM files or CRAMs without reference, using the MD:Z tag may also produce an incomplete reference. Unlike embedded reference, this reference may not be sufficient for decoding a CRAM file as the CRAM slice headers store the MD5sum of the portion of reference than spans that slice, but the slice may not have 100% coverage leading to Ns in the computed reference. However it should still be possible to decode such CRAMs by ignoring the md5 mismatches using e.g. **samtools view \--input-fmt-option ignore_md5=1**. 
 
-# OPTIONS
+## OPTIONS
 
 **-e**
     
@@ -5018,11 +5018,11 @@ The number of BAM/CRAM decompression threads to use in addition to the main thre
 
 Note this does not multi-thread the main reference generation steps, so scaling may be capped by 2 or 3 threads, depending on the data. It will also not affect the **-e** option for CRAM embedded reference, although this is already the fastest method. 
 
-# AUTHOR
+## AUTHOR
 
 Written by James Bonfield from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -5032,26 +5032,26 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-reheader(1) manual page
+# 工具文档: samtools-reheader(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools reheader – replaces the header in the input file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [reheader](samtools-reheader.html) [**-iP**] [**-c** _CMD_ | _in.header.sam_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Replace the header in _in.bam_ with the header in _in.header.sam_. This command is much faster than replacing the header with a BAM→SAM→BAM conversion. 
 
 By default this command outputs the BAM or CRAM file to standard output (stdout), but for CRAM format files it has the option to perform an in-place edit, both reading and writing to the same file. No validity checking is performed on the header, nor that it is suitable to use with the sequence data itself. 
 
-# OPTIONS
+## OPTIONS
 
 **-P, --no-PG**
     
@@ -5072,7 +5072,7 @@ _CMD_ must take the original header through stdin in SAM format and output the m
 
 _CMD_ must return an exit status of zero. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Remove comment lines 
         
@@ -5089,11 +5089,11 @@ _CMD_ must return an exit status of zero.
         samtools reheader -c 'perl -pe "s/^(@SQ.*)(\tSN:)Chr/\$1\$2/"' in.bam
         
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li with modifications by James Bonfield and Valeriu Ohan, all from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -5103,20 +5103,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-reset(1) manual page
+# 工具文档: samtools-reset(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools reset – removes the alignment information added by aligners and updates flags accordingly 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [reset](samtools-reset.html) [**-o** _FILE_] [**-x,--remove-tag** _STR_] [**\--keep-tag** _STR_] [**\--reject-PG** _pgid_] [**\--no-RG**] [**\--no-PG**] [**\--dupflag**] [...] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Removes the alignment information added by the aligner. CIGAR and reference data are removed. Flags are updated as unmapped, non-duplicate and as not a proper pair. If the alignment was in reverse direction, data and its quality values are reversed and complemented and the reverse flag is reset. Supplementary and secondary alignment data are discarded. 
 
@@ -5126,7 +5126,7 @@ PG and RG tags from input are written on the output by default. CO lines are not
 
 The sort order is unchanged, so users may consider combining this with **samtools collate** or **sort -n** if it is a requirement to group pairs of sequences together. 
 
-# OPTIONS
+## OPTIONS
 
 **-o** _FILE_
     
@@ -5177,7 +5177,7 @@ This gives the number of worker threads to be used.
 
 Sets the format of the output file and any associated format-specific options. If this option is not present, the format is identified from the output file name extension. 
 
-# EXAMPLES
+## EXAMPLES
 
 Basic usage, to reset the data: 
     
@@ -5205,11 +5205,11 @@ To set output format for use within a pipeline:
       myaligner -I bam -o out.bam
     
 
-# AUTHOR
+## AUTHOR
 
 Written by Vasudeva Sarma of the Wellcome Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-collate_](samtools-collate.html) (1) 
 
@@ -5219,26 +5219,26 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-samples(1) manual page
+# 工具文档: samtools-samples(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools samples – prints the samples from an alignment file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools samples** [_options_] _( <input>|stdin)_
 
 **samtools samples** [_options_] **-X** _f1.bam_ _f2.bam_ ... _f1.bam.bai_ _f2.bam.bai_ ... 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Print the sample names found in the read-groups and the path to the reference genome from alignment files. The output of this tool can be used to create an input for any popular workflow manager. The input is a list of SAM/BAM/CRAM files, or the path to those files can be provided via stdin. The output is tab-delimited containing the sample name as the first column, the path to the alignment file as the second column, the path to the reference genome as a third optional column and a single character flag (Y/N) indicating whether the alignment file is indexed or not as a fourth optional column. If no reference is found for an alignment, a dot (.) will be used in the reference path column. If no sample is available in any read-group header, a dot (.) will be used as the sample name. If a BAM file contains more than one sample, one line will be printed for each sample. 
 
-# OPTIONS
+## OPTIONS
 
 **-?**
     
@@ -5280,7 +5280,7 @@ read a file containing the paths to indexed fasta files. One path per line.
 
 use a custom index file. 
 
-# EXAMPLES
+## EXAMPLES
 
   * print the samples from a set of BAM/SAM files, with a header. There is no sample defined in the header of 'example.sam', so a dot is used for the sample name. 
         
@@ -5378,7 +5378,7 @@ use a custom index file.
         S1	example.cram	example.fa
         
 
-# AUTHOR
+## AUTHOR
 
 Written by Pierre Lindenbaum from Institut du Thorax U1087, Nantes, France. 
 
@@ -5388,20 +5388,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-sort(1) manual page
+# 工具文档: samtools-sort(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools sort – sorts SAM/BAM/CRAM files 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [sort](samtools-sort.html) [_options_] [_in.sam_ |_in.bam_ |_in.cram_] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Sort alignments by leftmost coordinates, by read name when **-n** or **-N** are used, by tag contents with **-t** , or a minimiser-based collation order with **-M**. An appropriate **@HD SO** sort order header tag will be added or an existing one updated if necessary, along with the **@HD SS** sub-sort header tag where appropriate. 
 
@@ -5413,7 +5413,7 @@ Note that if the sorted output file is to be indexed with **samtools index** , t
 
 When sorting by minimiser (**-M**), the sort order for unplaced data is defined by the whole-read minimiser value and the offset into the read that this minimiser was observed. This produces small clusters (contig-like, but unaligned) and helps to improve compression with LZ algorithms. This can be improved by supplying a known reference to build a minimiser index (**-I** and **-w** options). 
 
-# OPTIONS
+## OPTIONS
 
 **-l** _INT_
     
@@ -5556,11 +5556,11 @@ samtools sort [**-f**] [**-o**] _in.bam out.prefix_
 
 This has now been removed. The previous _out.prefix_ argument (and **-f** option, if any) should be changed to an appropriate combination of **-T** _PREFIX_ and **-o** _FILE_. The previous **-o** option should be removed, as output defaults to standard output. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute with numerous subsequent modifications. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-collate_](samtools-collate.html) (1), [_samtools-merge_](samtools-merge.html) (1) 
 
@@ -5570,20 +5570,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-split(1) manual page
+# 工具文档: samtools-split(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools split – splits a file by read group. 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [split](samtools-split.html) [_options_] _merged.sam_ |_merged.bam_ |_merged.cram_
 
-# DESCRIPTION
+## DESCRIPTION
 
 Splits a file by read group, or a specified tag, producing one or more output files matching a common prefix (by default based on the input filename). 
 
@@ -5601,7 +5601,7 @@ The **-u** option may be used to specify the output filename for any records wit
 
 Output format defaults to BAM. For SAM or CRAM then either set the format with **\--output-fmt** or use **-f** to set the file extension e.g. **-f %*_%#.sam**. 
 
-# OPTIONS
+## OPTIONS
 
 **-u** _FILE1_
     
@@ -5661,11 +5661,11 @@ Format string expansions:  **%%**|  %
 
 Number of input/output compression threads to use in addition to main thread [0]. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Martin Pollard from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-addreplacerg_](samtools-addreplacerg.html) (1) 
 
@@ -5675,20 +5675,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-stats(1) manual page
+# 工具文档: samtools-stats(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools stats – produces comprehensive statistics from alignment file 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [stats](samtools-stats.html) [_options_] _in.sam_ |_in.bam_ |_in.cram_ [_region_...] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 samtools stats collects statistics from BAM files and outputs in a text format. The output can be visualized graphically using plot-bamstats. 
 
@@ -5854,7 +5854,7 @@ GCD reports the GC content of the reference data aligned against per alignment r
 
 RFS reports statistics of the reference data. The first line gives the overall statistics for the reference. This comprises of the total number of targets in the input file and the number covered; followed by the average GC content, minimum, maximum, average and total lengths of targets in the report. The second and subsequent lines contain the statistics for each target. Targets are regions either specified on the command line or given in the target file (**-t** option). If no regions are chosen then all the reference data is used. Each line gives the name of target, length, GC content and number of unknown bases. For the GC content and the number of unknown bases a reference file is required (**-t** option), otherwise the value is set to -1. The lengths are from the region specification and from file header. 
 
-# OPTIONS
+## OPTIONS
 
 **-c, --coverage** _MIN_**,**_MAX_**,**_STEP_
     
@@ -5968,11 +5968,11 @@ Create statistics on reference data.
 
 Number of reference bases to read at a time, in Mbs, for reference statistics [1]. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Petr Danacek with major modifications by Nicholas Clarke, Martin Pollard, Josh Randall, and Valeriu Ohan, all from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-flagstat_](samtools-flagstat.html) (1), [_samtools-idxstats_](samtools-idxstats.html) (1) 
 
@@ -5982,24 +5982,24 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-targetcut(1) manual page
+# 工具文档: samtools-targetcut(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools targetcut – cut fosmid regions (for fosmid pool only) 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [targetcut](samtools-targetcut.html) [**-Q** _minBaseQ_] [**-i** _inPenalty_] [**-0** _em0_] [**-1** _em1_] [**-2** _em2_] [**-f** _ref_] _in.bam_
 
-# DESCRIPTION
+## DESCRIPTION
 
 This command identifies target regions by examining the continuity of read depth, computes haploid consensus sequences of targets and outputs a SAM with each sequence corresponding to a target. When option **-f** is in use, BAQ will be applied. This command is **only** designed for cutting fosmid clones from fosmid pool sequencing [Ref. Kitzman et al. (2010)]. 
 
-# OPTIONS
+## OPTIONS
 
 **-Q** _minBaseQ_
     
@@ -6031,11 +6031,11 @@ Emission score 2.
 
 Reference FASTA file. 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -6045,20 +6045,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-tview(1) manual page
+# 工具文档: samtools-tview(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools tview – display alignments in a curses-based interactive viewer. 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools tview** [**-p** _chr:pos_] [**-s** _STR_] [**-d** _display_] _in.sorted.bam_ [_ref.fasta_] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Text alignment viewer (based on the ncurses library). In the viewer, press `?' for help and press `g' to check the alignment start from a region in the format like `chr10:10,000,000' or `=10,000,000' when viewing the same reference sequence. 
 
@@ -6066,7 +6066,7 @@ The top line shows the reference sequence, or '**N** 's if unknown. Underneath t
 
 When the reference is known, both consensus and alignment record sequences are displayed in a dot-notation where a matching character is shown as '**.** ' (forward strand) or '**,** ' (reverse strand) and only mismatching bases and missing bases are shown. This mode can be toggled with the "." command. 
 
-# OPTIONS
+## OPTIONS
 
 **-d** _display_
     
@@ -6103,11 +6103,11 @@ Specifies the display width when using the HTML or Text output modes.
 
 If this option is set, it will allows user to specify customized index file location(s) if the data folder does not contain any index file. Example usage: samtools tview [options] -X </data_folder/data.bam> [/index_folder/index.bai] [ref.fasta] 
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1) 
 
@@ -6117,20 +6117,20 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools-view(1) manual page
+# 工具文档: samtools-view(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools view – views and converts SAM/BAM/CRAM files 
 
-# SYNOPSIS
+## SYNOPSIS
 
 **samtools view** [_options_] _in.sam_ |_in.bam_ |_in.cram_ [_region_...] 
 
-# DESCRIPTION
+## DESCRIPTION
 
 With no options or regions specified, prints all alignments in the specified input alignment file (in SAM, BAM, or CRAM format) to standard output in SAM format (with no header). 
 
@@ -6184,7 +6184,7 @@ Output the unmapped reads at the end of the file. (This does not include any unm
 
 Output all alignments. (Mostly unnecessary as not specifying a region at all has the same effect.) 
 
-# OPTIONS
+## OPTIONS
 
 **-b** , **\--bam**
     
@@ -6492,7 +6492,7 @@ All sanitizing options except **cigarx** , including **pos**. Combine with **all
 
 Do not add a @PG line to the header of the output file. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Import SAM to BAM when **@SQ** lines are present in the header: 
         
@@ -6549,11 +6549,11 @@ where _ref.fa.fai_ is generated automatically by the **faidx** command.
         samtools view -h --remove-flags DUP -x dt -o /data_folder/dat.no_dup_markings.bam /data_folder/data.bam
         
 
-# AUTHOR
+## AUTHOR
 
 Written by Heng Li from the Sanger Institute. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools_](samtools.html) (1), [_samtools-tview_](samtools-tview.html) (1), [_sam_](sam.html) (5) 
 
@@ -6563,16 +6563,16 @@ Samtools website: <<http://www.htslib.org/>>
 
 Copyright © 2025 Genome Research Limited (reg no. 2742969) is a charity registered in England with number 1021457. [Terms and conditions](/terms). 
 
-## 文档章节: samtools(1) manual page
+# 工具文档: samtools(1) manual page
 
 Manual page from samtools-1.23  
 released on 16 December 2025
 
-# NAME
+## NAME
 
 samtools – Utilities for the Sequence Alignment/Map (SAM) format 
 
-# SYNOPSIS
+## SYNOPSIS
 
 samtools [addreplacerg](samtools-addreplacerg.html) -r 'ID:fish' -r 'LB:1334' -r 'SM:alpha' -o output.bam input.bam 
 
@@ -6654,7 +6654,7 @@ samtools [tview](samtools-tview.html) aln.sorted.bam ref.fasta
 
 samtools [view](samtools-view.html) -bt ref_list.txt -o aln.bam aln.sam.gz 
 
-# DESCRIPTION
+## DESCRIPTION
 
 Samtools is a set of utilities that manipulate alignments in the SAM (Sequence Alignment/Map), BAM, and CRAM formats. It converts between the formats, does sorting, merging and indexing, and can retrieve reads in any regions swiftly. 
 
@@ -6664,7 +6664,7 @@ Samtools is also able to open files on remote FTP or HTTP(S) servers if the file
 
 If an index is needed, samtools looks for the index suffix appended to the filename, and if that isn't found it tries again without the filename suffix (for example **in.bam.bai** followed by **in.bai**). However if an index is in a completely different location or has a different name, both the main data filename and index filename can be pasted together with **##idx##**. For example **/data/in.bam##idx##/indices/in.bam.bai** may be used to explicitly indicate where the data and index files reside. 
 
-# COMMANDS
+## COMMANDS
 
 Each command has its own man page which can be viewed using e.g. **man samtools-view** or with a recent GNU man using **man samtools view**. Below we have a brief summary of syntax and sub-command description. 
 
@@ -7017,7 +7017,7 @@ samtools reset [**-o** _FILE_] [**-x** /**\--remove-tag** _tag_list_] [**\--keep
 
 Removes alignment information from records, producing an unaligned SAM, BAM or CRAM file. Flags are reset, header tags are updated or removed as appropriate, and auxiliary tags are removed or retained as specified. Note that the sort order is unchanged. 
 
-# SAMTOOLS OPTIONS
+## SAMTOOLS OPTIONS
 
 These are options that are passed after the **samtools** command, before any sub-command is specified. 
 
@@ -7036,7 +7036,7 @@ Display the version numbers and copyright information for samtools and the impor
 
 Display the full samtools version number in a machine-readable format. 
 
-# GLOBAL COMMAND OPTIONS
+## GLOBAL COMMAND OPTIONS
 
 Several long-options are shared between multiple samtools sub-commands: **\--input-fmt** , **\--input-fmt-option** , **\--output-fmt** , **\--output-fmt-option** , **\--reference** , **\--write-index** , and **\--verbosity**. The input format is auto-detected and specifying the format is unnecessary, so this option is rarely offered. Note that not all subcommands have all options. Consult the subcommand help for more details. 
 
@@ -7253,7 +7253,7 @@ To convert a SAM to a compressed BAM using BAI indexing:
 
 The **\--verbosity** _INT_ option sets the verbosity level for samtools and HTSlib. The default is 3 (HTS_LOG_WARNING); 2 reduces warning messages and 0 or 1 also reduces some error messages, while values greater than 3 produce increasing numbers of additional warnings and logging messages. 
 
-# FILTER EXPRESSIONS
+## FILTER EXPRESSIONS
 
 Filter expressions are used as an on-the-fly checking of incoming SAM, BAM or CRAM records, discarding records that do not match the specified expression. 
 
@@ -7356,7 +7356,7 @@ Functions that apply only to numeric values:
 **pow(x, y)**|  Power function, **x** to the power of **y**  
 **exp(x)**|  Base-e exponential, equivalent to **pow(e,x)**  
   
-# ENVIRONMENT VARIABLES
+## ENVIRONMENT VARIABLES
 
 **HTS_PATH**
     
@@ -7385,7 +7385,7 @@ To pre-populate the REF_CACHE a script **misc/seq_cache_populate.pl** is provide
 
 For example if you use **seq_cache_populate -subdirs 2 -root /local/ref_cache** to create 2 nested subdirectories (the default), each consuming 2 characters of the MD5sum, then REF_CACHE must be set to **/local/ref_cache/%2s/%2s/%s**. 
 
-# REFERENCE SEQUENCES
+## REFERENCE SEQUENCES
 
 The CRAM format requires use of a reference sequence for both reading and writing. 
 
@@ -7403,7 +7403,7 @@ Look for MD5 in each element of the REF_PATH environment variable.
 
 Look for a local file listed in the UR: header tag. 
 
-# EXAMPLES
+## EXAMPLES
 
   * Import SAM to BAM when **@SQ** lines are present in the header: 
         
@@ -7423,11 +7423,11 @@ where _ref.fa.fai_ is generated automatically by the **faidx** command.
         samtools view -C -T ref.fa aln.bam > aln.cram
         
 
-# AUTHOR
+## AUTHOR
 
 Heng Li from the Sanger Institute wrote the original C version of samtools. Bob Handsaker from the Broad Institute implemented the BGZF library. Petr Danecek and Heng Li wrote the VCF/BCF implementation. James Bonfield from the Sanger Institute developed the CRAM implementation. Other large code contributions have been made by John Marshall, Rob Davies, Martin Pollard, Andrew Whitwham, Valeriu Ohan, Vasudeva Sarma (all while primarily at the Sanger Institute), with numerous other smaller but valuable contributions. See the per-command manual pages for further authorship. 
 
-# SEE ALSO
+## SEE ALSO
 
 [_samtools-addreplacerg_](samtools-addreplacerg.html) (1), [_samtools-ampliconclip_](samtools-ampliconclip.html) (1), [_samtools-ampliconstats_](samtools-ampliconstats.html) (1), [_samtools-bedcov_](samtools-bedcov.html) (1), [_samtools-calmd_](samtools-calmd.html) (1), [_samtools-cat_](samtools-cat.html) (1), [_samtools-checksum_](samtools-checksum.html) (1), [_samtools-collate_](samtools-collate.html) (1), [_samtools-consensus_](samtools-consensus.html) (1), [_samtools-coverage_](samtools-coverage.html) (1), [_samtools-cram-size_](samtools-cram-size.html) (1), [_samtools-depad_](samtools-depad.html) (1), [_samtools-depth_](samtools-depth.html) (1), [_samtools-dict_](samtools-dict.html) (1), [_samtools-faidx_](samtools-faidx.html) (1), [_samtools-fasta_](samtools-fasta.html) (1), [_samtools-fastq_](samtools-fastq.html) (1), [_samtools-fixmate_](samtools-fixmate.html) (1), [_samtools-flags_](samtools-flags.html) (1), [_samtools-flagstat_](samtools-flagstat.html) (1), [_samtools-fqidx_](samtools-fqidx.html) (1), [_samtools-head_](samtools-head.html) (1), [_samtools-idxstats_](samtools-idxstats.html) (1), [_samtools-import_](samtools-import.html) (1), [_samtools-index_](samtools-index.html) (1), [_samtools-markdup_](samtools-markdup.html) (1), [_samtools-merge_](samtools-merge.html) (1), [_samtools-mpileup_](samtools-mpileup.html) (1), [_samtools-phase_](samtools-phase.html) (1), [_samtools-quickcheck_](samtools-quickcheck.html) (1), [_samtools-reference_](samtools-reference.html) (1), [_samtools-reheader_](samtools-reheader.html) (1), [_samtools-reset_](samtools-reset.html) (1), [_samtools-rmdup_](samtools-rmdup.html) (1), [_samtools-sort_](samtools-sort.html) (1), [_samtools-split_](samtools-split.html) (1), [_samtools-stats_](samtools-stats.html) (1), [_samtools-targetcut_](samtools-targetcut.html) (1), [_samtools-tview_](samtools-tview.html) (1), [_samtools-view_](samtools-view.html) (1), [_bcftools_](bcftools.html) (1), [_sam_](sam.html) (5), [_tabix_](tabix.html) (1) _ref-cache(1)_
 

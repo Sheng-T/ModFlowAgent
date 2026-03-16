@@ -4,7 +4,7 @@ EMPTY_STATE = {
     "identified_tools": [],
     "tool_calls": [],
     "tool_output": "",
-    "rag_suggestion": "",
+    "rag_suggestion": {},
     "tool_sequence": [],
     "user_approval": False,
     "user_feedback": "",
@@ -29,11 +29,10 @@ class AgentState(TypedDict):
     tool_output: str
 
     # RAG 检索到的工具使用建议或背景知识
-    rag_suggestion: str
+    rag_suggestion: dict
 
     tool_sequence: List[str]
 
-    tool_args_schema: List[str]
 
     user_approval: bool  # 用户是否批准执行
 

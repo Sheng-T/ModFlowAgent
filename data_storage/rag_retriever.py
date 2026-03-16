@@ -50,7 +50,7 @@ class HybridRetriever:
 def get_embedding_device():
     device_config = str(embedding_args.get('device', '')).lower()
     if device_config in ['cpu'] or 'cuda' in device_config:
-        return device_config if torch.cuda.is_available() else 'cpu'
+        return device_config
     if device_config == 'auto':
         return 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -64,6 +64,8 @@ class EnhancedMDRAG:
         self.llm = llm
 
         device = get_embedding_device()
+
+        # print(f'use device {device}')
 
         # embedding
         self.embeddings = HuggingFaceEmbeddings(
@@ -97,8 +99,8 @@ class EnhancedMDRAG:
         )
 
         child_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=200,
-            chunk_overlap=40,
+            chunk_size=500,
+            chunk_overlap=50,
             separators=["\n\n", "\n", " ", ""]
         )
 
@@ -142,11 +144,11 @@ class EnhancedMDRAG:
                 persist_directory=db_dir
             )
 
-        vector_retriever = vector_db.as_retriever(search_kwargs={"k": 8})
+        vector_retriever = vector_db.as_retriever(search_kwargs={"k": 12})
 
         # bm25
         bm25_retriever = BM25Retriever.from_documents(final_docs)
-        bm25_retriever.k = 8
+        bm25_retriever.k = 12
 
         hybrid = HybridRetriever(
             vector_retriever,
@@ -198,20 +200,17 @@ class EnhancedMDRAG:
         return [d for _, d in ranked[:6]]
 
     def search(self, query: str):
-
         # 1 query expansion
         queries = self.expand_query(query)
 
         # 2 hybrid retrieval
         docs = []
-
         for q in queries:
             docs.extend(self.retriever.invoke(q))
 
         # 去重
         seen = set()
         unique_docs = []
-
         for d in docs:
             key = d.page_content
             if key not in seen:
@@ -221,20 +220,21 @@ class EnhancedMDRAG:
         # 3 rerank
         reranked_docs = self.rerank(query, unique_docs)
 
-        # 4 parent context
-        seen_parents = set()
+        # 4 核心修复：丢弃庞大的 parent_context，只用当前切片，并注入 Header 导航
         context_parts = []
-
         for doc in reranked_docs:
+            # 提取所在的标题层级 (例如: "samtools view > OPTIONS")
+            headers = []
+            for i in range(1, 4):
+                h_key = f"Header {i}"
+                if h_key in doc.metadata:
+                    headers.append(doc.metadata[h_key])
 
-            parent_content = doc.metadata.get(
-                "parent_context",
-                doc.page_content
-            )
+            header_path = " > ".join(headers) if headers else "文档片段"
 
-            if parent_content not in seen_parents:
+            # 组合上下文：[导航路径] + 具体切片内容
+            chunk_text = f"【来源: {header_path}】\n{doc.page_content}"
+            context_parts.append(chunk_text)
 
-                context_parts.append(parent_content)
-                seen_parents.add(parent_content)
-
-        return "\n\n---\n\n".join(context_parts[:3])
+        # 返回 Top 5 的相关切片 (10 * 500 chunk_size ≈ 5000 tokens，极度安全)
+        return "\n\n---\n\n".join(context_parts[:10])

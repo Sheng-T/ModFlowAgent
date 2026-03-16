@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, END
 from agent_graph.nodes import intent_router, rag_retrieval, tool_planner, execute_tool, output_summarizer, \
     non_relevant_response, router_selector, general_llm_answer, validator_node, tools_selector, parameter_generator, \
-    human_review_node
+    human_review_node, end_node
 from agent_graph.state import AgentState
 from IPython.display import Image, display
 
@@ -39,6 +39,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("summarizer", output_summarizer)
     workflow.add_node("llm_answer", general_llm_answer)
     workflow.add_node("irrelevant", non_relevant_response)
+    workflow.add_node("end", end_node)
 
     # 3. 设置入口点 (Entry Point)
     workflow.set_entry_point("router")
@@ -82,7 +83,8 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
             "tools_selector": "tools_selector",
             "executor": "executor",
             "rag": "rag",
-            "param_generator": "param_generator"
+            "param_generator": "param_generator",
+            "end": "end"
         }
     )
 
@@ -90,6 +92,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_edge("llm_answer", END)
     workflow.add_edge("summarizer", END)      # 总结完，流程结束
     workflow.add_edge("irrelevant", END)      # 不相关回复，流程结束
+    workflow.add_edge("end", END)      # 流程结束
 
     # 5. 编译图
     app = workflow.compile()

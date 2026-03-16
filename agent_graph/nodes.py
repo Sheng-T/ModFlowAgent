@@ -11,7 +11,8 @@ from data_storage.rag_retriever import EnhancedMDRAG
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import importlib
-from utils.common_utils import LLM_SOURCE, LLM_NAME, llm_model_path, TOOL_LIST, TOOLS_DOC, TOOL_ARGS, llm_args
+from utils.common_utils import LLM_SOURCE, LLM_NAME, llm_model_path, TOOL_LIST, TOOLS_DOC, TOOL_ARGS, llm_args, \
+    TOOL_DESCIPTION
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 # from langchain.output_parsers import PydanticOutputParser
@@ -19,6 +20,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 import json
 from typing import TYPE_CHECKING
+import torch
 
 import logging
 
@@ -164,7 +166,7 @@ def tools_selector(state: AgentState) -> AgentState:
     print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
 
     # 1. 构造工具描述，让 LLM 了解每个工具能干什么
-    tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_LIST])
+    tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
 
     if user_feedback:
         user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n之前构建的命令: {tool_sequence}\n非必要最好不要动之前的命令，在这个命令的基础上重新调整增加/删除工具"
@@ -236,18 +238,21 @@ def rag_retrieval(state: AgentState) -> AgentState:
     # 如果 tools_selector 没选出工具，则默认 fallback 到 dorado
     identified_tools = state.get("identified_tools", [])
 
-
     if not identified_tools:
         print(f"\n[RAG] 未识别到工具，跳过检索流程。")
-        state["rag_suggestion"] = "无可用工具文档。"
+        state["rag_suggestion"] = {}
         return state
 
     user_query = state["input"]
+    user_feedback = state.get("user_feedback", "")
+    if user_feedback:
+        user_query = f"初始需求: {user_query}\n用户最新追加/修改指令: {user_feedback}"
     print(f"\n[RAG] 正在为工具链 {identified_tools} 检索背景知识...")
     rag_llm = get_llm_instance(is_planner=False)
     all_contexts = []
 
     # 2. 遍历工具列表，逐个检索
+    rag_suggestion_dict = {}
     for tool in identified_tools:
         # 获取工具对应的文档路径 (从你定义的 TOOLS_MAPPING 中取)
         doc_path = TOOLS_DOC.get(tool)
@@ -270,64 +275,13 @@ def rag_retrieval(state: AgentState) -> AgentState:
 
         # 将每个工具的检索结果打上明显的标签，方便 Planner 区分
         tool_context = f"=== {tool.upper()} 官方文档参考 ===\n{context}"
-        all_contexts.append(tool_context)
-
-    # 5. 合并所有检索到的信息
-    if all_contexts:
-        combined_suggestion = "\n\n".join(all_contexts)
-    else:
-        combined_suggestion = "未找到相关工具的详细说明文档。"
-
-    # 打印调试信息（可选）
-    print(f"[RAG] {'=' * 20} 检索汇总 {'=' * 20}")
-    print(combined_suggestion[:500] + "..." if len(combined_suggestion) > 500 else combined_suggestion)
-    print(f"{'=' * 50}\n")
+        rag_suggestion_dict[tool.lower()] = context
 
     # 6. 更新 state，供下一步 Planner 使用
-    state["rag_suggestion"] = combined_suggestion
+    state["rag_suggestion"] = rag_suggestion_dict
 
     return state
 # ------------------------------------------------------------------------------
-
-def print_llm_output(output: str) -> str:
-    """打印 LLM 的原始文本输出"""
-    print("\n--- LLM 原始输出 (DEBUG) ---")
-    print(output)
-    print("----------------------------\n")
-    return output
-
-def extract_json(message: str) -> str:
-    text = message
-    # ... (打印 debug 信息) ...
-    # print_llm_output(text)
-    # 使用修正后的表达式
-    pattern = r"```(?:json)?\s*({.*?})\s*```"
-    matches = re.findall(pattern, text, re.DOTALL)
-
-    # 优先处理 Markdown 块
-    if matches:
-        # 核心修改：返回最后一个匹配到的 JSON 字符串，让 parser 去解析
-        m = matches[-1].strip()
-        print(m)
-        return m
-
-    # 如果没有 Markdown 块，尝试提取并返回裸露的 JSON 字符串
-    start = text.find('{')
-    end = text.rfind('}')
-
-    if start != -1 and end != -1:
-        potential_json_str = text[start:end + 1]
-
-        # 在返回前进行一次快速验证，确保它是一个有效的 JSON 字符串，避免在 parser 处崩溃
-        try:
-            json.loads(potential_json_str)
-            print(potential_json_str)
-            return potential_json_str
-        except json.JSONDecodeError:
-            pass  # 验证失败，继续抛出错误
-
-    # 如果所有提取都失败，则抛出错误
-    raise ValueError(f"Failed to find or parse any valid JSON block in the LLM output.")
 
 # 3. 工具规划节点 (占位符)
 def tool_planner(state: AgentState) -> AgentState:
@@ -339,9 +293,8 @@ def tool_planner(state: AgentState) -> AgentState:
     user_input = state["input"]
     identified_tools = state.get("identified_tools", [])
     user_feedback = state.get("user_feedback", "")
-    tool_sequence = state.get("tool_sequence", [])
     if user_feedback:
-        user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n之前构建的命令: {tool_sequence}"
+        user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n"
 
     if not identified_tools:
         print(f"\n[Planner] 未识别到工具，跳过检索流程。")
@@ -349,22 +302,26 @@ def tool_planner(state: AgentState) -> AgentState:
 
     print(f"\n[Planner] 正在规划执行顺序，可用工具大类: {identified_tools}...")
 
+    torch.cuda.empty_cache()
+
     prompt = ChatPromptTemplate.from_template("""
     你是一个生信流水线架构师。请根据用户需求，将任务分解为一系列连续的工具执行步骤。
+    
+    【重要】只规划用户明确要求的步骤，只规划用户明确要求的步骤。
 
     当前任务涉及的工具大类有: {identified_tools}
 
     请严格从以下具体命令中选择并排序：{tools_args}
-    
-    RAG 官方文档参考：{rag_suggestion}
 
     用户需求: {input}
+    
+    你现在持有一个工具序列 [A, B, C]。用户现在说 D。请判断 D 是应该替换掉 C，还是接在 C 后面。如果是接在后面，请返回 [A, B, C, D]。
 
     请按执行顺序返回一个 JSON 列表。第一步的输出通常是第二步的输入。
-    输出json格式{{"sequence": ['工具1'，'工具2']}}。
+    输出json格式: {{"sequence": ['工具1'，'工具2']}}。
     输出格式示例 (仅输出 JSON，勿带额外文本):
     {{
-        "sequence": ["dorado_basecaller", "samtools_sort", "samtools_index"]
+        "sequence": ["dorado_basecaller", "samtools_sort", "samtools_index", "samtools_fastq"]
     }}
     """)
 
@@ -378,12 +335,11 @@ def tool_planner(state: AgentState) -> AgentState:
             "input": user_input,
             "identified_tools": identified_tools,
             "tools_args": tools_args,
-            "rag_suggestion": state.get("rag_suggestion", "")
+            # "rag_suggestion": state.get("rag_suggestion", "")
         })
         print(f'response {response}')
 
         state["tool_sequence"] = response.get("sequence", [])
-        state["tool_args_schema"] = tools_args
 
         print(f"[Planner] 成功规划执行序列: {' -> '.join(state['tool_sequence'])}")
     except Exception as e:
@@ -395,91 +351,114 @@ def tool_planner(state: AgentState) -> AgentState:
 # ------------------------------------------------------------------------------
 
 def parameter_generator(state: AgentState) -> AgentState:
-    """
-    节点 2：参数生成器 (Parameter Generator)。
-    负责根据规划和 RAG 建议填充具体参数，并响应用户反馈。
-    """
     param_llm = get_llm_instance(is_planner=True)
     user_input = state["input"]
-    rag_suggestion = state.get("rag_suggestion", "")
-    tool_sequence = state.get("tool_sequence", [])
-    tool_args_schema = state.get("tool_args_schema", "[]")  # 建议从 state 或 common_utils 获取
+    # 确保 rag_suggestion 是字典
+    rag_suggestion = state.get("rag_suggestion", {})
+    tool_sequences = state.get("tool_sequence", [])
 
-    print(f"\n[Param Generator] 正在为 {len(tool_sequence)} 个步骤配置参数...")
+    print(f"\n[Param Generator] 正在为 {len(tool_sequences)} 个步骤配置参数...")
 
-    if not tool_sequence:
+    if not tool_sequences:
         state["tool_calls"] = []
         return state
 
-    # 处理用户反馈（用于打回重做时的修正）
     user_feedback = state.get("user_feedback", "")
-    feedback_context = ""
-    if user_feedback:
-        tool_calls = state.get("tool_calls", [])
-        # 将历史 tool_calls 转换为清晰的 JSON 字符串让 LLM 参考
-        history_json = json.dumps(tool_calls, indent=2, ensure_ascii=False)
-        feedback_context = f"\n【重要历史状态】：上一次生成的参数如下：\n{history_json}\n【用户最新反馈】：{user_feedback}\n 请在上述历史状态的基础上进行局部修改！"
+    old_tool_calls = state.get("tool_calls", [])
+    final_tool_calls = []
 
-    # 构造更加严谨的 Prompt
-    prompt = ChatPromptTemplate.from_template("""
-    你是一个精通生信命令行（Dorado/Samtools）的参数配置专家。
-    任务序列：{tool_sequence}。
+    # 建议保存上一步的输出路径，而不是整个字典
+    last_step_output_file = ""
 
-    【核心指令】:
-    1. 结合用户需求、RAG 文档和下方反馈（如有），填充具体参数。
-    2. **历史继承原则 (极度重要)**：如果存在【用户反馈】，你必须原样保留 {feedback_context} 中已经配置正确的参数值（如果为空请忽略）！只能针对用户的反馈修改对应的参数，绝对禁止将之前已经识别出来的参数（如模型名、路径、修饰类型）重置为空！
-    3. **宁缺毋滥原则**：如果用户未指定 input 路径、model 版本等关键参数，且 RAG 无法推断，请将值设为 "" (空字符串)。禁止捏造路径！
-    4. **上下文衔接**：前一步的 output_file 必须是后一步的 input。
-    5. **Dorado 规范**：model 必须是完整版本号 (如 rna004_130bps_hac@v5.3.0)，不能简写为 'hac'。
+    for i, tool_name in enumerate(tool_sequences):
+        # 1. 基类映射逻辑（你的修改很棒！）
+        tool_real_name = ''
+        for t in TOOL_LIST:
+            if t.lower() in tool_name.lower():
+                tool_real_name = t.lower()
+                break
 
-    【工具参数定义 Schema】:
-    {tool_args_schema}
+        if not tool_real_name:
+            print(f"  [Warning] 跳过无法识别的工具: {tool_name}")
+            continue
 
-    【RAG 官方文档参考】:
-    {rag_suggestion}
-    {feedback_context}
+        print(f"  > 正在配置第 {i + 1} 步: {tool_name} (base: {tool_real_name})")
 
-    用户原始需求: {input}
+        # 2. 获取 RAG 和 Schema
+        current_rag = rag_suggestion.get(tool_real_name, "未找到相关 RAG 文档。")
+        current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
 
-    请输出严格的 JSON 格式（不要包含 <think> 或额外文本）:
-    {{
-        "tool_calls": [
-            {{
-                "tool_name": "具体工具名",
-                "tool_args": {{ "key": "value" }}
-            }}
-        ]
-    }}
-    """)
+        # 3. 反馈逻辑处理
+        feedback_context = ""
+        if user_feedback and old_tool_calls:
+            for old_call in old_tool_calls:
+                if tool_name.lower() == old_call.get("tool_name", "").lower():
+                    history_json = json.dumps(old_call.get("tool_args", {}), indent=2, ensure_ascii=False)
+                    feedback_context = f"\n【重要历史状态】：该工具上一次生成的参数：\n{history_json}\n【用户最新反馈】：{user_feedback}\n 请在此基础上局部修改！"
+                    break
 
-    # 改进点：在 invoke 之前增加过滤逻辑，处理 LLM 可能自带的 <think> 标签
-    chain = prompt | param_llm
+        # 4. 构造 Prompt（注意：这里规避了 f-string 对内部 JSON 的解析错误）
+        # 使用 replace 填充大段 JSON，防止 f-string 崩溃
+        base_prompt = """
+        你是一个生信参数配置专家。请为流水线中的【第 {step_num} 步】配置参数。
 
-    try:
-        # 1. 运行 LLM
-        raw_response = chain.invoke({
-            "input": user_input,
-            "tool_sequence": tool_sequence,
-            "tool_args_schema": tool_args_schema,
-            "rag_suggestion": rag_suggestion,
-            "feedback_context": feedback_context
-        })
+        【当前工具】: {tool_name}
+        【工具 Schema】: {schema}
+        【RAG 官方文档】: {rag}
 
-        # 2. 清洗可能存在的 <think> 标签或 Markdown 格式（鲁棒性处理）
-        content = raw_response if isinstance(raw_response, str) else raw_response.content
-        clean_json_str = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+        【上下文逻辑】:
+        - 原始需求: {user_input}
+        - 历史反馈: {feedback}
+        - 上一步产出的文件路径: {last_output}
 
-        # 3. 手动调用 JsonOutputParser 确保解析成功
-        parser = JsonOutputParser()
-        response_dict = parser.parse(clean_json_str)
+        【指令】:
+        1. 必须输出严格的 JSON 格式。
+        2. Dorado 规范：model 必须是完整版本号 (如 rna004_130bps_hac@v5.3.0)。
+        3. 上下文衔接：如果 last_output 不为空，请将其填入本步骤的 input 或对应输入参数。
+        4. 只生成 Schema 和 RAG 中存在的参数，没有用户要求时请不要新增参数，也不要优化参数。
 
-        state["tool_calls"] = response_dict.get("tool_calls", [])
-        print(f"[Param Generator] 参数配置完成。")
+        请只输出 JSON:
+        {{
+            "tool_name": "{tool_name}",
+            "tool_args": {{ "参数名": "值" }}
+        }}
+        """
 
-    except Exception as e:
-        print(f"[Param Generator Error] 参数生成解析失败: {e}")
-        state["tool_calls"] = []
+        # 安全填充变量
+        final_prompt = base_prompt.format(
+            step_num=i + 1,
+            tool_name=tool_name,
+            schema=current_schema,
+            rag=current_rag,
+            user_input=user_input,
+            feedback=feedback_context,
+            last_output=last_step_output_file
+        )
 
+        # print(f"[Debug] 当前 Prompt 长度: {len(final_prompt)} tokens\n{final_prompt}")
+
+        try:
+            torch.cuda.empty_cache()
+            raw_response = param_llm.invoke(final_prompt)
+
+            # 清洗 & 解析
+            content = raw_response if isinstance(raw_response, str) else raw_response.content
+            clean_json_str = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+            if "```json" in clean_json_str:
+                clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
+
+            current_call = json.loads(clean_json_str)
+            final_tool_calls.append(current_call)
+
+            # 5. 提取 output 供下一步使用
+            args = current_call.get("tool_args", {})
+            last_step_output_file = args.get("output") or args.get("output_file") or args.get("output_dir") or ""
+
+        except Exception as e:
+            print(f"  [Error] {tool_name} 配置失败: {e}")
+            continue
+
+    state["tool_calls"] = final_tool_calls
     return state
 
 # ------------------------------------------------------------------------------
@@ -508,12 +487,12 @@ def validator_node(state: AgentState) -> AgentState:
             # 1. 核心模型名称防幻觉修正 (自动适配 RNA004/RNA002 跨平台需求)
             if current_model in ["hac", "sup", "fast", ""] or len(current_model) < 10:
                 if "dna" in user_input:
-                    args["model"] = "dna_r10.4.1_e8.2_400bps_hac@v4.3.0"
+                    args["model"] = "dna_r10.4.1_e8.2_400bps_sup@v5.1.0"
                 elif "rna002" in user_input:
                     args["model"] = "rna002_70bps_hac@v3.0.0"
                     print("[Validator] 规则匹配：检测到 RNA002 跨平台评估需求，已切换测序化学模型。")
                 else:
-                    args["model"] = "rna004_130bps_hac@v5.3.0"  # 默认 RNA
+                    args["model"] = "rna004_130bps_sup@v5.3.0"  # 默认 RNA
                 print(f"[Validator] 专家校验：已将模糊模型名强制修正为 '{args['model']}'")
 
             # 2. 动态构建 Site-level 修饰检测模型路径
@@ -587,17 +566,24 @@ def human_review_node(state: AgentState) -> dict:
         state["user_feedback"] = ""
         return {"next_node": "executor", "user_approval": True}
 
+    if user_input.lower() == 'exit':
+        return {"next_node": "end", "user_approval": True}
+
+    old_user_input = state["input"]
+    state["input"] = old_user_input + "用户反馈：" + user_input
     state["user_approval"] = False
     state["user_feedback"] = user_input
+    identified_tools = state.get("identified_tools", [])
 
     llm = get_llm_instance(is_planner=True)
     prompt = f"""
         用户反馈: {user_input}
         当前已规划的步骤: {tool_calls}
+        当前选取的工具: {identified_tools}
 
         请评估该反馈的影响范围，严格返回以下三个单词之一:
-        - 'SELECTOR': 用户要求引入全新的软件大类（例如：原来只有dorado，现在要求使用samtools进行处理）。
-        - 'REPLAN': 涉及同一软件的逻辑步骤增减（例如：要求在原有的samtools sort之后，再加一步samtools index）。
+        - 'SELECTOR': 用户要求引入全新的软件大类（例如：原来只有dorado，现在要求使用samtools进行处理），如果用户新选取的工具不在已选工具中返回。
+        - 'REPLAN': 涉及同一软件的逻辑步骤增减（例如：要求在原有的samtools sort之后，再加一步samtools index），如果用户新选取的工具在已选工具中返回。
         - 'REPARAM': 仅仅修改已有步骤的参数内容（例如：修改输入输出路径、修改模型版本、添加--reference文件），不增加任何新步骤。
 
         只返回一个单词，不要有任何其他字符。
@@ -641,6 +627,7 @@ def general_llm_answer(state: AgentState) -> AgentState:
     print(f'\n[LLM Answer] {state["final_answer"]}')
     return state
 
+# ------------------------------------------------------------------------------
 
 # 4. 工具执行节点 (占位符)
 def execute_tool(state: AgentState) -> AgentState:
@@ -690,5 +677,14 @@ def non_relevant_response(state: AgentState) -> AgentState:
     print("\n[Irrelevant] 生成不相关回复...")
     state["final_answer"] = "抱歉，我专注于纳米孔测序和修饰检测相关的任务，无法为您提供该信息。"
     print(f'\n[LLM Answer] {state["final_answer"]}')
+
+    return state
+
+
+def end_node(state: AgentState) -> AgentState:
+    """
+    生成一个礼貌的非相关回复。
+    """
+    print(f'\n[End] 本次会话结束')
 
     return state

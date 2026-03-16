@@ -3,7 +3,7 @@
       "name": "dorado_basecaller",
       "description": "Basecall nanopore data. Use this for standard basecalling and modified base detection.",
       "args": {
-        "model": "Basecalling model (e.g., rna004_130bps_hac@v5.3.0). Required.",
+        "model": "Basecalling model. ALWAYS prefer 'sup' (Super High Accuracy) unless the user specifies 'hac' or 'fast'. Example: rna004_130bps_sup@v5.3.0.",
         "data": "Input POD5 or FAST5 file or directory path.",
         "output_dir": "Directory to write output files.",
         "reference": "Path to reference for alignment. [nargs=0..1] [default: \"\"]",
@@ -12,7 +12,7 @@
         "modified_bases_threshold": "Probability threshold (0-1). Optional.",
         "device": "Compute device (auto, cpu, cuda).",
         "recursive": "Set to true if data is a directory.",
-        "extra_args": "Any other flags (e.g., --emit-moves, --min-qscore). Note: --emit-moves is REQUIRED for signal-level analysis like mod detection."
+        "extra_args": "Any other flags. Note: 1. --emit-moves is REQUIRED for signal-level analysis. 2. If the user wants BAM instead of SAM, ensure no '--sam' flag is passed (Dorado defaults to BAM)."
       }
     },
     {
@@ -42,9 +42,9 @@
     },
     {
       "name": "dorado_summary",
-      "description": "Usage: dorado [--help] [--separator VAR] [--verbose]... reads",
+      "description": "(Optional) Only used when the user explicitly requests to view basecalling statistics or generate a summary file. Usage: dorado [--help] [--separator VAR] [--verbose]... reads",
       "args": {
-        "reads": "SAM/BAM file produced by dorado basecaller."
+        "reads": "SAM/BAM file."
       }
     },
     {

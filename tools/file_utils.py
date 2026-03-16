@@ -44,10 +44,17 @@ def clean_html_and_convert(file_path, converter):
 
     # 获取文章标题，作为 Markdown 的二级标题
     title = soup.title.string if soup.title else os.path.basename(file_path)
-    title = re.sub(r' — .*', '', title)  # 清理标题后缀
+    title = re.sub(r' — .*', '', title)
 
-    markdown_text = f"\n\n## 文档章节: {title}\n\n"
-    markdown_text += converter.handle(str(main_content))
+    raw_md = converter.handle(str(main_content))
+
+    # 核心修复：将内容中的所有标题整体降级！
+    # # 变成 ##, ## 变成 ###，以此类推
+    raw_md = re.sub(r'^(#+)\s', r'#\1 ', raw_md, flags=re.MULTILINE)
+
+    # 现在的 title 是唯一的一级标题
+    markdown_text = f"\n\n# 工具文档: {title}\n\n"
+    markdown_text += raw_md
 
     return markdown_text
 
@@ -84,7 +91,7 @@ def html2md(input_dir, output_file, title):
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(all_markdown)
 
-    print(f"\n✅ 处理完成，Markdown 已保存至: {output_file}")
+    print(f"\n处理完成，Markdown 已保存至: {output_file}")
 
 
 # START_URL = "https://software-docs.nanoporetech.com/dorado/latest/"

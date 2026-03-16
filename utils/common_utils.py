@@ -43,7 +43,9 @@ def load_tool_config(file_name):
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-TOOL_LIST = [
+TOOL_LIST = ['dorado', 'samtools']
+
+TOOL_DESCIPTION = [
     {
         "name": "dorado",
         "description": "Dorado is a high-performance, GPU-accelerated basecalling engine developed by Oxford Nanopore "

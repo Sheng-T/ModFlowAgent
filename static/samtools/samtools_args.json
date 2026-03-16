@@ -46,5 +46,13 @@
         "input": "Input BAM file path.",
         "output_file": "Optional file to save statistics output."
       }
+    },
+    {
+      "name": "samtools_fastq",
+      "description": "Converts a SAM, BAM or CRAM to FASTQ format. samtools fastq [options...] <in.bam>",
+      "args": {
+        "input": "Input BAM file path.",
+        "output_file": "Optional file to save statistics output."
+      }
     }
   ]

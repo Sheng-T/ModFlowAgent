@@ -3,7 +3,6 @@ from typing import Any, List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from langchain_core.language_models.llms import LLM
 
-
 class Qwen3LLM(LLM):
     """
     自定义 LangChain LLM（正确姿势）
@@ -17,7 +16,6 @@ class Qwen3LLM(LLM):
     repetition_penalty: float = 1.1
     enable_thinking: bool = True
     system_role: str = "You are a helpful assistant."
-
 
     @property
     def _llm_type(self) -> str:
@@ -51,7 +49,7 @@ class Qwen3LLM(LLM):
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
-                do_sample=True,                     # ✅ 必须
+                do_sample=True,
                 temperature=self.temperature,
                 top_p=self.top_p,
                 repetition_penalty=self.repetition_penalty,
