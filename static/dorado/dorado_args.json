@@ -1,55 +1,96 @@
- [
-    {
-      "name": "dorado_basecaller",
-      "description": "Basecall nanopore data. Use this for standard basecalling and modified base detection.",
-      "args": {
-        "model": "Basecalling model. ALWAYS prefer 'sup' (Super High Accuracy) unless the user specifies 'hac' or 'fast'. Example: rna004_130bps_sup@v5.3.0.",
-        "data": "Input POD5 or FAST5 file or directory path.",
-        "output_dir": "Directory to write output files.",
+[
+  {
+    "name": "dorado_basecaller",
+    "description": "Basecall nanopore data. Use this for standard basecalling and modified base detection.",
+    "usage": "dorado [-h] [--device VAR] [--read-ids VAR] [--resume-from VAR] [--max-reads VAR] [--min-qscore VAR] [--batchsize VAR] [--chunksize VAR] [--overlap VAR] [--recursive] [--modified-bases VAR...] [--modified-bases-models VAR] [--modified-bases-threshold VAR] [--emit-fastq] [--emit-sam] [--emit-moves] [--reference VAR] [--kit-name VAR] [--barcode-both-ends] [--no-trim] [--trim VAR] [--sample-sheet VAR] [--barcode-arrangement VAR] [--barcode-sequences VAR] [--primer-sequences VAR] [--estimate-poly-a] [--poly-a-config VAR] [-k VAR] [-w VAR] [-I VAR] [--secondary VAR] [-N VAR] [-Y] [--bandwidth VAR] [--junc-bed VAR] [--mm2-preset VAR] model data",
+    "args": {
+      "pos_args": [
+        {
+          "name": "model",
+          "description": "Basecalling model. ALWAYS prefer 'sup'. Example: rna004_130bps_sup@v5.3.0."
+        },
+        {
+          "name": "data",
+          "description": "Input POD5 or FAST5 path. MUST be a real file path (e.g., ./data, /path/to/fast5). Do NOT use placeholders like 'data'."
+        }
+      ],
+      "kwargs": {
         "reference": "Path to reference for alignment. [nargs=0..1] [default: \"\"]",
-        "modified_bases": "List of modified bases (e.g., m6A_DRACH). Used with --modified-bases.",
-        "modified_bases_models": "Path(s) to custom models. Used with --modified-bases-models. Note: The --modified-bases-models in Dorado typically follows the naming convention: [Base Model Name]_[Modified Name]@v[Version Number]. If the user requests m6A_DRACH, please refer to the model naming format provided in the context or RAG results. If the precise model path cannot be determined, please leave it blank in ToolCall and allow the Validator node to automatically complete it.",
-        "modified_bases_threshold": "Probability threshold (0-1). Optional.",
+        "modified-bases": "String. Example: m6A_DRACH (NOT list) (e.g., m6A_DRACH). Used with --modified-bases.",
+        "modified-bases-models": "Path(s) to custom models. Used with --modified-bases-models. Note: The --modified-bases-models in Dorado typically follows the naming convention: [Base Model Name]_[Modified Name]@v[Version Number]. If the user requests m6A_DRACH, please refer to the model naming format provided in the context or RAG results. If the precise model path cannot be determined, please leave it blank in ToolCall and allow the Validator node to automatically complete it.",
+        "modified-bases-threshold": "Probability threshold (0-1). Optional.",
         "device": "Compute device (auto, cpu, cuda).",
         "recursive": "Set to true if data is a directory.",
         "extra_args": "Any other flags. Note: 1. --emit-moves is REQUIRED for signal-level analysis. 2. If the user wants BAM instead of SAM, ensure no '--sam' flag is passed (Dorado defaults to BAM)."
       }
-    },
-    {
-      "name": "dorado_aligner",
-      "description": "Alignment uses `minimap2` and by default uses the `lr:hq` preset. This can be overridden by passing a minimap option string, `--mm2-opts`, using the '-x ' option and/or individual options such as -k and -w to set kmer and window size respectively. Usage: dorado aligner [--help] [--recursive] [--output-dir VAR] [--emit-summary] [--bed-file VAR] [--threads VAR] [--max-reads VAR] [--verbose]... [--mm2-opts VAR] index reads",
-      "args": {}
-    },
-    {
-      "name": "dorado_duplex",
-      "description": "",
-      "args": {}
-    },
-    {
-      "name": "dorado_demux",
-      "description": "",
-      "args": {}
-    },
-    {
-      "name": "dorado_correct",
-      "description": "",
-      "args": {}
-    },
-    {
-      "name": "dorado_polish",
-      "description": "",
-      "args": {}
-    },
-    {
-      "name": "dorado_summary",
-      "description": "(Optional) Only used when the user explicitly requests to view basecalling statistics or generate a summary file. Usage: dorado [--help] [--separator VAR] [--verbose]... reads",
-      "args": {
-        "reads": "SAM/BAM file."
-      }
-    },
-    {
-      "name": "dorado_trim",
-      "description": "",
-      "args": {}
     }
-  ]
+  },
+  {
+    "name": "dorado_aligner",
+    "description": "(Optional) Alignment uses `minimap2` and by default uses the `lr:hq` preset. This can be overridden by passing a minimap option string, `--mm2-opts`, using the '-x ' option and/or individual options such as -k and -w to set kmer and window size respectively. Usage: dorado aligner [--help] [--recursive] [--output-dir VAR] [--emit-summary] [--bed-file VAR] [--threads VAR] [--max-reads VAR] [--verbose]... [--mm2-opts VAR] index reads",
+    "usage": "dorado aligner [-h] [--recursive] [--output-dir VAR] [--emit-summary] [--bed-file VAR] [--threads VAR] [--max-reads VAR] [-k VAR] [-w VAR] [-I VAR] [--secondary VAR] [-N VAR] [-Y] [--bandwidth VAR] [--junc-bed VAR] [--mm2-preset VAR] index reads",
+    "args": {
+      "pos_args": [
+        {
+          "name": "index",
+          "description": "reference in (fastq/fasta/mmi)."
+        },
+        {
+          "name": "reads",
+          "description": "An input file or the folder containing input file(s) (any HTS format). [nargs=0..1] [default: \"\"]."
+        }
+      ],
+      "extra_args": "Additional flags ."
+    }
+  },
+  {
+    "name": "dorado_duplex",
+    "description": "",
+    "args": {}
+  },
+  {
+    "name": "dorado_demux",
+    "description": "",
+    "args": {}
+  },
+  {
+    "name": "dorado_correct",
+    "description": "",
+    "args": {}
+  },
+  {
+    "name": "dorado_polish",
+    "description": "",
+    "args": {}
+  },
+  {
+    "name": "dorado_summary",
+    "description": "(Optional) Only used when the user explicitly requests to view basecalling statistics or generate a summary file. ",
+    "usage": "Usage: dorado [--help] [--separator VAR] [--verbose]... reads",
+    "args": {
+      "pos_args": [
+        {
+          "name": "reads",
+          "description": "SAM/BAM file."
+        }
+      ],
+      "extra_args": "Additional flags ."
+    }
+  },
+  {
+    "name": "dorado_trim",
+    "description": "",
+    "args": {}
+  },
+  {
+    "name": "dorado_download",
+    "description": "(Optional) Download or view all current models in Dorado, and you can also download specific models.",
+    "usage": "dorado [--help] [--model VAR] [--models-directory VAR] [--list] [--list-yaml] [--list-structured] [--data VAR] [--recursive] [--overwrite] [--verbose]",
+    "args": {
+      "pos_args": [],
+      "list": "list the available models for download",
+      "model": "the model to download [nargs=0..1] [default: \"all\"]",
+      "extra_args": "Additional flags ."
+    }
+  }
+]

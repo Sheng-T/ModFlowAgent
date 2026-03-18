@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List
+from typing import TypedDict, Annotated, List, Dict
 
 EMPTY_STATE = {
     "identified_tools": [],
@@ -8,7 +8,9 @@ EMPTY_STATE = {
     "tool_sequence": [],
     "user_approval": False,
     "user_feedback": "",
-    "final_answer": ""
+    "final_answer": "",
+    "next_node": ""
+    # 注意：这里不要放 chat_history，因为我们不想重置它
 }
 
 
@@ -33,10 +35,11 @@ class AgentState(TypedDict):
 
     tool_sequence: List[str]
 
-
-    user_approval: bool  # 用户是否批准执行
-
     user_feedback: str  # 用户的修改建议
 
     # 最终反馈给用户的答案
     final_answer: str
+
+    chat_history: List[Dict[str, str]]  # 存储对话历史：[{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
+
+    next_node: str

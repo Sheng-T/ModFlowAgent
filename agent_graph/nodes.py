@@ -8,115 +8,33 @@ import os
 import sys
 
 from data_storage.rag_retriever import EnhancedMDRAG
+from runtime.env_wrapper import EnvWrapper
+from runtime.executor import ToolExecutor
+from tools import tools_verify
+from tools.tools_verify import build_shell_args
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import importlib
-from utils.common_utils import LLM_SOURCE, LLM_NAME, llm_model_path, TOOL_LIST, TOOLS_DOC, TOOL_ARGS, llm_args, \
-    TOOL_DESCIPTION
-from langchain_core.messages import AIMessage
+
+from utils.llm_utils import get_llm_instance
+from utils.nodes_utils import format_history
+
+from utils.common_utils import TOOL_LIST, TOOLS_DOC, TOOL_ARGS, llm_args, \
+    TOOL_DESCIPTION, AGENT_PATH, DATA_PATH
 from langchain_core.prompts import ChatPromptTemplate
-# from langchain.output_parsers import PydanticOutputParser
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.exceptions import OutputParserException
 import json
-from typing import TYPE_CHECKING
 import torch
 
-import logging
-
-logging.getLogger("transformers").setLevel(logging.ERROR)
-
-# 简化占位符 LLM
-
-def import_llm_initializer(module_name: str, function_name: str = "get_llm"):
-    """
-    动态导入指定模块中的 LLM 初始化函数。
-
-    Args:
-        module_name: 模块名称 (例如 "qwen_model")。
-        function_name: 要导入的函数名称 (例如 "get_llm")。
-
-    Returns:
-        导入的函数对象 (Callable)。
-    """
-    # 构造完整的模块路径，例如: agent.LLM.qwen_model
-    full_module_path = f"LLM.{module_name}"
-
-    try:
-        # 尝试使用 importlib 导入模块
-        spec = importlib.util.find_spec(full_module_path)
-        if spec is None:
-            raise ModuleNotFoundError(f"无法找到模块: {full_module_path}")
-
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[full_module_path] = module
-        spec.loader.exec_module(module)
-
-        # 从模块中获取指定的函数
-        if not hasattr(module, function_name):
-            raise AttributeError(f"模块 '{module_name}' 中没有找到函数 '{function_name}'。")
-
-        return getattr(module, function_name)
-
-    except (ModuleNotFoundError, AttributeError) as e:
-        print(f"致命错误：动态导入 LLM 失败: {e}")
-        raise e
-
-
-_MODEL_CACHE = {}
-def get_llm_instance(is_planner: bool = False, temperature=0.01):
-    """
-    根据用途获取 LLM 实例。
-    is_planner: True 则获取低随机性、关闭思考的 Planner 专用模型。
-    """
-    global _MODEL_CACHE
-
-    if "llm" not in _MODEL_CACHE:
-        print("[System] 首次初始化模型，请稍候...")
-        llm_func = import_llm_initializer(module_name=LLM_NAME)
-        llm_path = llm_model_path[LLM_NAME]
-        # 这里只加载一次
-        _MODEL_CACHE["llm"] = llm_func(llm_path, device=llm_args['device'])
-
-    model = _MODEL_CACHE["llm"]
-    if is_planner:
-        model.temperature = 0.01
-        model.enable_thinking = False
-    else:
-        model.temperature = 0.7
-        model.enable_thinking = True
-    return model
-
-
-
-from pydantic import BaseModel, Field
-from typing import List
-
-# 定义单个工具调用的结构
-class ToolCall(BaseModel):
-    """一个规划中的工具调用。"""
-    tool_name: str = Field(..., description="要调用的工具名称，必须从可用工具列表中选择。")
-    tool_args: dict = Field(..., description="工具所需的参数，键必须与工具定义中的 'args' 匹配。")
-
-# 定义最终的输出结构，它是一个 ToolCall 对象的列表
-class ToolPlan(BaseModel):
-    """LLM 规划的工具执行列表。"""
-    plan: List[ToolCall] = Field(..., description="要按顺序执行的工具调用列表。")
-    is_tool_needed: bool = Field(..., description="如果用户需求完全可以通过工具解决，则为 True；如果只需要 RAG 或简单总结，则为 False。")
-
 # 1. 意图路由/决策节点
-
 # 节点函数本身现在只需要返回 state
+# 保护记忆：intent_router 在重置时要继承历史
 def intent_router(state: AgentState) -> AgentState:
-    """
-    意图路由/决策节点。
-    此函数仅作为节点执行，不进行路由决策，路由决策由 router_selector 负责。
-    如果需要，可以在此提取 data_path 或做其他状态初始化。
-    """
     user_input = state["input"]
     print(f"\n[Router] 正在分析用户输入: '{user_input[:30]}...'")
 
-    return {**EMPTY_STATE, "input": state["input"]}
+    # 继承原始输入和对话历史，清空其他执行状态
+    history = state.get("chat_history", [])
+    return {**EMPTY_STATE, "input": user_input, "chat_history": history}
 
 def router_selector(state: AgentState) -> str:
     user_input = state["input"].lower()
@@ -162,14 +80,15 @@ def tools_selector(state: AgentState) -> AgentState:
     """
     user_input = state["input"]
     user_feedback = state.get("user_feedback", "")
+    history_str = format_history(state.get("chat_history", []))
     tool_sequence = state.get("tool_sequence", [])
     print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
 
     # 1. 构造工具描述，让 LLM 了解每个工具能干什么
     tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
 
-    if user_feedback:
-        user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n之前构建的命令: {tool_sequence}\n非必要最好不要动之前的命令，在这个命令的基础上重新调整增加/删除工具"
+    # if user_feedback:
+    #     user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n之前构建的命令: {tool_sequence}\n非必要最好不要动之前的命令，在这个命令的基础上重新调整增加/删除工具"
 
     # 2. 构造 Prompt
     prompt = ChatPromptTemplate.from_template("""
@@ -178,11 +97,12 @@ def tools_selector(state: AgentState) -> AgentState:
     【可选工具列表】:
     {tools_info}
 
-    【任务逻辑参考】:
-    - 如果涉及测序数据转序列、碱基识别、修饰检测（m6A/5mC）、summary、序列比对，必须选择 'dorado'。
-    - 如果涉及结果文件的排序 (sort)、索引 (index)、格式转换 (BAM/SAM)、统计 (stats)，必须选择 'samtools'。
-
-    用户需求: {input}
+    任务背景】:
+    - 原始需求: {input}
+    - 历史沟通轨迹: {history}
+    - 本次你需要立即执行的修改: {user_feedback}
+    - 之前构建的命令序列: {tool_sequence}
+    (非必要最好不要动之前的命令，在这个命令的基础上根据历史沟通轨迹重新调整增加/删除工具)
 
     请按以下 JSON 格式返回（只返回 JSON）:
     {{
@@ -198,7 +118,10 @@ def tools_selector(state: AgentState) -> AgentState:
     try:
         response = chain.invoke({
             "input": user_input,
-            "tools_info": tools_info
+            "tools_info": tools_info,
+            "history": history_str,
+            "tool_sequence": tool_sequence,
+            "user_feedback": user_feedback
         })
 
         selected = response.get("selected_tools", [])
@@ -245,11 +168,12 @@ def rag_retrieval(state: AgentState) -> AgentState:
 
     user_query = state["input"]
     user_feedback = state.get("user_feedback", "")
+
     if user_feedback:
         user_query = f"初始需求: {user_query}\n用户最新追加/修改指令: {user_feedback}"
+
     print(f"\n[RAG] 正在为工具链 {identified_tools} 检索背景知识...")
     rag_llm = get_llm_instance(is_planner=False)
-    all_contexts = []
 
     # 2. 遍历工具列表，逐个检索
     rag_suggestion_dict = {}
@@ -274,7 +198,7 @@ def rag_retrieval(state: AgentState) -> AgentState:
         context = retriever.search(user_query)
 
         # 将每个工具的检索结果打上明显的标签，方便 Planner 区分
-        tool_context = f"=== {tool.upper()} 官方文档参考 ===\n{context}"
+        # tool_context = f"=== {tool.upper()} 官方文档参考 ===\n{context}"
         rag_suggestion_dict[tool.lower()] = context
 
     # 6. 更新 state，供下一步 Planner 使用
@@ -289,12 +213,14 @@ def tool_planner(state: AgentState) -> AgentState:
     节点 1：流水线规划器 (Pipeline Planner)。
     只负责决定任务的先后执行顺序，不涉及任何参数生成。
     """
+
+    # todo 后续要改成只调用一个工具，复杂的工具需要调用workflow
     planner_llm = get_llm_instance(is_planner=True)
     user_input = state["input"]
     identified_tools = state.get("identified_tools", [])
-    user_feedback = state.get("user_feedback", "")
-    if user_feedback:
-        user_input = f"初始需求: {user_input}\n用户最新追加/修改指令: {user_feedback}\n"
+    # user_feedback = state.get("user_feedback", "")
+    history_str = format_history(state.get("chat_history", []))
+
 
     if not identified_tools:
         print(f"\n[Planner] 未识别到工具，跳过检索流程。")
@@ -313,7 +239,8 @@ def tool_planner(state: AgentState) -> AgentState:
 
     请严格从以下具体命令中选择并排序：{tools_args}
 
-    用户需求: {input}
+    - 原始需求: {input}
+    - 历史沟通轨迹: {history}
     
     你现在持有一个工具序列 [A, B, C]。用户现在说 D。请判断 D 是应该替换掉 C，还是接在 C 后面。如果是接在后面，请返回 [A, B, C, D]。
 
@@ -333,6 +260,7 @@ def tool_planner(state: AgentState) -> AgentState:
     try:
         response = chain.invoke({
             "input": user_input,
+            "history": history_str,
             "identified_tools": identified_tools,
             "tools_args": tools_args,
             # "rag_suggestion": state.get("rag_suggestion", "")
@@ -354,6 +282,7 @@ def parameter_generator(state: AgentState) -> AgentState:
     param_llm = get_llm_instance(is_planner=True)
     user_input = state["input"]
     # 确保 rag_suggestion 是字典
+    history_str = format_history(state.get("chat_history", []))
     rag_suggestion = state.get("rag_suggestion", {})
     tool_sequences = state.get("tool_sequence", [])
 
@@ -389,12 +318,11 @@ def parameter_generator(state: AgentState) -> AgentState:
         current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
 
         # 3. 反馈逻辑处理
-        feedback_context = ""
-        if user_feedback and old_tool_calls:
+        last_params_snapshot = ""
+        if old_tool_calls:
             for old_call in old_tool_calls:
                 if tool_name.lower() == old_call.get("tool_name", "").lower():
-                    history_json = json.dumps(old_call.get("tool_args", {}), indent=2, ensure_ascii=False)
-                    feedback_context = f"\n【重要历史状态】：该工具上一次生成的参数：\n{history_json}\n【用户最新反馈】：{user_feedback}\n 请在此基础上局部修改！"
+                    last_params_snapshot = json.dumps(old_call.get("tool_args", {}), indent=2, ensure_ascii=False)
                     break
 
         # 4. 构造 Prompt（注意：这里规避了 f-string 对内部 JSON 的解析错误）
@@ -408,19 +336,33 @@ def parameter_generator(state: AgentState) -> AgentState:
 
         【上下文逻辑】:
         - 原始需求: {user_input}
-        - 历史反馈: {feedback}
+        - 完整历史沟通轨迹: {history}
+        - 该工具上一次生成的参数 (快照): {last_params}
+        - **本次必须立即执行的修改**: {user_feedback}
         - 上一步产出的文件路径: {last_output}
 
         【指令】:
         1. 必须输出严格的 JSON 格式。
         2. Dorado 规范：model 必须是完整版本号 (如 rna004_130bps_hac@v5.3.0)。
         3. 上下文衔接：如果 last_output 不为空，请将其填入本步骤的 input 或对应输入参数。
-        4. 只生成 Schema 和 RAG 中存在的参数，没有用户要求时请不要新增参数，也不要优化参数。
+        4. 只生成 Schema 和 RAG 中存在的参数，没有用户要求时请不要新增参数，也不要优化参数。只允许使用用户明确提到的参数 + RAG中标记为“必需”的参数。严禁生成任何未被用户提及的参数（包括 output_dir、threads 等）。
+        5. 对于 positional arguments（如 model, data），必须放入 "pos_args" 数组，按顺序排列。不要将它们写在 tool_args 的顶层。
+        6. tool_args 必须包含：
+        {{
+          "pos_args": ["按 positional_args 顺序填写"],
+          "kwargs": {{"key": "value"}}
+        }}
+
 
         请只输出 JSON:
         {{
             "tool_name": "{tool_name}",
-            "tool_args": {{ "参数名": "值" }}
+            "tool_args": {{ 
+                "pos_args": ["值1", "值2"],
+                "kwargs": {{
+                    "key": "value"
+                }},
+            }}
         }}
         """
 
@@ -431,7 +373,9 @@ def parameter_generator(state: AgentState) -> AgentState:
             schema=current_schema,
             rag=current_rag,
             user_input=user_input,
-            feedback=feedback_context,
+            history=history_str,
+            last_params=last_params_snapshot,
+            user_feedback=user_feedback if user_feedback else "无",
             last_output=last_step_output_file
         )
 
@@ -448,11 +392,15 @@ def parameter_generator(state: AgentState) -> AgentState:
                 clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
 
             current_call = json.loads(clean_json_str)
+            print(f'\n[Param Generator] {current_call}')
             final_tool_calls.append(current_call)
 
             # 5. 提取 output 供下一步使用
+            last_step_output_file = ""
             args = current_call.get("tool_args", {})
-            last_step_output_file = args.get("output") or args.get("output_file") or args.get("output_dir") or ""
+            if args:
+                kwargs = args.get("kwargs",{})
+                last_step_output_file = kwargs.get("output") or kwargs.get("output_file") or kwargs.get("output_dir") or kwargs.get("o") or ""
 
         except Exception as e:
             print(f"  [Error] {tool_name} 配置失败: {e}")
@@ -475,75 +423,59 @@ def validator_node(state: AgentState) -> AgentState:
 
     for i, call in enumerate(tool_calls):
         tool_name = call.get("tool_name", "")
-        args = call.get("tool_args", {})
-
+        tool_args  = call.get("tool_args", {})
+        kwargs = tool_args.get("kwargs", {})
+        pos_args = tool_args.get("pos_args", [])
         # ==========================================
         # 针对 Dorado 的专家规则
         # ==========================================
-        if "dorado" in tool_name:
-            extra = args.get("extra_args", "")
-            current_model = args.get("model", "")
+        if "basecall" in tool_name:
+            extra = kwargs.get("extra_args", "")
+            current_model = pos_args[0] if len(pos_args) > 0 else ""
 
-            # 1. 核心模型名称防幻觉修正 (自动适配 RNA004/RNA002 跨平台需求)
+            # 修 model（注意：现在 model 在 pos_args）
             if current_model in ["hac", "sup", "fast", ""] or len(current_model) < 10:
                 if "dna" in user_input:
-                    args["model"] = "dna_r10.4.1_e8.2_400bps_sup@v5.1.0"
+                    pos_args[0] = "dna_r10.4.1_e8.2_400bps_sup@v5.1.0"
                 elif "rna002" in user_input:
-                    args["model"] = "rna002_70bps_hac@v3.0.0"
-                    print("[Validator] 规则匹配：检测到 RNA002 跨平台评估需求，已切换测序化学模型。")
+                    pos_args[0] = "rna002_70bps_hac@v3.0.0"
                 else:
-                    args["model"] = "rna004_130bps_sup@v5.3.0"  # 默认 RNA
-                print(f"[Validator] 专家校验：已将模糊模型名强制修正为 '{args['model']}'")
+                    pos_args[0] = "rna004_130bps_sup@v5.3.0"
 
-            # 2. 动态构建 Site-level 修饰检测模型路径
-            mod = args.get("modified_bases")
-            has_mod = mod or args.get("modified_bases_models")
+                print(f"[Validator] 修正 model -> {pos_args[0]}")
 
-            if has_mod:
-                if not args.get("modified_bases"):
-                    # 如果用户没填，说明不需要，不要自动补全！
-                    continue
+            # 修 modified_bases
+            mod = kwargs.get("modified-bases")
 
+            if mod:
                 if "--emit-moves" not in extra:
-                    print("[Validator] 规则匹配：执行修饰分析必须包含信号级移位，注入 --emit-moves")
                     extra = f"{extra} --emit-moves".strip()
 
-                # 根据主模型自动拼接修饰模型，确保版本严格一致
                 if mod == "m6A_DRACH":
-                    args["modified_bases_models"] = f"{args['model']}_m6A_DRACH@v1"
-                elif mod == "m6A":
-                    args["modified_bases_models"] = f"{args['model']}_m6A@v1"
+                    kwargs["modified-bases-models"] = f"{pos_args[0]}_m6A_DRACH@v1"
 
-                print(f"[Validator] 专家校验：修饰模型校准为 {args.get('modified_bases_models')}")
-
-            # 3. 输出格式与路径防御
-            if "--emit-sam" in extra:
-                print("[Validator] 规则匹配：移除 --emit-sam 以保护输出格式")
-                extra = re.sub(r'\s*--emit-sam\s*', ' ', extra).strip()
-
-            if not args.get("output_dir"):
-                print("[Validator] 警告：补全缺失的 output_dir")
-                args["output_dir"] = "./dorado_out"
-
-            args["extra_args"] = extra
+            kwargs["extra_args"] = extra
 
         # ==========================================
         # 针对 Samtools 的专家规则
         # ==========================================
-        elif "samtools" in tool_name:
+        elif "samtools_sort" in tool_name:
             # 例如：确保 samtools sort 有合理的输出文件名
-            if "sort" in tool_name and not args.get("output_file"):
-                args["output_file"] = "sorted_output.bam"
+            if "sort" in tool_name and not kwargs.get("o"):
+                kwargs["o"] = "sorted_output.bam"
                 print("[Validator] 专家校验：自动补全 Samtools 排序输出文件名")
 
             # 如果是格式转换，确保参数中包含 -b
-            if "view" in tool_name and ".bam" in args.get("output_file", ""):
-                extra = args.get("extra_args", "")
+            if "view" in tool_name and ".bam" in kwargs.get("o", ""):
+                extra = kwargs.get("extra_args", "")
                 if "-b" not in extra:
-                    args["extra_args"] = f"{extra} -b".strip()
+                    kwargs["extra_args"] = f"{extra} -b".strip()
+
+        tool_args["kwargs"] = kwargs
+        tool_args["pos_args"] = pos_args
 
         # 回写修改后的参数
-        call["tool_args"] = args
+        call["tool_args"] = tool_args
 
     state["tool_calls"] = tool_calls
     return state
@@ -553,26 +485,65 @@ def validator_node(state: AgentState) -> AgentState:
 def human_review_node(state: AgentState) -> dict:
     tool_calls = state.get("tool_calls", [])
 
+    history = state.get("chat_history", [])
+
     print("\n" + "=" * 30 + " 待执行任务确认 " + "=" * 30)
     for i, call in enumerate(tool_calls):
-        print(f"步骤 {i + 1}: {call['tool_name']}")
-        print(f"参数配置: {json.dumps(call['tool_args'], indent=4, ensure_ascii=False)}")
-    print("=" * 76)
+        tool_name = call['tool_name']
+        tool_args = call['tool_args']
+
+        kwargs = tool_args.get("kwargs", {})
+        pos_args = tool_args.get("pos_args", [])
+
+        # 1. 构建 CLI（但不执行）
+        tool_name_array = tool_name.split('_')
+        base_name = tool_name_array[0]
+        last_sub_command = tool_name_array[-1]
+        sub_cmd_str = " ".join(tool_name_array[1:])
+
+        binary_name = f"{base_name} {sub_cmd_str}".strip()
+        arg_str = build_shell_args(tool_args)
+
+        print(f"\n步骤 {i + 1}: {tool_name}")
+        print(f"\n结构化参数: {tool_args}")
+
+        # 2. 人类可读解释
+        verify_func = getattr(tools_verify, base_name, None)
+        if verify_func:
+            # 2. 执行校验函数。
+            # 注意：我们将 wrapper.base_data_dir 传进去，方便函数决定输出到哪
+            # todo 有了用户的概念和session的概念后这个数据目录应该改成具体的了
+            raw_cmd = verify_func(last_sub_command, sub_cmd_str, tool_args, DATA_PATH[base_name])
+        else:
+            # 如果没有校验函数，使用通用拼接逻辑
+            binary_name = f"{base_name} {sub_cmd_str}".strip()
+            arg_str = build_shell_args(tool_args)
+            raw_cmd = f"{binary_name} {arg_str}"
+
+        # 3. CLI 命令（关键！）
+        print("实际执行命令：")
+        print(f"  {raw_cmd}")
+
+    print("\n" + "=" * 76)
 
     user_input = input("\n[确认确认] 是否执行上述命令？(y/n) 或输入修改意见: ").strip()
 
     if user_input.lower() == 'y':
-        state["user_approval"] = True
-        state["user_feedback"] = ""
-        return {"next_node": "executor", "user_approval": True}
+        history.append({"role": "user", "content": "确认执行，无需修改。"})
+        return {
+            "next_node": "executor",
+            "user_approval": True,
+            "user_feedback": "",
+            "chat_history": history  # 返回更新后的历史
+        }
 
     if user_input.lower() == 'exit':
-        return {"next_node": "end", "user_approval": True}
+        history.append({"role": "user", "content": "退出当前任务。"})
+        return {"next_node": "end_node",  "chat_history": history}
 
-    old_user_input = state["input"]
-    state["input"] = old_user_input + "用户反馈：" + user_input
-    state["user_approval"] = False
-    state["user_feedback"] = user_input
+    history.append({"role": "user", "content": f"用户修改意见：{user_input}"})
+
+
     identified_tools = state.get("identified_tools", [])
 
     llm = get_llm_instance(is_planner=True)
@@ -600,10 +571,99 @@ def human_review_node(state: AgentState) -> dict:
 
     return {
         "next_node": mapping.get(decision, "param_generator"),
-        "user_approval": False,
-        "user_feedback": user_input
+        "user_feedback": user_input,
+        "chat_history": history  # 带着新记忆进入下一轮
     }
 
+
+
+# ------------------------------------------------------------------------------
+
+def execute_tool(state: AgentState) -> dict:
+    """
+    执行规划好的工具，并处理输出。
+    """
+    wrapper = EnvWrapper()
+    executor = ToolExecutor()
+
+    tool_calls = state.get("tool_calls", [])
+    execution_results = []
+    history = state.get("chat_history", [])
+    next_node = "summarizer"
+
+    for call in tool_calls:
+        tool_name = call['tool_name']
+        args = call['tool_args']
+
+        # 1. 简单的参数转换逻辑 (根据你的 Agent 输出习惯调整)
+        # 这里假设 tool_name 对应容器内的二进制文件名
+        tool_name_array = tool_name.split('_')
+        base_name = tool_name_array[0]
+        sub_cmd_str = " ".join(tool_name_array[1:])
+        last_sub_command = tool_name_array[-1]
+        if base_name not in TOOL_LIST:
+            # tools_selector
+            history.append({"role": "assistant", "content": f"工具：{base_name}不在系统中，请重新规划选择。"})
+            return {
+                "chat_history": history,
+                # 这里你可以根据 any_failed 返回不同的 next_node 标志
+                "next_node": "tools_selector"
+            }
+
+        # 特定子命令校验
+        verify_func = getattr(tools_verify, base_name, None)
+        if verify_func:
+            # 2. 执行校验函数。
+            # 注意：我们将 wrapper.base_data_dir 传进去，方便函数决定输出到哪
+            # todo 有了用户的概念和session的概念后这个数据目录应该改成具体的了
+            raw_cmd = verify_func(last_sub_command, sub_cmd_str, args, DATA_PATH[base_name])
+        else:
+            # 如果没有校验函数，使用通用拼接逻辑
+            binary_name = f"{base_name} {sub_cmd_str}".strip()
+            arg_str = build_shell_args(args)
+            raw_cmd = f"{binary_name} {arg_str}"
+
+        if 'error' in raw_cmd.lower():
+            error_msg = f"工具 {tool_name} 预校验失败: {raw_cmd}"
+            execution_results.append(error_msg)
+            # 写入记忆：告诉 LLM 它的参数构造逻辑不对
+            history.append({"role": "assistant", "content": f"系统拦截：{error_msg}，请重新配置参数。"})
+            break
+
+        # 2. 封装与执行
+        print(f"\n[Executor] 正在执行: {raw_cmd}")
+        final_cmd = wrapper.wrap_command(tool_name, raw_cmd)
+        print(f"\n[Executor] 真实执行: {final_cmd}")
+        resp = executor.run(final_cmd)
+
+        # 3. 结果处理
+        if resp["status"] == "success":
+            output = resp.get("output", "")
+            success_log = output[-200:]
+            success_msg = f"{tool_name} 成功\n输出摘要: {success_log}"
+            execution_results.append(success_msg)
+            state['tool_output'] = output[:2000]
+            print(f"\n[Executor] {success_msg}")
+            history.append({"role": "assistant", "content": f"{success_msg} 输出路径已记录。"})
+        else:
+            next_node = "param_generator"
+            error_log = resp['stderr'][:1000]  # 取最后500字报错
+            fail_msg = f"{tool_name} 执行失败！报错信息:\n{error_log}"
+            execution_results.append(fail_msg)
+            print(f"\n[Executor] 执行失败: {fail_msg}")
+            # 【关键点】：把报错塞进历史记录！
+            # 这样当下一次回到 param_generator 时，LLM 就能看到为什么失败了。
+            history.append({
+                "role": "assistant",
+                "content": f"我尝试执行了 {tool_name}，但失败了。报错如下：\n{error_log}\n我需要根据这个错误修正参数。"
+            })
+            break  # 一步错步步错，通常生信流水线第一个错就该停下
+
+    return {
+        "chat_history": history,
+        # 这里你可以根据 any_failed 返回不同的 next_node 标志
+        "next_node":  next_node
+    }
 # ------------------------------------------------------------------------------
 
 def general_llm_answer(state: AgentState) -> AgentState:
@@ -625,27 +685,6 @@ def general_llm_answer(state: AgentState) -> AgentState:
         print(f"LLM 调用失败: {e}")
         state["final_answer"] = "抱歉，LLM 服务暂时不可用，无法回答您的问题。"
     print(f'\n[LLM Answer] {state["final_answer"]}')
-    return state
-
-# ------------------------------------------------------------------------------
-
-# 4. 工具执行节点 (占位符)
-def execute_tool(state: AgentState) -> AgentState:
-    """
-    执行规划好的工具，并处理输出。
-    """
-    print(f"\n[Execute] 正在执行工具: {state['tool_calls']}")
-
-    tool_calls = state.get("tool_calls", [])
-    execution_results = []
-
-    for call in tool_calls:
-        # 这里放置你调用真实 subprocess 的逻辑
-        # ...
-        execution_results.append(f"{call['tool_name']} 成功完成")
-
-    state["tool_output"] = "; ".join(execution_results)
-    state["tool_calls"] = []  # 清空
     return state
 
 # ------------------------------------------------------------------------------

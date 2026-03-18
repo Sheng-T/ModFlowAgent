@@ -39,7 +39,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("summarizer", output_summarizer)
     workflow.add_node("llm_answer", general_llm_answer)
     workflow.add_node("irrelevant", non_relevant_response)
-    workflow.add_node("end", end_node)
+    workflow.add_node("end_node", end_node)
 
     # 3. 设置入口点 (Entry Point)
     workflow.set_entry_point("router")
@@ -84,15 +84,23 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
             "executor": "executor",
             "rag": "rag",
             "param_generator": "param_generator",
-            "end": "end"
+            "end_node": "end_node"
         }
     )
 
-    workflow.add_edge("executor", "summarizer") # 执行完工具，去总结
+    workflow.add_conditional_edges(
+        "executor",
+        lambda state: state.get("next_node", "param_generator"),  # 默认回退到参数生成
+        {
+            "param_generator": "param_generator",
+            "summarizer": "summarizer",
+            "tools_selector": "tools_selector",
+        }
+    )
     workflow.add_edge("llm_answer", END)
     workflow.add_edge("summarizer", END)      # 总结完，流程结束
     workflow.add_edge("irrelevant", END)      # 不相关回复，流程结束
-    workflow.add_edge("end", END)      # 流程结束
+    workflow.add_edge("end_node", END)      # 流程结束
 
     # 5. 编译图
     app = workflow.compile()
