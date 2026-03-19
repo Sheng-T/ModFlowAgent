@@ -590,7 +590,7 @@ def execute_tool(state: AgentState) -> dict:
     execution_results = []
     history = state.get("chat_history", [])
     next_node = "summarizer"
-
+    tool_output = []
     for call in tool_calls:
         tool_name = call['tool_name']
         args = call['tool_args']
@@ -632,7 +632,7 @@ def execute_tool(state: AgentState) -> dict:
 
         # 2. 封装与执行
         print(f"\n[Executor] 正在执行: {raw_cmd}")
-        final_cmd = wrapper.wrap_command(tool_name, raw_cmd)
+        final_cmd = wrapper.wrap_command(base_name, raw_cmd)
         print(f"\n[Executor] 真实执行: {final_cmd}")
         resp = executor.run(final_cmd)
 
@@ -642,12 +642,13 @@ def execute_tool(state: AgentState) -> dict:
             success_log = output[-200:]
             success_msg = f"{tool_name} 成功\n输出摘要: {success_log}"
             execution_results.append(success_msg)
-            state['tool_output'] = output[:2000]
+            # state['tool_output'] = output[:2000]
             print(f"\n[Executor] {success_msg}")
+            tool_output.append(output)
             history.append({"role": "assistant", "content": f"{success_msg} 输出路径已记录。"})
         else:
             next_node = "param_generator"
-            error_log = resp['stderr'][:1000]  # 取最后500字报错
+            error_log = resp['stderr'][:500] + "\n...\n" + resp['stderr'][-500:]
             fail_msg = f"{tool_name} 执行失败！报错信息:\n{error_log}"
             execution_results.append(fail_msg)
             print(f"\n[Executor] 执行失败: {fail_msg}")
@@ -662,7 +663,9 @@ def execute_tool(state: AgentState) -> dict:
     return {
         "chat_history": history,
         # 这里你可以根据 any_failed 返回不同的 next_node 标志
-        "next_node":  next_node
+        "next_node":  next_node,
+        "tool_output": tool_output
+
     }
 # ------------------------------------------------------------------------------
 
@@ -696,12 +699,13 @@ def output_summarizer(state: AgentState) -> AgentState:
     LLM 总结 RAG 结果或工具输出，生成最终答案。
     """
     tool_calls = state.get("tool_calls", [])
+    tool_output = state.get("tool_output", [])
     if not tool_calls:
         return state
 
     print("\n[Summarizer] 正在总结最终答案...")
-
-    summary = f"根据您的需求，已成功执行操作。工具输出结果：{state['tool_output']}. 请查看文件。"
+    output = '\n'.join(tool_output)
+    summary = f"根据您的需求，已成功执行操作。工具输出结果：{output}. 请查看文件。"
     state["final_answer"] = summary
     print(f'\n[LLM Answer] {state["final_answer"]}')
     return state

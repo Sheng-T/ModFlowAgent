@@ -87,7 +87,7 @@ TOOLS_IMAGE = {
 # -------------------------------------------------------------------------
 
 AGENT_PATH = {
-    'image_store': "~/singularity_images",  # 镜像存放路径
+    'image_store': "~/singularity_image",  # 镜像存放路径
 }
 
 DATA_PATH = {

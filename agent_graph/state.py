@@ -28,7 +28,7 @@ class AgentState(TypedDict):
     tool_calls: List[str]
 
     # 存储工具执行后的结果或错误信息
-    tool_output: str
+    tool_output: List[str]
 
     # RAG 检索到的工具使用建议或背景知识
     rag_suggestion: dict
