@@ -15,10 +15,12 @@ from langchain_core.documents import Document
 
 from sentence_transformers import CrossEncoder
 
-from utils.common_utils import other_path, llm_model_path, llm_args, embedding_args
+
 import torch
 
 import logging
+
+from configs import embedding_args, llm_model_path, OTHER_PATH
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
@@ -86,7 +88,7 @@ class EnhancedMDRAG:
     def _prepare_retriever(self):
 
         base_name = os.path.basename(self.doc_path).split('_')[0]
-        db_dir = os.path.join(other_path['db_dir'], base_name + "_enhanced")
+        db_dir = os.path.join(OTHER_PATH['db_dir'], base_name + "_enhanced")
 
         headers_to_split_on = [
             ("#", "Header 1"),

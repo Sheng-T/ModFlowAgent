@@ -2,7 +2,8 @@ import importlib
 import logging
 import sys
 
-from utils.common_utils import LLM_SOURCE, LLM_NAME, llm_model_path, llm_args
+from configs.model_config import LLM_NAME, llm_model_path
+from configs.runtime_config import llm_args
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
 

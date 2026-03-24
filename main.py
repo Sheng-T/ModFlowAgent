@@ -3,11 +3,11 @@ import os
 
 # 导入上面的 app 和 AgentState
 from agent_graph.graph import create_agent_graph # 实际运行需要模块导入
-from agent_graph.state import AgentState
 
-
-from utils.common_utils import other_path
 import os
+
+from configs import OTHER_PATH
+
 # 告诉 PyTorch 灵活分配显存段，减少碎片导致的 OOM
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -49,7 +49,7 @@ def run_interactive_mode(app):
 
 if __name__ == "__main__":
     # 你的图初始化
-    app = create_agent_graph("BioAgent", is_save_graph_image=True, graph_image_filename=other_path['graph_image'])
+    app = create_agent_graph("BioAgent", is_save_graph_image=True, graph_image_filename=OTHER_PATH['graph_image'])
 
     # 启动交互
     run_interactive_mode(app)

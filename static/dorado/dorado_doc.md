@@ -2979,15 +2979,15 @@ Version | Data
 Sampling  
 Frequency  
 ---|---|---|---  
-**rna004_130bps_fast@v5.3.0** |  |  | 4 kHz  
-**rna004_130bps_hac@v5.3.0** | m5C  
+**rna004_130bps_fast@v5.2.0** |  |  | 4 kHz  
+**rna004_130bps_hac@v5.2.0** | m5C  
 m6A_DRACH  
 inosine_m6A  
 pseU | v1  
 v1  
 v1  
 v1 | 4 kHz  
-**rna004_130bps_sup@v5.3.0** | m5C_2OmeC  
+**rna004_130bps_sup@v5.2.0** | m5C_2OmeC  
 m6A_DRACH  
 inosine_m6A_2OmeA  
 pseU_2OmeU  
@@ -3292,8 +3292,8 @@ The example below selects a modified bases model by name.
     
     # Run the basecaller with --modified-bases-models using a modified bases model name.
     # Models are downloaded automatically
-    dorado basecaller rna004_130bps_hac@v5.3.0/ reads/ \
-        --modified-bases-models rna004_130bps_hac@v5.3.0_m6A@v1,rna004_130bps_hac@v5.3.0_pseU@v1 \
+    dorado basecaller rna004_130bps_hac@v5.2.0/ reads/ \
+        --modified-bases-models rna004_130bps_hac@v5.2.0_m6A@v1,rna004_130bps_hac@v5.2.0_pseU@v1 \
         > calls.bam
     
 
@@ -3301,13 +3301,13 @@ The example below selects a modified bases model by path.
     
     
     # Download the models into a models directory
-    dorado download --model rna004_130bps_hac@v5.3.0          --models-directory ~/models
-    dorado download --model rna004_130bps_hac@v5.3.0_m6A@v1   --models-directory ~/models
-    dorado download --model rna004_130bps_hac@v5.3.0_pseU@v1  --models-directory ~/models
+    dorado download --model rna004_130bps_hac@v5.2.0          --models-directory ~/models
+    dorado download --model rna004_130bps_hac@v5.2.0_m6A@v1   --models-directory ~/models
+    dorado download --model rna004_130bps_hac@v5.2.0_pseU@v1  --models-directory ~/models
     
     # Run the basecaller with modified-bases using a modified bases model path
-    dorado basecaller ~/models/rna004_130bps_hac@v5.3.0/ reads/ \
-        --modified-bases-models ~/models/rna004_130bps_hac@v5.3.0_m6A@v1,~/models/rna004_130bps_hac@v5.3.0_pseU@v1 \
+    dorado basecaller ~/models/rna004_130bps_hac@v5.2.0/ reads/ \
+        --modified-bases-models ~/models/rna004_130bps_hac@v5.2.0_m6A@v1,~/models/rna004_130bps_hac@v5.2.0_pseU@v1 \
         > calls.bam
     
 

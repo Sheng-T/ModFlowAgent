@@ -13,8 +13,7 @@
       "output_file": "Output file path (e.g., filtered.bam).",
       "format": "Output format, e.g., -b for BAM, -C for CRAM.",
       "regions": "Region string (e.g., 'chr1:100-200').",
-      "filter_flags": "Include/Exclude flags (e.g., -F 4 to exclude unmapped).",
-      "extra_args": "Any additional flags (e.g., -h, -q 20). Note: If converting to BAM, ensure -b is included."
+      "filter_flags": "Include/Exclude flags (e.g., -F 4 to exclude unmapped)."
     }
   },
   {
@@ -30,8 +29,7 @@
       ],
       "o": "Output sorted BAM file path.",
       "threads": "Number of threads to use (default: 1).",
-      "m": "Memory per thread (e.g., 4G).",
-      "extra_args": "Any other flags (e.g., -n for sort by name)."
+      "m": "Memory per thread (e.g., 4G)."
     }
   },
   {
@@ -44,8 +42,7 @@
           "name": "input",
           "description": "Input sorted BAM file path."
         }
-      ],
-      "extra_args": "Additional flags (e.g., -b for BAI format if needed)."
+      ]
     }
   },
   {
@@ -53,8 +50,7 @@
     "description": "Index/extract sequence from a FASTA file.",
     "args": {
       "input": "Reference FASTA file.",
-      "region": "Optional region to extract.",
-      "extra_args": "Additional flags."
+      "region": "Optional region to extract."
     }
   },
   {
@@ -76,8 +72,7 @@
           "description": "Input sorted BAM file path."
         }
       ],
-      "threads": "Number of threads to use (default: 1).",
-      "extra_args": "Additional flags ."
+      "threads": "Number of threads to use (default: 1)."
     }
   }
 ]

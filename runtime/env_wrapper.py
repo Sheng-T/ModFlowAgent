@@ -1,13 +1,13 @@
 # runtime/env_wrapper.py
 import os
 
-from utils.common_utils import AGENT_PATH, TOOLS_IMAGE, DATA_PATH
+from configs import IMAGE_PATH, TOOLS_IMAGE, DATA_PATH
 
 
 class EnvWrapper:
     def __init__(self):
         # 基础配置：这里你可以根据实际情况修改
-        self.image_store = AGENT_PATH['image_store']  # 镜像存放路径
+        self.image_store = IMAGE_PATH['image_store']  # 镜像存放路径
 
 
     def wrap_command(self, tool_name: str, raw_cmd: str) -> str:

@@ -7,7 +7,7 @@
       "pos_args": [
         {
           "name": "model",
-          "description": "Basecalling model. ALWAYS prefer 'sup'. Example: rna004_130bps_sup@v5.3.0."
+          "description": "Basecalling model. ALWAYS prefer 'sup'. Example: rna004_130bps_sup@v5.2.0."
         },
         {
           "name": "data",
@@ -21,7 +21,7 @@
         "modified-bases-threshold": "Probability threshold (0-1). Optional.",
         "device": "Compute device (auto, cpu, cuda).",
         "recursive": "Set to true if data is a directory.",
-        "extra_args": "Any other flags. Note: 1. --emit-moves is REQUIRED for signal-level analysis. 2. If the user wants BAM instead of SAM, ensure no '--sam' flag is passed (Dorado defaults to BAM)."
+        "emit-moves": "Write the move table to the 'mv' tag. Ture or False."
       }
     }
   },
@@ -39,8 +39,7 @@
           "name": "reads",
           "description": "An input file or the folder containing input file(s) (any HTS format). [nargs=0..1] [default: \"\"]."
         }
-      ],
-      "extra_args": "Additional flags ."
+      ]
     }
   },
   {
@@ -73,8 +72,7 @@
           "name": "reads",
           "description": "SAM/BAM file."
         }
-      ],
-      "extra_args": "Additional flags ."
+      ]
     }
   },
   {
@@ -89,8 +87,7 @@
     "args": {
       "pos_args": [],
       "list": "list the available models for download",
-      "model": "the model to download [nargs=0..1] [default: \"all\"]",
-      "extra_args": "Additional flags ."
+      "model": "the model to download [nargs=0..1] [default: \"all\"]"
     }
   }
 ]
