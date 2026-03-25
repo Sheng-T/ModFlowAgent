@@ -45,6 +45,6 @@ TOOL_ARGS = {
 TOOLS_IMAGE = {
     "dorado": "dorado_latest.sif",
     "samtools": "samtools_1.16.1.sif",
-    "nextflow": "nextflow_latest.sif",
+    "nextflow": "nextflow_25_10_4.sif",
 }
 
