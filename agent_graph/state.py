@@ -9,7 +9,9 @@ EMPTY_STATE = {
     "user_approval": False,
     "user_feedback": "",
     "final_answer": "",
-    "next_node": ""
+    "next_node": "",
+    "selected_workflow": "",
+    "is_workflow": False
     # 注意：这里不要放 chat_history，因为我们不想重置它
 }
 
@@ -43,3 +45,7 @@ class AgentState(TypedDict):
     chat_history: List[Dict[str, str]]  # 存储对话历史：[{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
 
     next_node: str
+
+    is_workflow: bool # 判断工具还是工作流
+
+    selected_workflow: str # workflow select

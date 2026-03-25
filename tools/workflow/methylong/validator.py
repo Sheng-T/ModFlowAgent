@@ -1,7 +1,7 @@
 import copy
 
 from configs.workflow_config import pipeline_exists
-from tools.workflow.command_builder import build_nfcore_command
+from tools.workflow.command_builder import build_workflow_command
 
 
 def validate_nfcore_kwargs(kwargs: dict) -> str | None:
@@ -24,7 +24,7 @@ def validate_nfcore_kwargs(kwargs: dict) -> str | None:
     return None
 
 
-def nextflow(subcommand, subcommand_str, args_dict, data_path):
+def methylong(subcommand, subcommand_str, args_dict, data_path):
     """
     Verify and build nf-core/nextflow command.
     subcommand is kept for signature compatibility with executor.
@@ -36,4 +36,4 @@ def nextflow(subcommand, subcommand_str, args_dict, data_path):
     if err:
         return err
 
-    return build_nfcore_command(kwargs, data_path)
+    return build_workflow_command(kwargs, data_path)

@@ -2,23 +2,18 @@ from langgraph.graph import END, StateGraph
 from agent_graph.nodes import (
     answer_general_question_node,
     classify_intent_route,
-    confirm_nfcore_workflow_node,
     execute_commands_node,
     finish_session_node,
-    generate_nfcore_params_node,
     generate_tool_params_node,
     handle_irrelevant_request_node,
     plan_tool_steps_node,
     reset_session_state_node,
-    retrieve_nfcore_docs_node,
     retrieve_tool_docs_node,
     review_execution_plan_node,
-    select_nfcore_pipeline_node,
     select_tools_node,
     summarize_execution_result_node,
-    validate_nfcore_params_node,
-    validate_tool_calls_node,
 )
+from agent_graph.nodes.workflows.planner import retrieve_pipeline_docs_node
 from agent_graph.state import AgentState
 
 
@@ -47,14 +42,10 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("router", reset_session_state_node)
     workflow.add_node("tools_selector", select_tools_node)
     workflow.add_node("rag", retrieve_tool_docs_node)
-    workflow.add_node("nfcore_selector", select_nfcore_pipeline_node)
-    workflow.add_node("nfcore_workflow_confirm", confirm_nfcore_workflow_node)
-    workflow.add_node("nfcore_rag", retrieve_nfcore_docs_node)
-    workflow.add_node("nfcore_param_generator", generate_nfcore_params_node)
-    workflow.add_node("nfcore_validator", validate_nfcore_params_node)
     workflow.add_node("planner", plan_tool_steps_node)
+    workflow.add_node("rag_pipeline", retrieve_pipeline_docs_node)
     workflow.add_node("param_generator", generate_tool_params_node)
-    workflow.add_node("validator", validate_tool_calls_node)
+    # workflow.add_node("validator", validate_tool_calls_node)
     workflow.add_node("human_reviewer", review_execution_plan_node)
     workflow.add_node("executor", execute_commands_node)
     workflow.add_node("summarizer", summarize_execution_result_node)
@@ -74,50 +65,36 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
         lambda state: classify_intent_route(state),
         {
             "route_to_tools": "tools_selector",
-            "route_to_workflow": "nfcore_selector",
+            # "route_to_workflow": "nfcore_selector",
             "route_to_answer": "llm_answer",
             "route_to_irrelevant": "irrelevant",
         }
     )
 
-    # B. 核心流水线：根据工具分支进入通用链路或 nf-core 链路
-    workflow.add_conditional_edges(
-        "tools_selector",
-        lambda state: "nfcore_branch"
-        if "nextflow" in state.get("identified_tools", [])
-        else "default_branch",
-        {
-            "default_branch": "rag",
-            "nfcore_branch": "nfcore_selector",
-        },
-    )
-    workflow.add_edge("nfcore_selector", "nfcore_workflow_confirm")
-    workflow.add_conditional_edges(
-        "nfcore_workflow_confirm",
-        lambda state: state.get("next_node", "nfcore_rag"),
-        {
-            "nfcore_selector": "nfcore_selector",
-            "nfcore_rag": "nfcore_rag",
-        },
-    )
-    workflow.add_edge("nfcore_rag", "nfcore_param_generator")
-    workflow.add_edge("nfcore_param_generator", "nfcore_validator")
-    workflow.add_edge("nfcore_validator", "human_reviewer")
+    # B. 核心流水线
+    workflow.add_edge("tools_selector", "rag")
+
     workflow.add_edge("rag", "planner")
 
     # C. Planner 的条件路由 (检查是否需要调用工具)
+    # graph.py
     workflow.add_conditional_edges(
         "planner",
-        lambda state: "generate_parameters" if state.get("tool_sequence") else "route_to_summarize",
+        lambda state: (
+            "fetch_pipeline_doc" if state.get("is_workflow") and state.get("tool_sequence")
+            else "generate_parameters" if state.get("tool_sequence")
+            else "route_to_summarize"
+        ),
         {
-            "generate_parameters": "param_generator",  # 规划了顺序，去填参数
+            "fetch_pipeline_doc": "rag_pipeline",
+            "generate_parameters": "param_generator",
             "route_to_summarize": "summarizer",
         }
     )
+    workflow.add_edge("rag_pipeline", "param_generator")
 
     # D. Executor 和 Summarizer 的最终流转
-    workflow.add_edge("param_generator", "validator")
-    workflow.add_edge("validator", "human_reviewer")  # 校验通过 -> 执行
+    workflow.add_edge("param_generator", "human_reviewer")
 
     workflow.add_conditional_edges(
         "human_reviewer",
@@ -127,8 +104,6 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
             "executor": "executor",
             "rag": "rag",
             "param_generator": "param_generator",
-            "nfcore_rag": "nfcore_rag",
-            "nfcore_param_generator": "nfcore_param_generator",
             "end_node": "end_node"
         }
     )
@@ -138,7 +113,6 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
         lambda state: state.get("next_node", "param_generator"),  # 默认回退到参数生成
         {
             "param_generator": "param_generator",
-            "nfcore_param_generator": "nfcore_param_generator",
             "summarizer": "summarizer",
             "tools_selector": "tools_selector",
         }

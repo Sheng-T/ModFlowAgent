@@ -5,7 +5,7 @@ from agent_graph.state import AgentState
 from agent_graph.prompts.toolchain_prompts import (
     build_parameter_generator_prompt,
 )
-from configs import TOOL_LIST, TOOL_ARGS
+from configs import TOOL_LIST, TOOL_ARGS, WORKFLOW_PIPELINE_ARGS
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 
@@ -15,6 +15,8 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
     history_str = format_history(state.get("chat_history", []))
     rag_suggestion = state.get("rag_suggestion", {})
     tool_sequences = state.get("tool_sequence", [])
+    is_workflow = state.get("is_workflow", False)
+    selected_workflow = state.get("selected_workflow")  # 例如 "methylong"
 
     print(f"\n[Param Generator] 正在为 {len(tool_sequences)} 个步骤配置参数...")
     if not tool_sequences:
@@ -27,19 +29,28 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
     last_step_output_file = ""
 
     for i, tool_name in enumerate(tool_sequences):
-        tool_real_name = ""
-        for t in TOOL_LIST:
-            if t.lower() in tool_name.lower():
-                tool_real_name = t.lower()
-                break
 
-        if not tool_real_name:
-            print(f"  [Warning] 跳过无法识别的工具: {tool_name}")
-            continue
+        # ───────────────────── 取 schema 和 RAG ───────────────────────
+        if is_workflow and selected_workflow:
+            # workflow 模式：schema 来自 WORKFLOW_PIPELINE_ARGS，RAG key 是 pipeline 名
+            tool_real_name = selected_workflow
+            current_schema = str(WORKFLOW_PIPELINE_ARGS.get(selected_workflow, "{}"))
+            current_rag = rag_suggestion.get(selected_workflow, "未找到相关 RAG 文档。")
+        else:
+            # 普通工具：schema 来自 TOOL_ARGS，RAG key 是工具名
+            tool_real_name = ""
+            for t in TOOL_LIST:
+                if t.lower() in tool_name.lower():
+                    tool_real_name = t.lower()
+                    break
+            if not tool_real_name:
+                print(f"  [Warning] 跳过无法识别的工具: {tool_name}")
+                continue
+            current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
+            current_rag = rag_suggestion.get(tool_real_name, "未找到相关 RAG 文档。")
+        # ─────────────────────────────────────────────────────────────
 
         print(f"  > 正在配置第 {i + 1} 步: {tool_name} (base: {tool_real_name})")
-        current_rag = rag_suggestion.get(tool_real_name, "未找到相关 RAG 文档。")
-        current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
 
         last_params_snapshot = ""
         if old_tool_calls:
@@ -50,9 +61,7 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
                     )
                     break
 
-        base_prompt = build_parameter_generator_prompt()
-
-        final_prompt = base_prompt.format(
+        final_prompt = build_parameter_generator_prompt().format(
             step_num=i + 1,
             tool_name=tool_name,
             schema=current_schema,
@@ -68,19 +77,14 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
             torch.cuda.empty_cache()
             raw_response = param_llm.invoke(final_prompt)
             content = raw_response if isinstance(raw_response, str) else raw_response.content
-            clean_json_str = re.sub(
-                r"<think>.*?</think>", "", content, flags=re.DOTALL
-            ).strip()
+            clean_json_str = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
             if "```json" in clean_json_str:
-                clean_json_str = (
-                    clean_json_str.split("```json")[1].split("```")[0].strip()
-                )
+                clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
 
             current_call = json.loads(clean_json_str)
             print(f"\n[Param Generator] {current_call}")
             final_tool_calls.append(current_call)
 
-            last_step_output_file = ""
             args = current_call.get("tool_args", {})
             if args:
                 kwargs = args.get("kwargs", {})

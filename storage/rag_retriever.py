@@ -60,10 +60,11 @@ def get_embedding_device():
 
 class EnhancedMDRAG:
 
-    def __init__(self, doc_path: str, llm=None):
+    def __init__(self, doc_path: str, llm=None, cache_dir=None):
 
         self.doc_path = doc_path
         self.llm = llm
+        self._cache_dir = cache_dir
 
         device = get_embedding_device()
 
@@ -87,8 +88,12 @@ class EnhancedMDRAG:
 
     def _prepare_retriever(self):
 
-        base_name = os.path.basename(self.doc_path).split('_')[0]
-        db_dir = os.path.join(OTHER_PATH['db_dir'], base_name + "_enhanced")
+        if self._cache_dir:
+            db_dir = self._cache_dir
+        else:
+            # 保留原有兜底逻辑
+            base_name = os.path.basename(self.doc_path).split('_')[0]
+            db_dir = os.path.join(OTHER_PATH['db_dir'], base_name)
 
         headers_to_split_on = [
             ("#", "Header 1"),

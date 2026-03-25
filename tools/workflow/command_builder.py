@@ -7,7 +7,7 @@ def _join_data_dir(base_data_dir: str, p: str) -> str:
     return os.path.join(base_data_dir, os.path.basename(str(p)))
 
 
-def build_nfcore_command(kwargs: dict, data_path: dict) -> str:
+def build_workflow_command(kwargs: dict, data_path: dict) -> str:
     base_data_dir = os.path.expanduser(data_path.get("base_data_dir", "~/agent_data"))
     work_dir = os.path.expanduser(data_path.get("work_dir", "~/agent_data/nextflow_work"))
 

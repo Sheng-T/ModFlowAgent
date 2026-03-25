@@ -13,7 +13,7 @@ def reset_session_state_node(state: AgentState) -> AgentState:
 def classify_intent_route(state: AgentState) -> str:
     user_input = state["input"].lower()
     # 1) Direct keyword routing for deterministic behavior
-    if any(k in user_input for k in ["nextflow", "nf-core", "nfcore", "workflow", "methylong"]):
+    if any(k in user_input for k in ["nextflow", "nf-core", "workflow", "workflow", "methylong"]):
         return "route_to_workflow"
     if any(k in user_input for k in ["dorado", "samtools", "basecall", "sort", "index"]):
         return "route_to_tools"
