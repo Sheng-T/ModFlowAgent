@@ -169,13 +169,13 @@ def crawl_docs(start_url, save_dir, max_depth=5):
 if __name__ == "__main__":
     # https://software-docs.nanoporetech.com/dorado/latest/
 
-    # target_url = "https://www.htslib.org/doc/samtools.html"
-    # target_dir = "/home/buguai/project/agent/static/samtools/html"
+    # target_url = "https://nf-co.re/methylong/2.0.0/"
+    # target_dir = "/home/buguai/project/agent/static/workflow/methylong/html"
     #
     # crawl_docs(target_url, target_dir)
 
     html2md(
-        input_dir="/home/buguai/project/agent/static/samtools/html",
-        output_file="/home/buguai/project/agent/static/samtools/samtools_doc.md",
-        title="Samtools Document"
+        input_dir="/home/buguai/project/agent/static/workflow/methylong/html",
+        output_file="/home/buguai/project/agent/static/workflow/methylong/methylong_doc.md",
+        title="Methylong Document"
     )
