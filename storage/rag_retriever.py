@@ -123,9 +123,19 @@ class EnhancedMDRAG:
             children = child_splitter.split_text(parent.page_content)
 
             for child_content in children:
+                # 文本有效性检查：过滤空白和无意义内容
+                cleaned_content = child_content.strip()
+                
+                # 跳过空文本或过短文本（少于10个字符）
+                if not cleaned_content or len(cleaned_content) < 10:
+                    continue
+                
+                # 跳过只包含特殊符号的文本
+                if all(c in ' \n\t\r|—–-_*#[](){}' for c in cleaned_content):
+                    continue
 
                 new_doc = Document(
-                    page_content=child_content,
+                    page_content=cleaned_content,
                     metadata={
                         **parent.metadata,
                         "parent_context": parent.page_content,
