@@ -11,7 +11,8 @@ EMPTY_STATE = {
     "final_answer": "",
     "next_node": "",
     "selected_workflow": "",
-    "is_workflow": False
+    "is_workflow": False,
+    "user_choice": None  # 用户的路由选择: "answer" 或 "tools"
     # 注意：这里不要放 chat_history，因为我们不想重置它
 }
 
@@ -23,6 +24,9 @@ class AgentState(TypedDict):
     """
     # 用户的原始输入，用于 LLM 决策
     input: str
+
+    # 用户的路由选择：可选值为 "answer"（生物问答）或 "tools"（工具调用），或 None（自动判断）
+    user_choice: str | None
 
     identified_tools: List[str]
 

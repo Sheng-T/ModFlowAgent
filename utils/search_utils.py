@@ -8,6 +8,104 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
+# 多层级导入保证兼容性
+try:
+    from utils.ui_logger import ui_print
+except ImportError:
+    try:
+        # 同目录的相对导入
+        from .ui_logger import ui_print
+    except ImportError:
+        # 降级：没有 ui_logger 就用普通 print
+        ui_print = print
+
+BAD_DOMAINS = [
+    "doc88.com",
+    "slideserve.com",
+    "wenku.baidu.com",
+    "archive.org",
+]
+
+GOOD_DOMAINS = [
+    "baike.baidu.com",
+    "wikipedia.org",
+    "ncbi.nlm.nih.gov",
+    "nature.com",
+    "science.org",
+]
+
+
+# 在 WebSearcher 类里加这个方法
+
+def is_relevant(context: str, query: str) -> bool:
+    """
+    简单关键词相关性判断（轻量级，够用）
+    """
+    if not context:
+        return False
+
+    query = query.lower()
+    context = context.lower()
+
+    # 拆词（简单版本）
+    keywords = [k for k in re.split(r"\W+", query) if len(k) > 1]
+
+    match_count = sum(1 for k in keywords if k in context)
+
+    # 至少命中1个关键词
+    return match_count >= 1
+
+def score_url(url):
+    if any(g in url for g in GOOD_DOMAINS):
+        return 2
+    if any(b in url for b in BAD_DOMAINS):
+        return -1
+    return 0
+
+def search_bing(query):
+    url = f"https://www.bing.com/search?q={query}"
+    # 必须伪装成浏览器，否则 Bing 会拒绝响应
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9"
+    }
+    resp = requests.get(url, headers=headers, timeout=8)
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    results = []
+    # Bing 的搜索结果块类名是 b_algo
+    for li in soup.select("li.b_algo")[:5]:
+        a = li.find("a")
+        if a and "href" in a.attrs:
+            results.append({
+                "title": a.text,
+                "url": a["href"],
+                "snippet": ""
+            })
+    return results
+
+
+def search_baidu(query):
+    url = f"https://www.baidu.com/s?ie=utf-8&wd={query}"
+    # 必须伪装成浏览器，否则 Bing 会拒绝响应
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9"
+    }
+    resp = requests.get(url, headers=headers, timeout=8)
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    results = []
+    # Bing 的搜索结果块类名是 b_algo
+    for li in soup.select("li.b_algo")[:5]:
+        a = li.find("a")
+        if a and "href" in a.attrs:
+            results.append({
+                "title": a.text,
+                "url": a["href"],
+                "snippet": ""
+            })
+    return results
 
 class TemporaryDocManager:
     """临时文档目录管理器"""
@@ -47,14 +145,14 @@ class TemporaryDocManager:
             try:
                 shutil.rmtree(self.session_dir)
             except Exception as e:
-                print(f"[清理] 临时文件清理失败: {e}")
+                ui_print(f"[清理] 临时文件清理失败: {e}")
 
 
 class WebSearcher:
     """Web搜索工具"""
     
     @staticmethod
-    def search_duckduckgo(query: str, num_results: int = 5) -> List[dict]:
+    def search_duckduckgo(query: str, num_results: int = 8) -> List[dict]:
         """
         使用DuckDuckGo搜索（无需API密钥）
         需要: pip install ddgs
@@ -67,13 +165,13 @@ class WebSearcher:
                 try:
                     # 备选：尝试旧库名（兼容性）
                     from duckduckgo_search import DDGS
-                    print("  [警告] 检测到旧库 duckduckgo_search，建议升级: pip install ddgs")
+                    ui_print("  [警告] 检测到旧库 duckduckgo_search，建议升级: pip install ddgs")
                 except ImportError:
-                    print("\n【提示】搜索库未安装，请运行:")
-                    print("  python utils/check_dependencies.py")
-                    print("\n或手动安装:")
-                    print("  pip install ddgs html2text beautifulsoup4")
-                    print("\n不安装搜索库也可使用纯LLM回答。\n")
+                    ui_print("\n【提示】搜索库未安装，请运行:")
+                    ui_print("  python utils/check_dependencies.py")
+                    ui_print("\n或手动安装:")
+                    ui_print("  pip install ddgs html2text beautifulsoup4")
+                    ui_print("\n不安装搜索库也可使用纯LLM回答。\n")
                     return []
             
             results = []
@@ -93,19 +191,20 @@ class WebSearcher:
                             "snippet": result.get("body", "") or result.get("snippet", "")
                         })
                         count += 1
-                
+
+                results.sort(key=lambda x: score_url(x["url"]), reverse=True)
                 if results:
-                    print(f"  ✓ 搜索成功: 找到 {len(results)} 个结果")
+                    ui_print(f"  ✓ 搜索成功: 找到 {len(results)} 个结果")
                 else:
-                    print(f"  ✗ 搜索无结果")
+                    ui_print(f"  ✗ 搜索无结果")
                     
             except Exception as inner_e:
-                print(f"  ✗ 搜索网络异常: {type(inner_e).__name__}")
+                ui_print(f"  ✗ 搜索网络异常: {type(inner_e).__name__}")
             
             return results
             
         except Exception as e:
-            print(f"  ✗ 搜索失败: {type(e).__name__}")
+            ui_print(f"  ✗ 搜索失败: {type(e).__name__}")
             return []
     
     @staticmethod
@@ -116,10 +215,14 @@ class WebSearcher:
         return []  # 当前不支持Google搜索，使用DuckDuckGo
 
 
+# 需要忽略的非HTML资源扩展名
+NON_HTML_EXTENSIONS = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar', '.tar', '.gz', '.bz2', '.7z', '.exe', '.bin')
+
+
 class PageCrawler:
     """页面爬取工具"""
     
-    def __init__(self, timeout: int = 30, max_retries: int = 3):
+    def __init__(self, timeout: int = 20, max_retries: int = 3):
         self.timeout = timeout  # 增加到60秒，避免超时
         self.max_retries = max_retries
         self.last_error = None  # 存储最后的错误信息
@@ -151,6 +254,12 @@ class PageCrawler:
         
         for attempt in range(self.max_retries):
             try:
+                # 过滤非HTML资源，避免下载PDF等二进制文件
+                clean_url = url.split('?', 1)[0].split('#', 1)[0].lower()
+                if clean_url.endswith(NON_HTML_EXTENSIONS):
+                    self.last_error = f"跳过非HTML资源: {clean_url}"
+                    return None
+
                 # 随机延迟 0.5-1.5 秒，模拟人工浏览
                 time.sleep(random.uniform(0.5, 1.5))
                 
@@ -160,7 +269,13 @@ class PageCrawler:
                 response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
                 response.encoding = 'utf-8'
                 response.raise_for_status()
-                
+
+                # 仅保存HTML页面，过滤二进制/非HTML类型（例如 PDF）
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
+                    self.last_error = f"非HTML类型，跳过: {content_type}"
+                    return None
+
                 # 生成本地文件名
                 parsed = urlparse(url)
                 filename = parsed.path.split('/')[-1] or 'index'
@@ -194,17 +309,24 @@ class PageCrawler:
         """
         results = []
         for i, url in enumerate(urls, 1):
-            if url:
-                display_url = url[:60] + "..." if len(url) > 60 else url
-                print(f"  [爬取 {i}/{len(urls)}] {display_url}", end="", flush=True)
-                local_path = self.crawl_page(url, save_dir)
-                if local_path:
-                    print(" ✓")
-                    results.append(local_path)
-                else:
-                    # 显示失败原因
-                    reason = self.last_error or "未知错误"
-                    print(f" ✗ ({reason})")
+            if not url:
+                continue
+
+            clean_url = url.split('?', 1)[0].split('#', 1)[0].lower()
+            if clean_url.endswith(NON_HTML_EXTENSIONS):
+                ui_print(f"  [跳过 非HTML资源 {i}/{len(urls)}] {clean_url}")
+                continue
+
+            display_url = url[:60] + "..." if len(url) > 60 else url
+            ui_print(f"  [爬取 {i}/{len(urls)}] {display_url}", end="", flush=True)
+            local_path = self.crawl_page(url, save_dir)
+            if local_path:
+                ui_print(" ✓")
+                results.append(local_path)
+            else:
+                # 显示失败原因
+                reason = self.last_error or "未知错误"
+                ui_print(f" ✗ ({reason})")
         return results
 
 
@@ -303,7 +425,7 @@ class HTMLToMarkdown:
                 f.write(all_markdown)
             
         except ImportError as e:
-            print(f"[错误] 缺少依赖库: {e}")
+            ui_print(f"[错误] 缺少依赖库: {e}")
 
 
 class SearchAugmentedQA:
@@ -313,65 +435,169 @@ class SearchAugmentedQA:
         self.searcher = WebSearcher()
         self.crawler = PageCrawler()
         self.doc_manager = TemporaryDocManager()
-    
+
+    @staticmethod
+    def search_baike_direct(query: str, num_results: int = 3) -> List[dict]:
+        """
+        直接搜索百度百科和维基百科，不经过DDG
+        """
+        results = []
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+        })
+
+        # 1. 百度百科直接搜索
+        try:
+            url = f"https://baike.baidu.com/item/{requests.utils.quote(query)}"
+            resp = session.get(url, timeout=5)
+
+            if resp.status_code == 200 and "lemma-summary" in resp.text:
+                results.append({
+                    "title": query,
+                    "url": url,
+                    "snippet": "百度百科词条"
+                })
+                ui_print("  ✓ 百度百科直达成功")
+            else:
+                ui_print("  ✗ 百度百科未命中")
+
+        except Exception as e:
+            ui_print(f"  ✗ 百度百科失败: {type(e).__name__}")
+
+        # 2. 中文维基百科
+        try:
+            wiki_url = f"https://zh.wikipedia.org/wiki/{requests.utils.quote(query)}"
+            resp = session.get(wiki_url, timeout=8)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            # 直接命中词条时页面就是词条本身
+            if '/wiki/' in resp.url and 'search' not in resp.url:
+                results.append({
+                    "title": soup.find('h1').get_text() if soup.find('h1') else query,
+                    "url": resp.url,
+                    "snippet": ""
+                })
+                ui_print(f"  ✓ 维基百科: 直接命中词条")
+            else:
+                # 搜索结果页，找第一个词条
+                for a in soup.select('.mw-search-result-heading a'):
+                    full_url = urljoin('https://zh.wikipedia.org', a['href'])
+                    results.append({
+                        "title": a.get_text(strip=True),
+                        "url": full_url,
+                        "snippet": ""
+                    })
+                    break
+                if any('wikipedia' in r['url'] for r in results):
+                    ui_print(f"  ✓ 维基百科: 找到搜索结果")
+        except Exception as e:
+            ui_print(f"  ✗ 维基百科搜索失败: {type(e).__name__}")
+
+        return results
+
     def augment_query(self, query: str, num_searches: int = 5) -> Optional[str]:
-        """通过Web搜索和RAG增强查询，支持自动换批重试"""
-        max_retries = 3
+
         all_local_files = []
-        
-        for batch in range(max_retries):
+        html_dir = self.doc_manager.get_html_dir()
+
+        # ===== 第1步：优先直接搜百科（最可靠）=====
+        ui_print(f"[Search] 优先搜索百科...")
+        search_results = []
+
+        baike_results = self.search_baike_direct(query, num_results=2)
+
+        # 先百科
+        if baike_results:
+            search_results.extend(baike_results)
+
+        if len(search_results) < 2:
+            ui_print("[Search] 使用Baidu补充...")
             try:
-                # 1. 搜索 - 多次尝试用不同关键词
-                if batch == 0:
-                    search_query = query
-                    print(f"[搜索] 正在搜索: '{query}'")
-                else:
-                    # 后续批次添加后缀以获取不同结果
-                    search_query = query
-                    print(f"[搜索] 第 {batch+1} 批搜索...")
-                
-                search_results = self.searcher.search_duckduckgo(search_query, num_searches)
-                
-                if not search_results:
-                    print(f"[搜索] 搜索无结果")
-                    continue
-                
-                # 2. 爬取 URLs
-                urls = [r.get("url") for r in search_results if r.get("url")]
-                print(f"[爬取] 准备爬取 {len(urls)} 个页面:")
-                for url in urls:
-                    print(f"      - {url[:70]}")
-                
-                html_dir = self.doc_manager.get_html_dir()
-                local_files = self.crawler.crawl_pages(urls, html_dir)
-                
-                if local_files:
-                    # 只要有至少1个成功，就停止换批
-                    print(f"[爬取] 成功爬取 {len(local_files)}/{len(urls)} 个页面 ✓")
-                    all_local_files.extend(local_files)
-                    break  # 成功，停止换批
-                else:
-                    print(f"[爬取] 本批全部失败，尝试换批...")
-                    if batch < max_retries - 1:
-                        print(f"[爬取] 将尝试第 {batch+2} 批搜索结果...\n")
-            
+                bing_results = search_baidu(query)
+                search_results.extend(bing_results)
             except Exception as e:
-                print(f"[错误] 批次 {batch+1} 异常: {type(e).__name__}")
-                continue
-        
-        # 检查是否有任何页面爬取成功
+                ui_print(f"[Search] Bing失败: {type(e).__name__}")
+
+        # 不够 → Bing补充
+        if len(search_results) < 2:
+            ui_print("[Search] 使用Bing补充...")
+            try:
+                bing_results = search_bing(query)
+                search_results.extend(bing_results)
+            except Exception as e:
+                ui_print(f"[Search] Bing失败: {type(e).__name__}")
+
+        if search_results:
+            urls_to_crawl = [r['url'] for r in search_results]
+            ui_print(f"[爬取] 准备爬取百科/Bing的 {len(urls_to_crawl)} 个页面")
+            local_files = self.crawler.crawl_pages(urls_to_crawl, html_dir)
+            all_local_files.extend(local_files)
+
+        # ===== 第3步：如果百科结果不够，用DDG补充（严格过滤）=====
+        if len(all_local_files) < 2:
+            ui_print(f"[Search] 百科不够，使用DDG补充...")
+
+            # 严格过滤：只保留可信域名
+            STRICT_WHITELIST = [
+                "baike.baidu.com",
+                "zh.wikipedia.org",
+                "wikipedia.org",
+                "ncbi.nlm.nih.gov",
+                "nature.com",
+                "science.org",
+                "zhihu.com/p",  # 知乎文章（非问答页）
+                "mp.weixin.qq.com",  # 微信公众号
+            ]
+
+            # 严格黑名单（直接丢弃）
+            STRICT_BLACKLIST = [
+                "aiqicha", "wenku", "doc88", "slideserve",
+                "archive.org", "csdn.net", "douban.com",
+                "taobao", "jd.com", "amazon", "shop",
+            ]
+
+            ddg_results = self.searcher.search_duckduckgo(query, num_searches)
+
+            filtered_urls = []
+            for r in ddg_results:
+                url = r.get("url", "")
+                # 黑名单直接跳过
+                if any(bad in url for bad in STRICT_BLACKLIST):
+                    ui_print(f"  [过滤] 黑名单跳过: {url[:50]}")
+                    continue
+                # 优先白名单
+                if any(good in url for good in STRICT_WHITELIST):
+                    filtered_urls.insert(0, url)  # 放前面优先爬
+                else:
+                    filtered_urls.append(url)
+
+            # 最多补充3个
+            filtered_urls = filtered_urls[:3]
+            if filtered_urls:
+                ui_print(f"[读取] DDG补充 {len(filtered_urls)} 个页面")
+                local_files = self.crawler.crawl_pages(filtered_urls, html_dir)
+                all_local_files.extend(local_files)
+
+        # ===== 后续RAG流程不变 =====
         if not all_local_files:
-            print(f"[爬取] 已尝试 {max_retries} 批，仍无页面可用，返回None")
+            ui_print(f"[Search] 所有来源均失败，降级纯 LLM")
             return None
-        
-        # 3. 转换为Markdown
-        print(f"[转换] 将HTML转换为Markdown...")
+
+        ui_print(f"[转换] 将HTML转换为Markdown...")
         md_path = self.doc_manager.get_markdown_path()
         HTMLToMarkdown.convert(html_dir, md_path, title=f"搜索结果: {query}")
-        
-        # 4. RAG检索
-        print(f"[RAG] 进行智能上下文检索...")
+
+        ui_print(f"[RAG] 进行普適上下文检索...")
         augmented_context = self._rag_retrieve(md_path, query)
+
+        if not augmented_context or len(augmented_context.strip()) < 300:
+            ui_print(f"[RAG] 结果过短，降级为纯LLM（长度 {len(augmented_context or '')})）")
+            return None
+        if not is_relevant(augmented_context, query):
+            ui_print("[RAG] 内容与 query 不相关，丢弃")
+            return None
+
         return augmented_context
     
     def _rag_retrieve(self, md_path: str, query: str) -> str:
@@ -383,7 +609,7 @@ class SearchAugmentedQA:
             
             rag = EnhancedMDRAG(doc_path=md_path)
             context = rag.search(query)
-            print(f"[RAG] 检索成功，获得 {len(context)} 字符的上文")
+            ui_print(f"[RAG] 检索成功，获得 {len(context)} 字符的上文")
             return context
         
         except Exception as e:
