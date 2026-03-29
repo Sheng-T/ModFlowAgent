@@ -1,15 +1,14 @@
 import streamlit as st
 import sys
 import os
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agent_graph.graph import create_agent_graph
 
-# 多层级导入保证兼容性
 try:
     from utils.ui_logger import flush_logs, clear_logs
 except ImportError:
-    # 降级：没有 ui_logger 就空操作
     def flush_logs():
         return []
     def clear_logs():
@@ -34,7 +33,11 @@ with st.sidebar:
     st.divider()
     st.markdown("**所有会话**")
     for session_id, msgs in st.session_state.sessions.items():
-        session_label = f"📌 {session_id}" if session_id == st.session_state.current_session_id else f"  {session_id}"
+        session_label = (
+            f"📌 {session_id}"
+            if session_id == st.session_state.current_session_id
+            else f"  {session_id}"
+        )
         if st.button(session_label, use_container_width=True, key=f"btn_{session_id}"):
             st.session_state.current_session_id = session_id
             st.rerun()
@@ -46,38 +49,52 @@ st.markdown("---")
 
 current_messages = st.session_state.sessions.get(st.session_state.current_session_id, [])
 
+
 @st.cache_resource
 def load_agent():
     return create_agent_graph("BioAgent")
 
+
 with st.spinner("正在加载模型..."):
     app = load_agent()
 
-# 显示聊天历史
+# ===== 显示历史消息 =====
 for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        if "thinking" in message and message["thinking"]:
-            with st.expander("🧠 查看思考过程"):
-                st.markdown(message["thinking"])
+        thinking = message.get("thinking", "")
+        if thinking and thinking.strip():
+            with st.expander("🧠 查看思考过程", expanded=False):
+                st.markdown(thinking)
 
-# ===== 初始化状态 =====
-if "pending_prompt" not in st.session_state:
-    st.session_state.pending_prompt = None
-if "ui_mode" not in st.session_state:
-    st.session_state.ui_mode = None
-if "waiting_for_mode" not in st.session_state:
-    st.session_state.waiting_for_mode = False
+# ===== 初始化所有 UI 状态 =====
+defaults = {
+    "pending_prompt": None,
+    "ui_mode": None,
+    "waiting_for_mode": False,
+    "thread_id": None,
+    "waiting_review": False,
+    "pending_commands": [],
+    "resume_decision": None,
+    "review_feedback": "",
+    "thinking_process": [],
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # ===== 用户输入框 =====
 if prompt := st.chat_input("请输入你的分析指令..."):
     st.session_state.pending_prompt = prompt
     st.session_state.ui_mode = None
     st.session_state.waiting_for_mode = True
+    st.session_state.thread_id = None
+    st.session_state.waiting_review = False
+    st.session_state.resume_decision = None
+    st.session_state.thinking_process = []
     st.rerun()
 
-# ===== 用 st.empty() 包裹按钮区，点击后可主动清除 =====
-# 关键：button_slot 在每次渲染都在同一位置，可以被 .empty() 清空
+# ===== 模式选择 =====
 button_slot = st.empty()
 
 if st.session_state.waiting_for_mode and st.session_state.pending_prompt:
@@ -94,96 +111,224 @@ if st.session_state.waiting_for_mode and st.session_state.pending_prompt:
             clicked_mode = "auto"
 
         if clicked_mode:
-            # 立刻清空按钮区域，再更新状态
             button_slot.empty()
             st.session_state.ui_mode = clicked_mode
             st.session_state.waiting_for_mode = False
-            # 不 rerun，直接往下走执行Agent
         else:
-            st.stop()  # 没点按钮就停在这里等待
+            st.stop()
 
-# ===== 有了prompt和模式，执行Agent =====
-if st.session_state.pending_prompt and st.session_state.ui_mode:
+
+# ===== 工具函数 =====
+def render_log(log: str):
+    """根据内容渲染不同样式的日志行。"""
+    if "✓" in log or "成功" in log:
+        st.success(log)
+    elif "✗" in log or "失败" in log or "错误" in log:
+        st.error(log)
+    elif "警告" in log or "Warning" in log:
+        st.warning(log)
+    else:
+        st.text(log)
+
+
+def stream_events(event_iter, thinking_process: list) -> str:
+    """
+    消费 app.stream() 生成器，把节点名和日志追加渲染到当前容器（status 内）。
+    返回从事件中提取到的 full_response。
+    """
+    full_response = ""
+    for event in event_iter:
+        node_name = list(event.keys())[0]
+        new_logs = flush_logs()
+
+        thinking_process.append(f"📍 **{node_name}**")
+        st.markdown(f"📍 `{node_name}`")
+        for log in new_logs:
+            render_log(log)
+
+        if isinstance(event.get(node_name), dict):
+            for key, val in event[node_name].items():
+                if key not in ["final_answer", "answer", "response", "output", "result"]:
+                    if isinstance(val, (str, int, float)) and len(str(val)) < 200:
+                        thinking_process.append(f"  - {key}: {val}")
+
+        # 顺带提取最终答案（不一定有）
+        for node_key, node_data in event.items():
+            if isinstance(node_data, dict):
+                for field in ["final_answer", "answer", "response", "output", "result"]:
+                    if node_data.get(field):
+                        full_response = node_data[field]
+
+    return full_response
+
+
+def render_final(full_response: str, thinking_process: list):
+    """
+    在 status 外、chat_message 内渲染最终答案 + 思考过程折叠框。
+    调用前请确保已经在 st.chat_message 上下文里。
+    """
+    if thinking_process:
+        with st.expander("🧠 查看思考过程", expanded=False):
+            st.markdown("\n".join(thinking_process))
+    st.markdown(full_response if full_response else "✅ 任务处理完成")
+
+
+def get_final_from_state(current_state) -> str:
+    """从 checkpointer state 里取最终答案，比从 event 流里取更可靠。"""
+    for field in ["final_answer", "answer", "response", "output", "result"]:
+        val = current_state.values.get(field)
+        if val:
+            return val
+    return ""
+
+
+# ===== 第一段执行：运行到 executor 前暂停 =====
+if st.session_state.pending_prompt and st.session_state.ui_mode and not st.session_state.waiting_review:
     prompt = st.session_state.pending_prompt
     ui_mode = st.session_state.ui_mode
 
-    # 清空状态防止重复执行
+    st.session_state.thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": st.session_state.thread_id}}
+
+    # 清空，防止重复执行
     st.session_state.pending_prompt = None
     st.session_state.ui_mode = None
     st.session_state.waiting_for_mode = False
 
-    # 加入聊天记录并显示用户消息
     current_messages.append({"role": "user", "content": prompt})
     st.session_state.sessions[st.session_state.current_session_id] = current_messages
+
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.status("🔄 Agent 执行中...", expanded=True) as status:
-            full_response = ""
-            thinking_process = []
-            execution_steps = 0
-            log_display = st.empty()  # 日志显示区域
-            all_logs = []
+        thinking_process = []
+        clear_logs()
 
-            # 清空之前的日志队列
-            clear_logs()
+        # status 默认折叠，只放执行日志
+        with st.status("🔄 Agent 执行中...", expanded=False) as status:
+            full_response = stream_events(
+                app.stream({"input": prompt, "user_choice": ui_mode}, config=config),
+                thinking_process,
+            )
 
-            for event in app.stream({"input": prompt, "user_choice": ui_mode}):
-                execution_steps += 1
-                node_name = list(event.keys())[0]
+        current_state = app.get_state(config)
+        next_nodes = current_state.next
 
-                # 读取本轮产生的所有日志
-                new_logs = flush_logs()
-                all_logs.extend(new_logs)
+        if "executor" in next_nodes:
+            # interrupt_before 触发，等待用户确认
+            st.session_state.pending_commands = current_state.values.get("pending_commands", [])
+            st.session_state.waiting_review = True
+            st.session_state.thinking_process = thinking_process
+            status.update(label="⏸️ 等待你的确认", state="running")
+        else:
+            # 正常结束
+            status.update(label="✅ 执行完成", state="complete")
+            if not full_response:
+                full_response = get_final_from_state(current_state)
 
-                # 步骤信息
-                thinking_process.append(f"📍 **{node_name}**")
+            # ✅ final_answer 在 status 外面渲染，不会混在日志里
+            render_final(full_response, thinking_process)
 
-                # 实时更新日志显示
-                with log_display.container():
-                    st.markdown(f"**[步骤 {execution_steps}]** 📍 `{node_name}`")
-                    # 显示本轮新日志
-                    for log in new_logs:
-                        if "✓" in log or "成功" in log:
-                            st.success(log)
-                        elif "✗" in log or "失败" in log or "错误" in log:
-                            st.error(log)
-                        elif "警告" in log or "Warning" in log:
-                            st.warning(log)
-                        else:
-                            st.text(log)
+            current_messages.append({
+                "role": "assistant",
+                "content": full_response if full_response else "✅ 任务处理完成",
+                "thinking": "\n".join(thinking_process),
+            })
+            st.session_state.sessions[st.session_state.current_session_id] = current_messages
 
-                # 记录节点信息到思考过程
-                if isinstance(event.get(node_name), dict):
-                    for key, val in event[node_name].items():
-                        if key not in ["final_answer", "answer", "response", "output", "result"]:
-                            if isinstance(val, (str, int, float)) and len(str(val)) < 200:
-                                thinking_process.append(f"  - {key}: {val}")
+    if st.session_state.waiting_review:
+        st.rerun()
 
-                # 提取最终答案
-                for node_key, node_data in event.items():
-                    if isinstance(node_data, dict):
-                        for answer_field in ["final_answer", "answer", "response", "output", "result"]:
-                            if answer_field in node_data and node_data[answer_field]:
-                                full_response = node_data[answer_field]
-                                break
+# ===== 审查确认框 =====
+if st.session_state.waiting_review:
+    with st.chat_message("assistant"):
+        st.markdown("### 📋 待执行命令，请确认")
 
-            status.update(label="✅ Agent 执行完成", state="complete")
+        if st.session_state.pending_commands:
+            for i, cmd in enumerate(st.session_state.pending_commands, 1):
+                st.markdown(f"**步骤 {i}**")
+                st.code(cmd, language="bash")
+        else:
+            st.info("（命令列表为空，请检查参数生成是否正常）")
 
-        if thinking_process:
-            with st.expander("🧠 查看思考过程", expanded=False):
-                st.markdown("\n".join(thinking_process))
+        st.markdown("---")
+        feedback = st.text_input("🔧 修改意见（提交修改时填写）", key="review_feedback")
 
-        st.divider()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("✅ 确认执行", use_container_width=True):
+                st.session_state.waiting_review = False
+                st.session_state.resume_decision = "execute"
+                st.rerun()
+        with col2:
+            if st.button("❌ 取消任务", use_container_width=True):
+                st.session_state.waiting_review = False
+                st.session_state.resume_decision = "cancel"
+                st.rerun()
+        with col3:
+            if st.button("💬 提交修改", use_container_width=True):
+                current_feedback = st.session_state.review_feedback.strip()
+                if current_feedback:
+                    st.session_state.waiting_review = False
+                    # st.session_state.review_feedback = feedback
+                    st.session_state.resume_decision = "modify"
+                    st.rerun()
+                else:
+                    st.warning("请先填写修改意见")
+
+# ===== 第二段执行：从断点恢复 =====
+if st.session_state.resume_decision and st.session_state.thread_id:
+    decision = st.session_state.resume_decision
+    st.session_state.resume_decision = None
+    config = {"configurable": {"thread_id": st.session_state.thread_id}}
+
+    if decision == "cancel":
+        app.update_state(config, {"next_node": "end_node"}, as_node="human_reviewer")
+    elif decision == "modify":
+        app.update_state(
+            config,
+            {
+                "next_node": "param_generator",
+                "user_feedback": st.session_state.review_feedback,
+            },
+            as_node="human_reviewer",
+        )
+        st.session_state.review_feedback = ""
+    # execute：不需要更新 state，LangGraph 从断点直接继续到 executor
+
+    with st.chat_message("assistant"):
+        thinking_process = st.session_state.thinking_process or []
+        clear_logs()
+
+        with st.status("🔄 继续执行...", expanded=False) as status:
+            full_response = stream_events(
+                app.stream(None, config=config),
+                thinking_process,
+            )
+
+        current_state = app.get_state(config)
+
+        # 修改后可能再次暂停在 executor 前
+        if "executor" in current_state.next:
+            st.session_state.pending_commands = current_state.values.get("pending_commands", [])
+            st.session_state.waiting_review = True
+            st.session_state.thinking_process = thinking_process
+            status.update(label="⏸️ 等待你的确认", state="running")
+            st.rerun()
+
+        status.update(label="✅ 执行完成", state="complete")
+
         if not full_response:
-            full_response = "✅ 任务处理完成"
-        st.markdown("### 📌 最终答案")
-        st.markdown(full_response)
+            full_response = get_final_from_state(current_state)
+
+        # ✅ final_answer 在 status 外面渲染
+        render_final(full_response, thinking_process)
 
         current_messages.append({
             "role": "assistant",
-            "content": full_response,
-            "thinking": "\n".join(thinking_process) if thinking_process else ""
+            "content": full_response if full_response else "✅ 任务处理完成",
+            "thinking": "\n".join(thinking_process),
         })
         st.session_state.sessions[st.session_state.current_session_id] = current_messages
+        st.session_state.thinking_process = []

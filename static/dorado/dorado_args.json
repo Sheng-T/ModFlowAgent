@@ -89,5 +89,17 @@
       "list": "list the available models for download",
       "model": "the model to download [nargs=0..1] [default: \"all\"]"
     }
+  },
+  {
+  "name": "dorado",
+  "description": "Directly call the dorado main body for viewing versions, help, etc., without requiring sub-commands.",
+  "usage": "dorado [-v] [--help]",
+  "args": {
+    "pos_args": [],
+    "kwargs": {
+      "v": "Display version information",
+      "help": "Display help"
+    }
   }
+}
 ]

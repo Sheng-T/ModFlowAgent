@@ -11,12 +11,21 @@ from configs import TOOL_DESCIPTION, TOOLS_DOC
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 
+# 多层级导入保证兼容性
+try:
+    from utils.ui_logger import ui_print
+except ImportError:
+    try:
+        from ....utils.ui_logger import ui_print
+    except ImportError:
+        ui_print = print
+
 def select_tools_node(state: AgentState) -> AgentState:
     user_input = state["input"]
     user_feedback = state.get("user_feedback", "")
     history_str = format_history(state.get("chat_history", []))
     tool_sequence = state.get("tool_sequence", [])
-    print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
+    ui_print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
     tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
     prompt = ChatPromptTemplate.from_template(build_tools_selector_prompt())
     selector_llm = get_llm_instance(is_planner=True)
@@ -53,12 +62,12 @@ def select_tools_node(state: AgentState) -> AgentState:
             and state["identified_tools"][0] == "workflow"
         )
 
-        print(f"[Tools Selector] 已确定工具: {state['identified_tools']}")
-        print(f"[Tools Selector] 是否为 workflow 工具: {state['is_workflow']}")
-        print(f"[Tools Selector] 理由: {response.get('reason', '无')}")
+        ui_print(f"[Tools Selector] 已确定工具: {state['identified_tools']}")
+        ui_print(f"[Tools Selector] 是否为 workflow 工具: {state['is_workflow']}")
+        ui_print(f"[Tools Selector] 理由: {response.get('reason', '无')}")
 
     except Exception as e:
-        print(f"[Tools Selector Error] 解析失败，使用默认兜底: {e}")
+        ui_print(f"[Tools Selector Error] 解析失败，使用默认兜底: {e}")
         state["identified_tools"] = []
         state["is_workflow"] = False
 

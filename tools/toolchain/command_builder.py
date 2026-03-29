@@ -28,7 +28,12 @@ def build_shell_args(args_dict):
             continue
 
         # 跳过空值
-        if v in [None, ""]:
+        if v is None:
+            continue
+
+        if v == "":
+            if len(k) == 1:
+                flag_parts.append(k_)  # 输出 -v
             continue
 
         # list → 多参数展开（关键修复）

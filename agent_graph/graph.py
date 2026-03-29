@@ -1,3 +1,4 @@
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from agent_graph.nodes import (
     answer_general_question_node,
@@ -98,32 +99,38 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
 
     workflow.add_conditional_edges(
         "human_reviewer",
-        lambda state: state.get("next_node", "param_generator"),  # 默认回退到参数生成
+        lambda state: state.get("next_node") or "param_generator",
         {
             "tools_selector": "tools_selector",
             "executor": "executor",
             "rag": "rag",
             "param_generator": "param_generator",
-            "end_node": "end_node"
+            "end_node": "end_node",
         }
     )
 
     workflow.add_conditional_edges(
         "executor",
-        lambda state: state.get("next_node", "param_generator"),  # 默认回退到参数生成
+        lambda state: state.get("next_node") or "summarizer",
         {
             "param_generator": "param_generator",
+            # "nfcore_param_generator": "nfcore_param_generator",  # 删掉这行
             "summarizer": "summarizer",
             "tools_selector": "tools_selector",
         }
     )
+
     workflow.add_edge("llm_answer", END)
     workflow.add_edge("summarizer", END)      # 总结完，流程结束
     workflow.add_edge("irrelevant", END)      # 不相关回复，流程结束
     workflow.add_edge("end_node", END)      # 流程结束
 
     # 5. 编译图
-    app = workflow.compile()
+    checkpointer = MemorySaver()
+    app = workflow.compile(
+        checkpointer=checkpointer,
+        interrupt_before=["executor"]  # 到 executor 前自动暂停
+    )
     app.name = agent_name
     if is_save_graph_image:
         save_graph_image(app, graph_image_filename)

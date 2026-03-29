@@ -6,6 +6,15 @@ from tools.registry import TOOL_REGISTRY, COMMAND_REGISTRY
 from tools.toolchain.command_builder import build_shell_args
 from utils.nodes_utils import build_command_for_call
 
+# 多层级导入保证兼容性
+try:
+    from utils.ui_logger import ui_print
+except ImportError:
+    try:
+        from ....utils.ui_logger import ui_print
+    except ImportError:
+        ui_print = print
+
 
 def execute_commands_node(state: AgentState) -> dict:
     wrapper = EnvWrapper()
@@ -22,6 +31,7 @@ def execute_commands_node(state: AgentState) -> dict:
 
         tool_name_array = tool_name.split("_")
         base_name = tool_name_array[0]
+        has_subcommand = len(tool_name_array) > 1
 
         if base_name not in TOOL_LIST:
             history.append({"role": "assistant", "content": f"工具：{base_name}不在系统中，请重新规划选择。"})
@@ -35,23 +45,24 @@ def execute_commands_node(state: AgentState) -> dict:
             history.append({"role": "assistant", "content": f"系统拦截：{error_msg}，请重新配置参数。"})
             break
 
-        print(f"\n[Executor] 正在执行: {raw_cmd}")
+        ui_print(f"\n[Executor] 正在执行: {raw_cmd}")
         final_cmd = wrapper.wrap_command(base_name, raw_cmd)
-        print(f"\n[Executor] 真实执行: {final_cmd}")
+        ui_print(f"\n[Executor] 真实执行: {final_cmd}")
         resp = executor.run(final_cmd)
 
         if resp["status"] == "success":
             output = resp.get("output", "")
             success_log = output[-200:]
             success_msg = f"{tool_name} 成功\n输出摘要: {success_log}"
-            print(f"\n[Executor] {success_msg}")
+            ui_print(f"\n[Executor] {success_msg}")
             tool_output.append(output)
             history.append({"role": "assistant", "content": f"{success_msg} 输出路径已记录。"})
         else:
-            next_node = "nfcore_param_generator" if base_name == "nextflow" else "param_generator"
+            # next_node = "nfcore_param_generator" if base_name == "workflow" else "param_generator"
+            next_node = "param_generator" if has_subcommand else "summarizer"
             error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
             fail_msg = f"{tool_name} 执行失败！报错信息:\n{error_log}"
-            print(f"\n[Executor] 执行失败: {fail_msg}")
+            ui_print(f"\n[Executor] 执行失败: {fail_msg}")
             history.append(
                 {
                     "role": "assistant",

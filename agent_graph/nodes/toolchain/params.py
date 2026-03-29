@@ -9,6 +9,15 @@ from configs import TOOL_LIST, TOOL_ARGS, WORKFLOW_PIPELINE_ARGS
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 
+# 多层级导入保证兼容性
+try:
+    from utils.ui_logger import ui_print
+except ImportError:
+    try:
+        from ....utils.ui_logger import ui_print
+    except ImportError:
+        ui_print = print
+
 def generate_tool_params_node(state: AgentState) -> AgentState:
     param_llm = get_llm_instance(is_planner=True)
     user_input = state["input"]

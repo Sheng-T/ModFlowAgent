@@ -105,14 +105,43 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
 def summarize_execution_result_node(state: AgentState) -> AgentState:
     tool_calls = state.get("tool_calls", [])
     tool_output = state.get("tool_output", [])
+
     if not tool_calls:
         return state
 
     ui_print("\n[Summarizer] 正在总结最终答案...")
-    output = "\n".join(tool_output)
-    summary = f"根据您的需求，已成功执行操作。工具输出结果：{output}. 请查看文件。"
-    state["final_answer"] = summary
-    ui_print(f'\n[LLM Answer] {state["final_answer"]}')
+
+    # 1. 构造 MD 标题和简介
+    summary_lines = [
+        "### ✅ 任务执行总结",
+        f"根据您的需求，已成功调用了 {len(tool_calls)} 个工具进行处理。",
+        ""
+    ]
+
+    # 2. 构造执行详情列表 (可选，增强可读性)
+    summary_lines.append("**执行步骤：**")
+    for i, call in enumerate(tool_calls):
+        tool_name = call.get("function", {}).get("name", "未知工具")
+        summary_lines.append(f"{i + 1}. 运行工具: `{tool_name}`")
+
+    summary_lines.append("\n---")  # 分割线
+
+    # 3. 构造核心输出（使用代码块包裹原始输出）
+    summary_lines.append("**💻 工具原始输出结果：**")
+
+    if tool_output:
+        combined_output = "\n".join(tool_output).strip()
+        # 使用三个反引号包裹，并标注为 bash 或 plaintext
+        summary_lines.append(f"```bash\n{combined_output}\n```")
+    else:
+        summary_lines.append("> (无标准输出内容)")
+
+    # 4. 合并为最终字符串
+    final_md = "\n".join(summary_lines)
+
+    state["final_answer"] = final_md
+    ui_print(f'\n[LLM Answer] (Markdown 已生成)')
+
     return state
 
 def handle_irrelevant_request_node(state: AgentState) -> AgentState:

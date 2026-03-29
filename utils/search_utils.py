@@ -64,44 +64,65 @@ def score_url(url):
 
 def search_bing(query):
     url = f"https://www.bing.com/search?q={query}"
-    # 必须伪装成浏览器，否则 Bing 会拒绝响应
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "zh-CN,zh;q=0.9"
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
     }
     resp = requests.get(url, headers=headers, timeout=8)
     soup = BeautifulSoup(resp.text, "html.parser")
 
     results = []
-    # Bing 的搜索结果块类名是 b_algo
-    for li in soup.select("li.b_algo")[:5]:
+    domain_count = {}  # 记录每个域名出现次数
+
+    for li in soup.select("li.b_algo"):
+        if len(results) >= 5:
+            break
         a = li.find("a")
-        if a and "href" in a.attrs:
-            results.append({
-                "title": a.text,
-                "url": a["href"],
-                "snippet": ""
-            })
+        if not a or "href" not in a.attrs:
+            continue
+        href = a["href"]
+        if any(b in href for b in BAD_DOMAINS):
+            continue
+
+        # 提取主域名
+        try:
+            domain = urlparse(href).netloc  # 例如 "www.zhihu.com"
+        except Exception:
+            domain = href
+
+        # 每个域名最多保留 2 个
+        if domain_count.get(domain, 0) >= 2:
+            continue
+
+        domain_count[domain] = domain_count.get(domain, 0) + 1
+        results.append({
+            "title": a.get_text(strip=True),
+            "url": href,
+            "snippet": ""
+        })
+
     return results
 
 
 def search_baidu(query):
     url = f"https://www.baidu.com/s?ie=utf-8&wd={query}"
-    # 必须伪装成浏览器，否则 Bing 会拒绝响应
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
         "Accept-Language": "zh-CN,zh;q=0.9"
     }
     resp = requests.get(url, headers=headers, timeout=8)
     soup = BeautifulSoup(resp.text, "html.parser")
 
     results = []
-    # Bing 的搜索结果块类名是 b_algo
-    for li in soup.select("li.b_algo")[:5]:
-        a = li.find("a")
+    # 百度的结果块是 div.result，不是 li.b_algo
+    for div in soup.select("div.result")[:5]:
+        a = div.find("a")
         if a and "href" in a.attrs:
             results.append({
-                "title": a.text,
+                "title": a.get_text(strip=True),
                 "url": a["href"],
                 "snippet": ""
             })

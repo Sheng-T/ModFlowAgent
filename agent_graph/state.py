@@ -12,8 +12,8 @@ EMPTY_STATE = {
     "next_node": "",
     "selected_workflow": "",
     "is_workflow": False,
-    "user_choice": None  # 用户的路由选择: "answer" 或 "tools"
-    # 注意：这里不要放 chat_history，因为我们不想重置它
+    "user_choice": None,
+    "pending_commands": [],
 }
 
 
@@ -50,6 +50,8 @@ class AgentState(TypedDict):
 
     next_node: str
 
-    is_workflow: bool # 判断工具还是工作流
+    is_workflow: bool  # 判断工具还是工作流
 
-    selected_workflow: str # workflow select
+    selected_workflow: str  # workflow select
+
+    pending_commands: List[str]

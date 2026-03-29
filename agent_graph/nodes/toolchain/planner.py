@@ -12,11 +12,20 @@ from storage.rag_retriever import EnhancedMDRAG
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 
+# 多层级导入保证兼容性
+try:
+    from utils.ui_logger import ui_print
+except ImportError:
+    try:
+        from ....utils.ui_logger import ui_print
+    except ImportError:
+        ui_print = print
+
 
 def retrieve_tool_docs_node(state: AgentState) -> AgentState:
     identified_tools = state.get("identified_tools", [])
     if not identified_tools:
-        print(f"\n[RAG] 未识别到工具，跳过检索流程。")
+        ui_print(f"\n[RAG] 未识别到工具，跳过检索流程。")
         state["rag_suggestion"] = {}
         return state
 

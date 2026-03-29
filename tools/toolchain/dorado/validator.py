@@ -12,6 +12,10 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
     pos_args = args_dict.get("pos_args", [])
     data_dir = data_path['base_data_dir']
 
+    if not subcommand:
+        arg_str = build_shell_args(args_dict)
+        return f"dorado {arg_str}".strip()
+
     if subcommand == "basecaller":
         model_dir = data_path['dorado_models']
 
