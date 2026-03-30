@@ -78,7 +78,7 @@ def search_bing(query):
     domain_count = {}  # 记录每个域名出现次数
 
     for li in soup.select("li.b_algo"):
-        if len(results) >= 5:
+        if len(results) >= 10:
             break
         a = li.find("a")
         if not a or "href" not in a.attrs:

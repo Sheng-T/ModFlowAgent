@@ -3,7 +3,7 @@ import os
 from configs.path_config import PROJECT_ROOT
 from utils.config_utils import load_tool_config
 
-TOOL_LIST = ['dorado', 'samtools', 'nextflow']
+TOOL_LIST = ['dorado', 'samtools', 'workflow']
 
 TOOL_DESCIPTION = [
     {
@@ -36,6 +36,9 @@ TOOL_ARGS = {
 TOOLS_IMAGE = {
     "dorado": "dorado_latest.sif",
     "samtools": "samtools_1.16.1.sif",
-    "workflow": "nextflow_25_10_4.sif",
+    # "workflow": "nextflow_25_10_4.sif",
 }
+
+
+
 

@@ -1,4 +1,4 @@
-DEFAULT_NFCORE_ARGS = {
+DEFAULT_WORKFLOW_ARGS = {
     "profile": "singularity",
     "extra_args": "-resume -with-report -with-trace -with-timeline",
 }
@@ -19,4 +19,7 @@ SUPPORTED_PIPELINES = [
 
 def pipeline_exists(name: str) -> bool:
     return str(name).lower() in SUPPORTED_PIPELINES
+
+
+
 

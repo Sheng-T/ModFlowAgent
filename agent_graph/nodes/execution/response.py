@@ -121,7 +121,8 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     # 2. 构造执行详情列表 (可选，增强可读性)
     summary_lines.append("**执行步骤：**")
     for i, call in enumerate(tool_calls):
-        tool_name = call.get("function", {}).get("name", "未知工具")
+        tool_name = call["tool_name"]
+        # tool_name = call.get("function", {}).get("name", "未知工具")
         summary_lines.append(f"{i + 1}. 运行工具: `{tool_name}`")
 
     summary_lines.append("\n---")  # 分割线

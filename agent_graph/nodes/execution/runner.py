@@ -46,7 +46,7 @@ def execute_commands_node(state: AgentState) -> dict:
             break
 
         ui_print(f"\n[Executor] 正在执行: {raw_cmd}")
-        final_cmd = wrapper.wrap_command(base_name, raw_cmd)
+        final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=state.get("is_workflow", False))
         ui_print(f"\n[Executor] 真实执行: {final_cmd}")
         resp = executor.run(final_cmd)
 
