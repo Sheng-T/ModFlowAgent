@@ -44,16 +44,9 @@ def classify_intent_route(state: AgentState) -> str:
         f"用户输入: {user_input}"
     )
 
-    clean_intent = (
-        classification.strip()
-        .lower()
-        .replace("`", "")
-        .replace("json", "")
-        .replace("{", "")
-        .replace("}", "")
-        .replace('"', "")
-        .strip()
-    )
+    import re
+    raw = classification if isinstance(classification, str) else classification.content
+    clean_intent = re.sub(r"[^a-z]", "", raw.strip().lower())
 
     mapping = {
         "tools": "tools",

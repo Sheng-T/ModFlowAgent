@@ -1,0 +1,10 @@
+# Minimal runtime/development dependencies (adjust versions as needed)
+requests
+beautifulsoup4
+ddgs
+langchain-core
+langchain
+langgraph
+langgraph-checkpoint-sqlite
+pydantic
+torch

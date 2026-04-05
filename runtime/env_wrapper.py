@@ -12,7 +12,7 @@ class EnvWrapper:
 
     def wrap_command(self, tool_name: str, raw_cmd: str, is_workflow: bool = False) -> str:
         if is_workflow:
-            pass
+            return self._wrap_workflow_command(raw_cmd)
         return self._wrap_tool_chain_command(tool_name, raw_cmd)
 
     def _wrap_tool_chain_command(self, tool_name: str, raw_cmd: str):

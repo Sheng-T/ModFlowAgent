@@ -6,14 +6,8 @@ from tools.toolchain.command_builder import build_shell_args
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import build_command_for_call
 
-# 多层级导入保证兼容性
-try:
-    from utils.ui_logger import ui_print
-except ImportError:
-    try:
-        from ....utils.ui_logger import ui_print
-    except ImportError:
-        ui_print = print
+# 统一使用顶级 `utils.ui_logger` 导出
+from utils.ui_logger import ui_print
 
 def review_execution_plan_node(state: AgentState) -> dict:
     tool_calls = state.get("tool_calls", [])

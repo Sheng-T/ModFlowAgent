@@ -1,10 +1,17 @@
-import streamlit as st
 import sys
 import os
-import uuid
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import streamlit as st
 from agent_graph.graph import create_agent_graph
+from storage.session_store import get_session_store
+from storage.file_manager import get_file_manager, fmt_size, file_hash
+from utils.i18n import _
+from configs.i18n_config import SUPPORTED_LANGS
+from configs.auth_config import DEFAULT_USERS
+from configs.path_config import USER_QUOTA_BYTES
 
 try:
     from utils.ui_logger import flush_logs, clear_logs
@@ -14,40 +21,194 @@ except ImportError:
     def clear_logs():
         pass
 
-# streamlit run /home/buguai/project/agent/ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
+# streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
 st.set_page_config(page_title="Bio-Agent", page_icon="🧬", layout="wide")
 
-# ===== 侧边栏：会话管理 =====
-if "current_session_id" not in st.session_state:
-    st.session_state.current_session_id = "session_1"
-if "sessions" not in st.session_state:
-    st.session_state.sessions = {"session_1": []}
+store = get_session_store()
+# 应用启动时写入默认用户（已存在的用户跳过，不会覆盖密码）
+if "default_users_seeded" not in st.session_state:
+    print("[SessionStore] 正在初始化默认用户（仅执行一次）...")
+    store.seed_default_users(DEFAULT_USERS)
+    st.session_state.default_users_seeded = True
+    print("[SessionStore] 默认用户初始化完成")
 
-with st.sidebar:
-    st.title("💬 会话")
-    if st.button("➕ 新建会话", use_container_width=True):
-        session_id = f"session_{len(st.session_state.sessions) + 1}"
-        st.session_state.sessions[session_id] = []
-        st.session_state.current_session_id = session_id
-        st.rerun()
-    st.divider()
-    st.markdown("**所有会话**")
-    for session_id, msgs in st.session_state.sessions.items():
-        session_label = (
-            f"📌 {session_id}"
-            if session_id == st.session_state.current_session_id
-            else f"  {session_id}"
+# ─── 登录 ──────────────────────────────────────────────────────────────────────
+if "user_id" not in st.session_state or not st.session_state.user_id:
+    if "lang" not in st.session_state:
+        from configs.i18n_config import DEFAULT_LANG
+        st.session_state.lang = DEFAULT_LANG
+
+    st.title("🧬 Bio-Agent")
+    st.markdown(f"### {_('请输入用户名以继续')}")
+    with st.form("login_form"):
+        uid  = st.text_input(_("用户名"), placeholder=_("例如：alice"))
+        pwd  = st.text_input("密码", type="password")
+        submitted = st.form_submit_button(_("登录"), use_container_width=True)
+        if submitted:
+            if not uid.strip() or not pwd:
+                st.error("请填写用户名和密码。")
+            elif not store.verify_login(uid.strip(), pwd):
+                st.error("用户名或密码错误。")
+            else:
+                st.session_state.user_id = uid.strip()
+                st.session_state.user_uid = store.get_user_uid(uid.strip())
+                st.session_state.lang = store.get_user_lang(uid.strip())
+                st.session_state.current_session_id = None
+                st.rerun()
+    st.stop()
+
+user_id  = st.session_state.user_id
+user_uid = st.session_state.get("user_uid") or store.get_user_uid(user_id)
+fm = get_file_manager()
+
+# ─── 会话切换时重置执行状态 ───────────────────────────────────────────────────
+def _switch_session(session_id: str):
+    session = store.get_session(session_id)
+    if not session:
+        return
+    st.session_state.current_session_id = session_id
+    st.session_state.thread_id = session["thread_id"]
+    for key in ("pending_prompt", "ui_mode", "waiting_for_mode",
+                "waiting_review", "pending_commands", "resume_decision",
+                "review_feedback", "thinking_process"):
+        st.session_state.pop(key, None)
+
+# 首次进入或切换用户后：自动选中最新会话（没有则新建）
+if "current_session_id" not in st.session_state or not st.session_state.current_session_id:
+    sessions = store.get_user_sessions(user_id)
+    if sessions:
+        _switch_session(sessions[0]["session_id"])
+    else:
+        new_sess = store.create_session(
+            user_id,
+            name=f"{_('会话')} {datetime.now().strftime('%m-%d %H:%M')}",
         )
-        if st.button(session_label, use_container_width=True, key=f"btn_{session_id}"):
-            st.session_state.current_session_id = session_id
-            st.rerun()
-        st.caption(f"  {len(msgs)} 条消息")
+        _switch_session(new_sess["session_id"])
 
-# ===== 主区域 =====
-st.title("🧬 Bio-Agent 智能分析平台")
+# ─── 侧边栏 ────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown(f"**👤 {user_id}**")
+    if st.button(_("切换用户"), use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+
+    st.divider()
+
+    # 语言切换
+    lang_options = list(SUPPORTED_LANGS.keys())
+    lang_labels  = list(SUPPORTED_LANGS.values())
+    current_idx  = lang_options.index(st.session_state.get("lang", "zh_CN"))
+    selected_label = st.selectbox(
+        _("语言"),
+        options=lang_labels,
+        index=current_idx,
+        key="lang_selector",
+    )
+    selected_lang = lang_options[lang_labels.index(selected_label)]
+    if selected_lang != st.session_state.get("lang"):
+        st.session_state.lang = selected_lang
+        store.set_user_lang(user_id, selected_lang)
+        st.rerun()
+
+    st.divider()
+
+    if st.button(_("➕ 新建会话"), use_container_width=True):
+        new_sess = store.create_session(
+            user_id,
+            name=f"{_('会话')} {datetime.now().strftime('%m-%d %H:%M')}",
+        )
+        _switch_session(new_sess["session_id"])
+        st.rerun()
+
+    st.markdown(f"**{_('会话列表')}**")
+    sessions = store.get_user_sessions(user_id)
+    for sess in sessions:
+        is_active = sess["session_id"] == st.session_state.current_session_id
+        label = f"📌 {sess['name']}" if is_active else sess["name"]
+        col_btn, col_del = st.columns([5, 1])
+        with col_btn:
+            if st.button(label, key=f"sess_{sess['session_id']}", use_container_width=True):
+                _switch_session(sess["session_id"])
+                st.rerun()
+        with col_del:
+            if st.button("🗑", key=f"del_{sess['session_id']}"):
+                was_active = is_active
+                store.delete_session(sess["session_id"])
+                if was_active:
+                    st.session_state.current_session_id = None
+                st.rerun()
+        n = store.message_count(sess["session_id"])
+        st.caption(f"  {n} {_('条消息')}")
+
+    # ─── 文件管理 ─────────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("**📁 文件管理**")
+
+    usage = fm.get_usage(user_uid)
+    used  = usage["total_bytes"]
+    quota = USER_QUOTA_BYTES
+    pct   = min(used / quota, 1.0) if quota > 0 else 0
+    st.progress(pct, text=f"{fmt_size(used)} / {fmt_size(quota)}")
+
+    # 上传区：绑定到当前 session
+    current_sid_for_upload = st.session_state.get("current_session_id", "")
+    uploaded = st.file_uploader(
+        "上传文件到当前会话",
+        accept_multiple_files=True,
+        key=f"uploader_{current_sid_for_upload}",
+        label_visibility="collapsed",
+    )
+
+    if uploaded:
+        if "uploaded_file_hashes" not in st.session_state:
+            st.session_state.uploaded_file_hashes = set()
+
+        new_files = []
+
+        for f in uploaded:
+            h = file_hash(f)
+
+            if h not in st.session_state.uploaded_file_hashes:
+                # 新文件才处理
+                path = fm.save_file(user_uid, current_sid_for_upload, f.name, f.read())
+                st.session_state.uploaded_file_hashes.add(h)
+                new_files.append(f.name)
+
+        if new_files:
+            st.success(f"已上传：{', '.join(new_files)}")
+
+    # 当前会话文件列表
+    files = fm.list_session_files(user_uid, current_sid_for_upload)
+    if files:
+        st.markdown(f"*当前会话 {len(files)} 个文件*")
+        for fi in files:
+            col_name, col_del = st.columns([5, 1])
+            col_name.caption(f"📄 {fi['name']}  `{fmt_size(fi['size'])}`")
+            if col_del.button("✕", key=f"fdel_{current_sid_for_upload}_{fi['name']}"):
+                fm.delete_file(user_uid, current_sid_for_upload, fi["name"])
+                st.rerun()
+
+        if st.button("🗑 清空当前会话文件", use_container_width=True):
+            fm.delete_session_files(user_uid, current_sid_for_upload)
+            st.session_state.pop(f"uploaded_files_{current_sid_for_upload}", None)
+            st.rerun()
+
+    # 跨会话用量明细（可展开）
+    if len(usage["sessions"]) > 1:
+        with st.expander("各会话占用"):
+            for sid, sz in sorted(usage["sessions"].items(),
+                                  key=lambda x: x[1], reverse=True):
+                label = sid if sid != current_sid_for_upload else f"{sid} (当前)"
+                st.caption(f"{label}: {fmt_size(sz)}")
+
+# ─── 主区域 ────────────────────────────────────────────────────────────────────
+st.title(_("🧬 Bio-Agent 智能分析平台"))
 st.markdown("---")
 
-current_messages = st.session_state.sessions.get(st.session_state.current_session_id, [])
+current_session_id = st.session_state.current_session_id
+current_session    = store.get_session(current_session_id)
+current_messages   = store.get_messages(current_session_id)
 
 
 @st.cache_resource
@@ -55,126 +216,109 @@ def load_agent():
     return create_agent_graph("BioAgent")
 
 
-with st.spinner("正在加载模型..."):
+with st.spinner(_("正在加载模型...")):
     app = load_agent()
 
-# ===== 显示历史消息 =====
+# ─── 显示历史消息 ──────────────────────────────────────────────────────────────
 for message in current_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         thinking = message.get("thinking", "")
         if thinking and thinking.strip():
-            with st.expander("🧠 查看思考过程", expanded=False):
+            with st.expander(_("🧠 查看思考过程"), expanded=False):
                 st.markdown(thinking)
 
-# ===== 初始化所有 UI 状态 =====
+# ─── 初始化执行状态 ─────────────────────────────────────────────────────────────
 defaults = {
-    "pending_prompt": None,
-    "ui_mode": None,
+    "pending_prompt":   None,
+    "ui_mode":          None,
     "waiting_for_mode": False,
-    "thread_id": None,
-    "waiting_review": False,
+    "waiting_review":   False,
     "pending_commands": [],
-    "resume_decision": None,
-    "review_feedback": "",
+    "resume_decision":  None,
+    "review_feedback":  "",
     "thinking_process": [],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ===== 用户输入框 =====
-if prompt := st.chat_input("请输入你的分析指令..."):
-    st.session_state.pending_prompt = prompt
-    st.session_state.ui_mode = None
+# ─── 用户输入 ──────────────────────────────────────────────────────────────────
+if prompt := st.chat_input(_("请输入你的分析指令...")):
+    st.session_state.pending_prompt   = prompt
+    st.session_state.ui_mode          = None
     st.session_state.waiting_for_mode = True
-    st.session_state.thread_id = None
-    st.session_state.waiting_review = False
-    st.session_state.resume_decision = None
+    st.session_state.waiting_review   = False
+    st.session_state.resume_decision  = None
     st.session_state.thinking_process = []
     st.rerun()
 
-# ===== 模式选择 =====
+# ─── 模式选择 ──────────────────────────────────────────────────────────────────
 button_slot = st.empty()
 
 if st.session_state.waiting_for_mode and st.session_state.pending_prompt:
     with button_slot.container():
-        st.info(f"📝 你的输入：{st.session_state.pending_prompt}")
-        st.markdown("**请选择处理方式：**")
+        st.info(f"📝 {_('你的输入')}：{st.session_state.pending_prompt}")
+        st.markdown(f"**{_('请选择处理方式：')}**")
         col1, col2, col3 = st.columns(3)
         clicked_mode = None
-        if col1.button("💬 对话问答", use_container_width=True):
+        if col1.button(_("💬 对话问答"), use_container_width=True):
             clicked_mode = "answer"
-        if col2.button("🔧 工具调用", use_container_width=True):
+        if col2.button(_("🔧 工具调用"), use_container_width=True):
             clicked_mode = "tools"
-        if col3.button("🤖 自动判断", use_container_width=True):
+        if col3.button(_("🤖 自动判断"), use_container_width=True):
             clicked_mode = "auto"
-
         if clicked_mode:
             button_slot.empty()
-            st.session_state.ui_mode = clicked_mode
+            st.session_state.ui_mode          = clicked_mode
             st.session_state.waiting_for_mode = False
         else:
             st.stop()
 
 
-# ===== 工具函数 =====
+# ─── 工具函数 ──────────────────────────────────────────────────────────────────
 def render_log(log: str):
-    """根据内容渲染不同样式的日志行。"""
-    if "✓" in log or "成功" in log:
+    """根据内容渲染不同样式的日志行。检测逻辑保持原语言中性（图标优先）。"""
+    if "✓" in log or "成功" in log or "success" in log.lower():
         st.success(log)
-    elif "✗" in log or "失败" in log or "错误" in log:
+    elif "✗" in log or "失败" in log or "错误" in log or "error" in log.lower():
         st.error(log)
-    elif "警告" in log or "Warning" in log:
+    elif "警告" in log or "Warning" in log or "warning" in log.lower():
         st.warning(log)
     else:
         st.text(log)
 
 
 def stream_events(event_iter, thinking_process: list) -> str:
-    """
-    消费 app.stream() 生成器，把节点名和日志追加渲染到当前容器（status 内）。
-    返回从事件中提取到的 full_response。
-    """
     full_response = ""
     for event in event_iter:
         node_name = list(event.keys())[0]
-        new_logs = flush_logs()
-
+        new_logs  = flush_logs()
         thinking_process.append(f"📍 **{node_name}**")
         st.markdown(f"📍 `{node_name}`")
         for log in new_logs:
             render_log(log)
-
         if isinstance(event.get(node_name), dict):
             for key, val in event[node_name].items():
                 if key not in ["final_answer", "answer", "response", "output", "result"]:
                     if isinstance(val, (str, int, float)) and len(str(val)) < 200:
                         thinking_process.append(f"  - {key}: {val}")
-
-        # 顺带提取最终答案（不一定有）
-        for node_key, node_data in event.items():
+        for _, node_data in event.items():
             if isinstance(node_data, dict):
                 for field in ["final_answer", "answer", "response", "output", "result"]:
                     if node_data.get(field):
                         full_response = node_data[field]
-
     return full_response
 
 
 def render_final(full_response: str, thinking_process: list):
-    """
-    在 status 外、chat_message 内渲染最终答案 + 思考过程折叠框。
-    调用前请确保已经在 st.chat_message 上下文里。
-    """
     if thinking_process:
-        with st.expander("🧠 查看思考过程", expanded=False):
+        with st.expander(_("🧠 查看思考过程"), expanded=False):
             st.markdown("\n".join(thinking_process))
-    st.markdown(full_response if full_response else "✅ 任务处理完成")
+    st.markdown(full_response if full_response else _("✅ 任务处理完成"))
 
 
 def get_final_from_state(current_state) -> str:
-    """从 checkpointer state 里取最终答案，比从 event 流里取更可靠。"""
     for field in ["final_answer", "answer", "response", "output", "result"]:
         val = current_state.values.get(field)
         if val:
@@ -182,21 +326,20 @@ def get_final_from_state(current_state) -> str:
     return ""
 
 
-# ===== 第一段执行：运行到 executor 前暂停 =====
+# ─── 第一段执行：运行到 executor 前暂停 ────────────────────────────────────────
 if st.session_state.pending_prompt and st.session_state.ui_mode and not st.session_state.waiting_review:
-    prompt = st.session_state.pending_prompt
+    prompt  = st.session_state.pending_prompt
     ui_mode = st.session_state.ui_mode
 
-    st.session_state.thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": st.session_state.thread_id}}
+    thread_id = current_session["thread_id"]
+    st.session_state.thread_id = thread_id
+    config = {"configurable": {"thread_id": thread_id}}
 
-    # 清空，防止重复执行
-    st.session_state.pending_prompt = None
-    st.session_state.ui_mode = None
+    st.session_state.pending_prompt   = None
+    st.session_state.ui_mode          = None
     st.session_state.waiting_for_mode = False
 
-    current_messages.append({"role": "user", "content": prompt})
-    st.session_state.sessions[st.session_state.current_session_id] = current_messages
+    store.append_message(current_session_id, "user", prompt)
 
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -205,79 +348,70 @@ if st.session_state.pending_prompt and st.session_state.ui_mode and not st.sessi
         thinking_process = []
         clear_logs()
 
-        # status 默认折叠，只放执行日志
-        with st.status("🔄 Agent 执行中...", expanded=False) as status:
+        with st.status(_("🔄 Agent 执行中..."), expanded=False) as status:
             full_response = stream_events(
                 app.stream({"input": prompt, "user_choice": ui_mode}, config=config),
                 thinking_process,
             )
 
         current_state = app.get_state(config)
-        next_nodes = current_state.next
+        next_nodes    = current_state.next
 
         if "executor" in next_nodes:
-            # interrupt_before 触发，等待用户确认
             st.session_state.pending_commands = current_state.values.get("pending_commands", [])
-            st.session_state.waiting_review = True
+            st.session_state.waiting_review   = True
             st.session_state.thinking_process = thinking_process
-            status.update(label="⏸️ 等待你的确认", state="running")
+            status.update(label=_("⏸️ 等待你的确认"), state="running")
         else:
-            # 正常结束
-            status.update(label="✅ 执行完成", state="complete")
+            status.update(label=_("✅ 执行完成"), state="complete")
             if not full_response:
                 full_response = get_final_from_state(current_state)
-
-            # ✅ final_answer 在 status 外面渲染，不会混在日志里
             render_final(full_response, thinking_process)
-
-            current_messages.append({
-                "role": "assistant",
-                "content": full_response if full_response else "✅ 任务处理完成",
-                "thinking": "\n".join(thinking_process),
-            })
-            st.session_state.sessions[st.session_state.current_session_id] = current_messages
+            store.append_message(
+                current_session_id, "assistant",
+                full_response if full_response else _("✅ 任务处理完成"),
+                "\n".join(thinking_process),
+            )
 
     if st.session_state.waiting_review:
         st.rerun()
 
-# ===== 审查确认框 =====
+# ─── 审查确认框 ─────────────────────────────────────────────────────────────────
 if st.session_state.waiting_review:
     with st.chat_message("assistant"):
-        st.markdown("### 📋 待执行命令，请确认")
+        st.markdown(f"### 📋 {_('📋 待执行命令，请确认')}")
 
         if st.session_state.pending_commands:
             for i, cmd in enumerate(st.session_state.pending_commands, 1):
-                st.markdown(f"**步骤 {i}**")
+                st.markdown(f"**{_('步骤')} {i}**")
                 st.code(cmd, language="bash")
         else:
-            st.info("（命令列表为空，请检查参数生成是否正常）")
+            st.info(_("命令列表为空，请检查参数生成是否正常"))
 
         st.markdown("---")
-        feedback = st.text_input("🔧 修改意见（提交修改时填写）", key="review_feedback")
+        st.text_input(_("🔧 修改意见（提交修改时填写）"), key="review_feedback")
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("✅ 确认执行", use_container_width=True):
-                st.session_state.waiting_review = False
+            if st.button(_("✅ 确认执行"), use_container_width=True):
+                st.session_state.waiting_review  = False
                 st.session_state.resume_decision = "execute"
                 st.rerun()
         with col2:
-            if st.button("❌ 取消任务", use_container_width=True):
-                st.session_state.waiting_review = False
+            if st.button(_("❌ 取消任务"), use_container_width=True):
+                st.session_state.waiting_review  = False
                 st.session_state.resume_decision = "cancel"
                 st.rerun()
         with col3:
-            if st.button("💬 提交修改", use_container_width=True):
-                current_feedback = st.session_state.review_feedback.strip()
-                if current_feedback:
-                    st.session_state.waiting_review = False
-                    # st.session_state.review_feedback = feedback
+            if st.button(_("💬 提交修改"), use_container_width=True):
+                if st.session_state.review_feedback.strip():
+                    st.session_state.waiting_review  = False
                     st.session_state.resume_decision = "modify"
                     st.rerun()
                 else:
-                    st.warning("请先填写修改意见")
+                    st.warning(_("请先填写修改意见"))
 
-# ===== 第二段执行：从断点恢复 =====
+# ─── 第二段执行：从断点恢复 ─────────────────────────────────────────────────────
 if st.session_state.resume_decision and st.session_state.thread_id:
     decision = st.session_state.resume_decision
     st.session_state.resume_decision = None
@@ -288,20 +422,16 @@ if st.session_state.resume_decision and st.session_state.thread_id:
     elif decision == "modify":
         app.update_state(
             config,
-            {
-                "next_node": "param_generator",
-                "user_feedback": st.session_state.review_feedback,
-            },
+            {"next_node": "param_generator", "user_feedback": st.session_state.review_feedback},
             as_node="human_reviewer",
         )
         st.session_state.review_feedback = ""
-    # execute：不需要更新 state，LangGraph 从断点直接继续到 executor
 
     with st.chat_message("assistant"):
         thinking_process = st.session_state.thinking_process or []
         clear_logs()
 
-        with st.status("🔄 继续执行...", expanded=False) as status:
+        with st.status(_("🔄 继续执行..."), expanded=False) as status:
             full_response = stream_events(
                 app.stream(None, config=config),
                 thinking_process,
@@ -309,26 +439,21 @@ if st.session_state.resume_decision and st.session_state.thread_id:
 
         current_state = app.get_state(config)
 
-        # 修改后可能再次暂停在 executor 前
         if "executor" in current_state.next:
             st.session_state.pending_commands = current_state.values.get("pending_commands", [])
-            st.session_state.waiting_review = True
+            st.session_state.waiting_review   = True
             st.session_state.thinking_process = thinking_process
-            status.update(label="⏸️ 等待你的确认", state="running")
+            status.update(label=_("⏸️ 等待你的确认"), state="running")
             st.rerun()
 
-        status.update(label="✅ 执行完成", state="complete")
-
+        status.update(label=_("✅ 执行完成"), state="complete")
         if not full_response:
             full_response = get_final_from_state(current_state)
-
-        # ✅ final_answer 在 status 外面渲染
         render_final(full_response, thinking_process)
 
-        current_messages.append({
-            "role": "assistant",
-            "content": full_response if full_response else "✅ 任务处理完成",
-            "thinking": "\n".join(thinking_process),
-        })
-        st.session_state.sessions[st.session_state.current_session_id] = current_messages
+        store.append_message(
+            current_session_id, "assistant",
+            full_response if full_response else _("✅ 任务处理完成"),
+            "\n".join(thinking_process),
+        )
         st.session_state.thinking_process = []

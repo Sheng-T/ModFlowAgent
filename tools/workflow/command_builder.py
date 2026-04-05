@@ -31,7 +31,7 @@ def build_workflow_command(kwargs: dict, data_path: dict) -> str:
         f"-profile {profile}",
         f"-w {work_dir}",  # Nextflow 官方简写是 -w
         f"--input '{input_file}'",
-        f"--outdir '{outdir}'"
+        f"--outdir '{outdir}'",
         f"-singularity.cacheDir {IMAGE_PATH['image_store']}"
     ]
 

@@ -11,14 +11,8 @@ from configs import TOOL_DESCIPTION, TOOLS_DOC
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 
-# 多层级导入保证兼容性
-try:
-    from utils.ui_logger import ui_print
-except ImportError:
-    try:
-        from ....utils.ui_logger import ui_print
-    except ImportError:
-        ui_print = print
+# 统一使用顶级 `utils.ui_logger` 导出
+from utils.ui_logger import ui_print
 
 def select_tools_node(state: AgentState) -> AgentState:
     user_input = state["input"]

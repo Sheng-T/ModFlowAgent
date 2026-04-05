@@ -1,0 +1,110 @@
+# Chinese (Simplified) translations for Bio-Agent
+# 源语言文件，key == value
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+
+# 登录
+msgid "请输入用户名以继续"
+msgstr "请输入用户名以继续"
+
+msgid "用户名"
+msgstr "用户名"
+
+msgid "例如：alice"
+msgstr "例如：alice"
+
+msgid "登录"
+msgstr "登录"
+
+# 侧边栏
+msgid "切换用户"
+msgstr "切换用户"
+
+msgid "➕ 新建会话"
+msgstr "➕ 新建会话"
+
+msgid "会话列表"
+msgstr "会话列表"
+
+msgid "条消息"
+msgstr "条消息"
+
+msgid "语言"
+msgstr "语言"
+
+# 主区域
+msgid "🧬 Bio-Agent 智能分析平台"
+msgstr "🧬 Bio-Agent 智能分析平台"
+
+msgid "正在加载模型..."
+msgstr "正在加载模型..."
+
+msgid "请输入你的分析指令..."
+msgstr "请输入你的分析指令..."
+
+# 模式选择
+msgid "你的输入"
+msgstr "你的输入"
+
+msgid "请选择处理方式："
+msgstr "请选择处理方式："
+
+msgid "💬 对话问答"
+msgstr "💬 对话问答"
+
+msgid "🔧 工具调用"
+msgstr "🔧 工具调用"
+
+msgid "🤖 自动判断"
+msgstr "🤖 自动判断"
+
+# 状态标签
+msgid "🔄 Agent 执行中..."
+msgstr "🔄 Agent 执行中..."
+
+msgid "⏸️ 等待你的确认"
+msgstr "⏸️ 等待你的确认"
+
+msgid "✅ 执行完成"
+msgstr "✅ 执行完成"
+
+msgid "🔄 继续执行..."
+msgstr "🔄 继续执行..."
+
+# 审查确认
+msgid "📋 待执行命令，请确认"
+msgstr "📋 待执行命令，请确认"
+
+msgid "步骤"
+msgstr "步骤"
+
+msgid "命令列表为空，请检查参数生成是否正常"
+msgstr "命令列表为空，请检查参数生成是否正常"
+
+msgid "🔧 修改意见（提交修改时填写）"
+msgstr "🔧 修改意见（提交修改时填写）"
+
+msgid "✅ 确认执行"
+msgstr "✅ 确认执行"
+
+msgid "❌ 取消任务"
+msgstr "❌ 取消任务"
+
+msgid "💬 提交修改"
+msgstr "💬 提交修改"
+
+msgid "请先填写修改意见"
+msgstr "请先填写修改意见"
+
+# 通用
+msgid "🧠 查看思考过程"
+msgstr "🧠 查看思考过程"
+
+msgid "✅ 任务处理完成"
+msgstr "✅ 任务处理完成"
+
+msgid "会话"
+msgstr "会话"

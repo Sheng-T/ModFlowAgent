@@ -1,4 +1,3 @@
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from agent_graph.nodes import (
     answer_general_question_node,
@@ -126,7 +125,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_edge("end_node", END)      # 流程结束
 
     # 5. 编译图
-    checkpointer = MemorySaver()
+    from storage.checkpointer import get_checkpointer; checkpointer = get_checkpointer()
     app = workflow.compile(
         checkpointer=checkpointer,
         interrupt_before=["executor"]  # 到 executor 前自动暂停

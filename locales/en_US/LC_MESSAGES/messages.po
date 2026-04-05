@@ -1,0 +1,109 @@
+# English translations for Bio-Agent
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_US\n"
+
+# Login
+msgid "请输入用户名以继续"
+msgstr "Enter your username to continue"
+
+msgid "用户名"
+msgstr "Username"
+
+msgid "例如：alice"
+msgstr "e.g. alice"
+
+msgid "登录"
+msgstr "Login"
+
+# Sidebar
+msgid "切换用户"
+msgstr "Switch User"
+
+msgid "➕ 新建会话"
+msgstr "➕ New Session"
+
+msgid "会话列表"
+msgstr "Sessions"
+
+msgid "条消息"
+msgstr "messages"
+
+msgid "语言"
+msgstr "Language"
+
+# Main area
+msgid "🧬 Bio-Agent 智能分析平台"
+msgstr "🧬 Bio-Agent Analytics Platform"
+
+msgid "正在加载模型..."
+msgstr "Loading model..."
+
+msgid "请输入你的分析指令..."
+msgstr "Enter your analysis instruction..."
+
+# Mode selection
+msgid "你的输入"
+msgstr "Your input"
+
+msgid "请选择处理方式："
+msgstr "Select processing mode:"
+
+msgid "💬 对话问答"
+msgstr "💬 Chat Q&A"
+
+msgid "🔧 工具调用"
+msgstr "🔧 Tool Call"
+
+msgid "🤖 自动判断"
+msgstr "🤖 Auto Detect"
+
+# Status
+msgid "🔄 Agent 执行中..."
+msgstr "🔄 Agent running..."
+
+msgid "⏸️ 等待你的确认"
+msgstr "⏸️ Awaiting confirmation"
+
+msgid "✅ 执行完成"
+msgstr "✅ Completed"
+
+msgid "🔄 继续执行..."
+msgstr "🔄 Resuming..."
+
+# Review
+msgid "📋 待执行命令，请确认"
+msgstr "📋 Pending commands, please confirm"
+
+msgid "步骤"
+msgstr "Step"
+
+msgid "命令列表为空，请检查参数生成是否正常"
+msgstr "Command list is empty, check parameter generation"
+
+msgid "🔧 修改意见（提交修改时填写）"
+msgstr "🔧 Revision notes (fill when submitting)"
+
+msgid "✅ 确认执行"
+msgstr "✅ Confirm & Execute"
+
+msgid "❌ 取消任务"
+msgstr "❌ Cancel"
+
+msgid "💬 提交修改"
+msgstr "💬 Submit Revision"
+
+msgid "请先填写修改意见"
+msgstr "Please fill in revision notes first"
+
+# Common
+msgid "🧠 查看思考过程"
+msgstr "🧠 View thinking process"
+
+msgid "✅ 任务处理完成"
+msgstr "✅ Task completed"
+
+msgid "会话"
+msgstr "Session"

@@ -7,16 +7,8 @@ from agent_graph.state import AgentState
 from utils.llm_utils import get_llm_instance
 from utils.search_utils import SearchAugmentedQA
 
-# 多层级导入保证兼容性
-try:
-    from utils.ui_logger import ui_print
-except ImportError:
-    try:
-        # 从 agent_graph/nodes/execution/response.py 向上3层到项目根目录
-        from ....utils.ui_logger import ui_print
-    except ImportError:
-        # 降级：没有 ui_logger 就用普通 print
-        ui_print = print
+# 统一使用顶级 `utils.ui_logger` 导出
+from utils.ui_logger import ui_print
 
 def answer_general_question_node(state: AgentState, use_search: bool = True, num_searches: int = 5) -> AgentState:
     """
@@ -48,15 +40,18 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
         
         # 2. 构建最终提示词
         if augmented_context:
-            final_prompt = f"""请根据以下搜索结果回答用户问题：
+            final_prompt = f"""你是生物信息学领域的专家助手。以下是为回答用户问题而检索到的参考资料：
 
-            【搜索结果和相关文档】
-            {augmented_context}
+【参考资料】
+{augmented_context}
 
-            【用户问题】
-            {user_input}
+【用户问题】
+{user_input}
 
-            请基于上述信息提供准确、详细的回答。"""
+回答要求：
+- 如果参考资料与问题直接相关，优先基于资料内容作答；
+- 如果参考资料与问题关联不足或内容偏离，请直接用你自己的专业知识回答，不必提及或评价资料内容；
+- 直接给出答案，不要解释"资料里有没有"。"""
         else:
             final_prompt = user_input
         

@@ -8,22 +8,21 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
-# 多层级导入保证兼容性
-try:
-    from utils.ui_logger import ui_print
-except ImportError:
-    try:
-        # 同目录的相对导入
-        from .ui_logger import ui_print
-    except ImportError:
-        # 降级：没有 ui_logger 就用普通 print
-        ui_print = print
+# 统一使用顶级 `utils.ui_logger` 导出
+from utils.ui_logger import ui_print
 
 BAD_DOMAINS = [
     "doc88.com",
     "slideserve.com",
     "wenku.baidu.com",
     "archive.org",
+    # Baidu 内部服务页（认证、地图、广告等），内容与搜索词无关
+    "trust.baidu.com",
+    "home.baidu.com",
+    "map.baidu.com",
+    "ad.baidu.com",
+    "union.baidu.com",
+    "passport.baidu.com",
 ]
 
 GOOD_DOMAINS = [
@@ -110,22 +109,38 @@ def search_bing(query):
 def search_baidu(query):
     url = f"https://www.baidu.com/s?ie=utf-8&wd={query}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
-        "Accept-Language": "zh-CN,zh;q=0.9"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://www.baidu.com/",
     }
-    resp = requests.get(url, headers=headers, timeout=8)
+    try:
+        resp = requests.get(url, headers=headers, timeout=8)
+        resp.encoding = "utf-8"
+    except Exception:
+        return []
     soup = BeautifulSoup(resp.text, "html.parser")
 
     results = []
-    # 百度的结果块是 div.result，不是 li.b_algo
-    for div in soup.select("div.result")[:5]:
+    # 百度结果块选择器（兼容多版本布局）
+    for div in soup.select("div.result, div.c-container")[:6]:
         a = div.find("a")
-        if a and "href" in a.attrs:
-            results.append({
-                "title": a.get_text(strip=True),
-                "url": a["href"],
-                "snippet": ""
-            })
+        if not a or "href" not in a.attrs:
+            continue
+        href = a["href"]
+        # 相对路径 → 跳过（/s?wd=... 这类是百度内部搜索链接，没有实际内容）
+        if href.startswith("/") or href.startswith("#"):
+            continue
+        if any(b in href for b in BAD_DOMAINS):
+            continue
+        # 提取摘要文字
+        snippet_tag = div.find("div", class_=re.compile(r"c-abstract|content-right"))
+        snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+        results.append({
+            "title": a.get_text(strip=True),
+            "url": href,
+            "snippet": snippet
+        })
     return results
 
 class TemporaryDocManager:
@@ -242,112 +257,109 @@ NON_HTML_EXTENSIONS = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'
 
 class PageCrawler:
     """页面爬取工具"""
-    
-    def __init__(self, timeout: int = 20, max_retries: int = 3):
-        self.timeout = timeout  # 增加到60秒，避免超时
+
+    # 每个 URL 只试一次，失败就跳过（重试意义不大，只是浪费时间）
+    def __init__(self, timeout: int = 8, max_retries: int = 1):
+        self.timeout = timeout
         self.max_retries = max_retries
-        self.last_error = None  # 存储最后的错误信息
-        self.session = requests.Session()
-        # 多样化 User-Agent，避免被反爬
         self.user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         ]
-        self.session.headers.update({
-            'User-Agent': self.user_agents[0],
+
+    def _make_session(self) -> requests.Session:
+        import random
+        s = requests.Session()
+        s.headers.update({
+            'User-Agent': random.choice(self.user_agents),
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
         })
-    
-    def crawl_page(self, url: str, save_dir: str) -> Optional[str]:
-        """
-        爬取单个页面，捕获错误信息
-        """
-        import time
-        import random
-        from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
-        
-        self.last_error = None
-        
-        for attempt in range(self.max_retries):
-            try:
-                # 过滤非HTML资源，避免下载PDF等二进制文件
-                clean_url = url.split('?', 1)[0].split('#', 1)[0].lower()
-                if clean_url.endswith(NON_HTML_EXTENSIONS):
-                    self.last_error = f"跳过非HTML资源: {clean_url}"
-                    return None
+        return s
 
-                # 随机延迟 0.5-1.5 秒，模拟人工浏览
-                time.sleep(random.uniform(0.5, 1.5))
-                
-                # 轮换 User-Agent
-                self.session.headers['User-Agent'] = random.choice(self.user_agents)
-                
-                response = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+    def crawl_page(self, url: str, save_dir: str) -> tuple[Optional[str], str]:
+        """
+        爬取单个页面。返回 (本地路径 or None, 错误信息)
+        """
+        from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
+
+        clean_url = url.split('?', 1)[0].split('#', 1)[0].lower()
+        if clean_url.endswith(NON_HTML_EXTENSIONS):
+            return None, "非HTML资源"
+
+        session = self._make_session()
+        for _ in range(self.max_retries):
+            try:
+                response = session.get(url, timeout=self.timeout, allow_redirects=True)
                 response.encoding = 'utf-8'
                 response.raise_for_status()
 
-                # 仅保存HTML页面，过滤二进制/非HTML类型（例如 PDF）
                 content_type = response.headers.get('Content-Type', '').lower()
                 if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-                    self.last_error = f"非HTML类型，跳过: {content_type}"
-                    return None
+                    return None, f"非HTML({content_type[:20]})"
 
-                # 生成本地文件名
                 parsed = urlparse(url)
-                filename = parsed.path.split('/')[-1] or 'index'
+                filename = (parsed.netloc + parsed.path).replace('/', '_').strip('_') or 'index'
                 if not filename.endswith('.html'):
                     filename += '.html'
-                
+                filename = filename[:80]  # 防止文件名过长
+
                 os.makedirs(save_dir, exist_ok=True)
                 local_path = os.path.join(save_dir, filename)
-                
                 with open(local_path, 'w', encoding='utf-8') as f:
                     f.write(response.text)
-                
-                return local_path
-                
+                return local_path, ""
+
             except Timeout:
-                self.last_error = "超时"
+                return None, "超时"
             except ConnectionError:
-                self.last_error = "网络连接失败"
+                return None, "连接失败"
             except HTTPError as e:
-                self.last_error = f"HTTP{e.response.status_code}"
+                return None, f"HTTP{e.response.status_code}"
             except RequestException as e:
-                self.last_error = type(e).__name__
+                return None, type(e).__name__
             except Exception as e:
-                self.last_error = type(e).__name__
-        
-        return None
-    
+                return None, type(e).__name__
+
+        return None, "未知错误"
+
     def crawl_pages(self, urls: List[str], save_dir: str) -> List[str]:
         """
-        批量爬取页面，显示失败原因
+        并行爬取页面（ThreadPoolExecutor），大幅缩短总耗时
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        valid_urls = [
+            u for u in urls
+            if u and not u.split('?', 1)[0].split('#', 1)[0].lower().endswith(NON_HTML_EXTENSIONS)
+        ]
+        if not valid_urls:
+            return []
+
+        ui_print(f"  [并行爬取] {len(valid_urls)} 个页面 (超时={self.timeout}s)")
+
         results = []
-        for i, url in enumerate(urls, 1):
-            if not url:
-                continue
+        futures = {}
+        with ThreadPoolExecutor(max_workers=min(len(valid_urls), 5)) as executor:
+            for url in valid_urls:
+                futures[executor.submit(self.crawl_page, url, save_dir)] = url
+ 
+            for future in as_completed(futures):
+                url = futures[future]
+                display = url[:80] + "..." if len(url) > 80 else url
+                try:
+                    local_path, err = future.result()
+                    if local_path:
+                        ui_print(f"  ✓ {display}")
+                        results.append(local_path)
+                    else:
+                        ui_print(f"  ✗ {display} ({err})")
+                except Exception as e:
+                    ui_print(f"  ✗ {display} ({type(e).__name__})")
 
-            clean_url = url.split('?', 1)[0].split('#', 1)[0].lower()
-            if clean_url.endswith(NON_HTML_EXTENSIONS):
-                ui_print(f"  [跳过 非HTML资源 {i}/{len(urls)}] {clean_url}")
-                continue
-
-            display_url = url[:60] + "..." if len(url) > 60 else url
-            ui_print(f"  [爬取 {i}/{len(urls)}] {display_url}", end="", flush=True)
-            local_path = self.crawl_page(url, save_dir)
-            if local_path:
-                ui_print(" ✓")
-                results.append(local_path)
-            else:
-                # 显示失败原因
-                reason = self.last_error or "未知错误"
-                ui_print(f" ✗ ({reason})")
         return results
 
 
@@ -458,120 +470,144 @@ class SearchAugmentedQA:
         self.doc_manager = TemporaryDocManager()
 
     @staticmethod
-    def search_baike_direct(query: str, num_results: int = 3) -> List[dict]:
+    def fetch_wikipedia_api(query: str) -> Optional[str]:
         """
-        直接搜索百度百科和维基百科，不经过DDG
+        使用 Wikipedia REST API 直接获取词条纯文本（不需要爬页面）
+        优先中文，失败时尝试英文
+        返回: 纯文本摘要，失败返回 None
+        """
+        for lang in ("zh", "en"):
+            try:
+                # Wikipedia REST API — 返回 JSON，含纯文本摘要
+                api_url = (
+                    f"https://{lang}.wikipedia.org/w/api.php"
+                    f"?action=query&prop=extracts&exintro=1&explaintext=1"
+                    f"&titles={requests.utils.quote(query)}&format=json&redirects=1"
+                )
+                resp = requests.get(api_url, timeout=6,
+                                    headers={"User-Agent": "Mozilla/5.0"})
+                data = resp.json()
+                pages = data.get("query", {}).get("pages", {})
+                for page_id, page in pages.items():
+                    if page_id == "-1":
+                        continue
+                    extract = page.get("extract", "").strip()
+                    if extract and len(extract) > 100:
+                        ui_print(f"  ✓ Wikipedia API ({lang}): 获得 {len(extract)} 字")
+                        return extract
+            except Exception as e:
+                ui_print(f"  ✗ Wikipedia API ({lang}) 失败: {type(e).__name__}")
+        return None
+
+    @staticmethod
+    def search_baike_direct(query: str) -> List[dict]:
+        """
+        直接搜索百度百科，不经过DDG
         """
         results = []
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'zh-CN,zh;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Referer': 'https://www.baidu.com/',
         })
 
-        # 1. 百度百科直接搜索
+        # 百度百科直接搜索
         try:
-            url = f"https://baike.baidu.com/item/{requests.utils.quote(query)}"
-            resp = session.get(url, timeout=5)
+            encoded = requests.utils.quote(query, safe='')
+            url = f"https://baike.baidu.com/item/{encoded}"
+            resp = session.get(url, timeout=8)
+            resp.encoding = "utf-8"
 
-            if resp.status_code == 200 and "lemma-summary" in resp.text:
+            # 百度百科多版本布局兼容（class 名会随版本变化）
+            BAIKE_INDICATORS = [
+                "lemma-summary", "J-summary", "summary-content",
+                "main-content", "lemmaSummary", "basicInfo",
+                "para", "description"
+            ]
+            hit = resp.status_code == 200 and any(
+                ind in resp.text for ind in BAIKE_INDICATORS
+            )
+            if hit:
                 results.append({
                     "title": query,
-                    "url": url,
+                    "url": resp.url,  # 跟随重定向后的真实 URL
                     "snippet": "百度百科词条"
                 })
                 ui_print("  ✓ 百度百科直达成功")
             else:
-                ui_print("  ✗ 百度百科未命中")
+                # 搜索接口兜底
+                search_url = f"https://baike.baidu.com/search/word?word={encoded}"
+                resp2 = session.get(search_url, timeout=5)
+                soup2 = BeautifulSoup(resp2.text, "html.parser")
+                first = soup2.select_one("dl.search-list dt a, .result-title a")
+                if first and first.get("href"):
+                    full_url = urljoin("https://baike.baidu.com", first["href"])
+                    results.append({"title": first.get_text(strip=True), "url": full_url, "snippet": ""})
+                    ui_print(f"  ✓ 百度百科搜索命中: {first.get_text(strip=True)[:30]}")
+                else:
+                    ui_print("  ✗ 百度百科未命中")
 
         except Exception as e:
             ui_print(f"  ✗ 百度百科失败: {type(e).__name__}")
-
-        # 2. 中文维基百科
-        try:
-            wiki_url = f"https://zh.wikipedia.org/wiki/{requests.utils.quote(query)}"
-            resp = session.get(wiki_url, timeout=8)
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            # 直接命中词条时页面就是词条本身
-            if '/wiki/' in resp.url and 'search' not in resp.url:
-                results.append({
-                    "title": soup.find('h1').get_text() if soup.find('h1') else query,
-                    "url": resp.url,
-                    "snippet": ""
-                })
-                ui_print(f"  ✓ 维基百科: 直接命中词条")
-            else:
-                # 搜索结果页，找第一个词条
-                for a in soup.select('.mw-search-result-heading a'):
-                    full_url = urljoin('https://zh.wikipedia.org', a['href'])
-                    results.append({
-                        "title": a.get_text(strip=True),
-                        "url": full_url,
-                        "snippet": ""
-                    })
-                    break
-                if any('wikipedia' in r['url'] for r in results):
-                    ui_print(f"  ✓ 维基百科: 找到搜索结果")
-        except Exception as e:
-            ui_print(f"  ✗ 维基百科搜索失败: {type(e).__name__}")
 
         return results
 
     def augment_query(self, query: str, num_searches: int = 5) -> Optional[str]:
 
         all_local_files = []
+        snippet_texts = []   # 搜索结果的 snippet，爬取失败时作为兜底
         html_dir = self.doc_manager.get_html_dir()
 
-        # ===== 第1步：优先直接搜百科（最可靠）=====
-        ui_print(f"[Search] 优先搜索百科...")
+        # ===== 第1步：Wikipedia API（纯文本，不需要爬页面）=====
+        ui_print(f"[Search] 尝试 Wikipedia API...")
+        wiki_text = self.fetch_wikipedia_api(query)
+        if wiki_text:
+            snippet_texts.append(f"## Wikipedia: {query}\n\n{wiki_text}")
+            # Wikipedia 已经足够详细，直接跳过后续爬取
+            if len(wiki_text) >= 500 and is_relevant(wiki_text, query):
+                ui_print(f"[Search] Wikipedia 内容充足，跳过爬取")
+                return wiki_text
+
+        # ===== 第2步：百度百科直达 =====
+        ui_print(f"[Search] 搜索百度百科...")
         search_results = []
-
-        baike_results = self.search_baike_direct(query, num_results=2)
-
-        # 先百科
+        baike_results = self.search_baike_direct(query)
         if baike_results:
             search_results.extend(baike_results)
 
+        # ===== 第3步：Baidu 搜索补充 =====
         if len(search_results) < 2:
             ui_print("[Search] 使用Baidu补充...")
             try:
-                bing_results = search_baidu(query)
-                search_results.extend(bing_results)
+                baidu_results = search_baidu(query)
+                # 收集 snippet（即使页面爬不到也有用）
+                for r in baidu_results:
+                    if r.get("snippet"):
+                        snippet_texts.append(
+                            f"## {r['title']}\n\n{r['snippet']}"
+                        )
+                search_results.extend(baidu_results)
             except Exception as e:
-                ui_print(f"[Search] Bing失败: {type(e).__name__}")
+                ui_print(f"[Search] Baidu失败: {type(e).__name__}")
 
-        # 不够 → Bing补充
-        if len(search_results) < 2:
-            ui_print("[Search] 使用Bing补充...")
-            try:
-                bing_results = search_bing(query)
-                search_results.extend(bing_results)
-            except Exception as e:
-                ui_print(f"[Search] Bing失败: {type(e).__name__}")
-
+        # ===== 第4步：爬取百科/Baidu 页面 =====
         if search_results:
             urls_to_crawl = [r['url'] for r in search_results]
-            ui_print(f"[爬取] 准备爬取百科/Bing的 {len(urls_to_crawl)} 个页面")
+            ui_print(f"[爬取] 准备爬取 {len(urls_to_crawl)} 个页面")
             local_files = self.crawler.crawl_pages(urls_to_crawl, html_dir)
             all_local_files.extend(local_files)
 
-        # ===== 第3步：如果百科结果不够，用DDG补充（严格过滤）=====
+        # ===== 第5步：如果爬取不够，DDG 补充（严格过滤）=====
         if len(all_local_files) < 2:
-            ui_print(f"[Search] 百科不够，使用DDG补充...")
+            ui_print(f"[Search] 爬取不足，使用DDG补充...")
 
-            # 严格过滤：只保留可信域名
             STRICT_WHITELIST = [
-                "baike.baidu.com",
-                "zh.wikipedia.org",
-                "wikipedia.org",
-                "ncbi.nlm.nih.gov",
-                "nature.com",
-                "science.org",
-                "zhihu.com/p",  # 知乎文章（非问答页）
-                "mp.weixin.qq.com",  # 微信公众号
+                "baike.baidu.com", "zh.wikipedia.org", "wikipedia.org",
+                "ncbi.nlm.nih.gov", "nature.com", "science.org",
+                "zhihu.com/p", "mp.weixin.qq.com",
             ]
-
-            # 严格黑名单（直接丢弃）
             STRICT_BLACKLIST = [
                 "aiqicha", "wenku", "doc88", "slideserve",
                 "archive.org", "csdn.net", "douban.com",
@@ -583,38 +619,40 @@ class SearchAugmentedQA:
             filtered_urls = []
             for r in ddg_results:
                 url = r.get("url", "")
-                # 黑名单直接跳过
                 if any(bad in url for bad in STRICT_BLACKLIST):
-                    ui_print(f"  [过滤] 黑名单跳过: {url[:50]}")
                     continue
-                # 优先白名单
+                # DDG snippet 直接收集，不依赖爬取成功
+                if r.get("snippet"):
+                    snippet_texts.append(f"## {r.get('title','')}\n\n{r['snippet']}")
                 if any(good in url for good in STRICT_WHITELIST):
-                    filtered_urls.insert(0, url)  # 放前面优先爬
+                    filtered_urls.insert(0, url)
                 else:
                     filtered_urls.append(url)
 
-            # 最多补充3个
             filtered_urls = filtered_urls[:3]
             if filtered_urls:
-                ui_print(f"[读取] DDG补充 {len(filtered_urls)} 个页面")
+                ui_print(f"[爬取] DDG补充 {len(filtered_urls)} 个页面")
                 local_files = self.crawler.crawl_pages(filtered_urls, html_dir)
                 all_local_files.extend(local_files)
 
-        # ===== 后续RAG流程不变 =====
-        if not all_local_files:
+        # ===== 第6步：HTML → Markdown → RAG =====
+        augmented_context = None
+        if all_local_files:
+            ui_print(f"[转换] 将HTML转换为Markdown...")
+            md_path = self.doc_manager.get_markdown_path()
+            HTMLToMarkdown.convert(html_dir, md_path, title=f"搜索结果: {query}")
+            ui_print(f"[RAG] 进行上下文检索...")
+            augmented_context = self._rag_retrieve(md_path, query)
+
+        # ===== 第7步：爬取结果不足时，用 snippet 兜底 =====
+        if (not augmented_context or len(augmented_context.strip()) < 300) and snippet_texts:
+            ui_print(f"[Fallback] 爬取结果不足，使用 {len(snippet_texts)} 条 snippet 作为上下文")
+            augmented_context = "\n\n---\n\n".join(snippet_texts)
+
+        if not augmented_context or len(augmented_context.strip()) < 100:
             ui_print(f"[Search] 所有来源均失败，降级纯 LLM")
             return None
 
-        ui_print(f"[转换] 将HTML转换为Markdown...")
-        md_path = self.doc_manager.get_markdown_path()
-        HTMLToMarkdown.convert(html_dir, md_path, title=f"搜索结果: {query}")
-
-        ui_print(f"[RAG] 进行普適上下文检索...")
-        augmented_context = self._rag_retrieve(md_path, query)
-
-        if not augmented_context or len(augmented_context.strip()) < 300:
-            ui_print(f"[RAG] 结果过短，降级为纯LLM（长度 {len(augmented_context or '')})）")
-            return None
         if not is_relevant(augmented_context, query):
             ui_print("[RAG] 内容与 query 不相关，丢弃")
             return None
@@ -623,23 +661,27 @@ class SearchAugmentedQA:
     
     def _rag_retrieve(self, md_path: str, query: str) -> str:
         """
-        使用RAG进行上下文检索
+        使用RAG进行上下文检索。
+        cache_dir 传入 md_path 同级的 vec_cache/ 子目录，
+        确保每次搜索都使用本次爬取的内容，不复用工具文档数据库。
         """
         try:
             from storage.rag_retriever import EnhancedMDRAG
-            
-            rag = EnhancedMDRAG(doc_path=md_path)
+
+            # 每次搜索都用独立的临时向量缓存目录，避免命中旧工具文档 DB
+            vec_cache = os.path.join(os.path.dirname(md_path), "vec_cache")
+
+            rag = EnhancedMDRAG(doc_path=md_path, cache_dir=vec_cache)
             context = rag.search(query)
             ui_print(f"[RAG] 检索成功，获得 {len(context)} 字符的上文")
             return context
-        
+
         except Exception as e:
             print(f"[RAG] 检索失败 ({type(e).__name__})，使用全文")
-            # 降级处理：直接读取Markdown文件
             try:
                 with open(md_path, 'r', encoding='utf-8') as f:
                     return f.read()
-            except:
+            except Exception:
                 return None
     
     def cleanup(self):

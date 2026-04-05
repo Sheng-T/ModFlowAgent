@@ -27,4 +27,12 @@ IMAGE_PATH = {
 OTHER_PATH = {
     "db_dir": os.path.join(PROJECT_ROOT, "static/vector_db_cache"),
     "graph_image": os.path.join(PROJECT_ROOT, "static/langgraph_flow.txt"),
+    # 持久化存储
+    "checkpoint_db": os.path.join(PROJECT_ROOT, "static/checkpoints/agent.db"),
+    "session_db": os.path.join(PROJECT_ROOT, "static/sessions/sessions.db"),
+    # 用户上传文件根目录（子目录按 uid/session_id 隔离）
+    "user_data_root": os.path.join(PROJECT_ROOT, "static/user_data"),
 }
+
+# 单用户最大存储配额（字节），默认 10 GB
+USER_QUOTA_BYTES = 10 * 1024 * 1024 * 1024

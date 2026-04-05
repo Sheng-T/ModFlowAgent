@@ -24,10 +24,10 @@ def validate_nfcore_kwargs(kwargs: dict) -> str | None:
     return None
 
 
-def methylong(subcommand, subcommand_str, args_dict, data_path):
+def methylong(args_dict, data_path):
     """
     Verify and build nf-core/nextflow command.
-    subcommand is kept for signature compatibility with executor.
+    Called by WORKFLOW_REGISTRY with (tool_args, data_path).
     """
     args_dict = copy.deepcopy(args_dict)
     kwargs = args_dict.get("kwargs", {})

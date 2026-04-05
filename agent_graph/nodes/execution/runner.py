@@ -6,14 +6,8 @@ from tools.registry import TOOL_REGISTRY, COMMAND_REGISTRY
 from tools.toolchain.command_builder import build_shell_args
 from utils.nodes_utils import build_command_for_call
 
-# 多层级导入保证兼容性
-try:
-    from utils.ui_logger import ui_print
-except ImportError:
-    try:
-        from ....utils.ui_logger import ui_print
-    except ImportError:
-        ui_print = print
+# 统一使用顶级 `utils.ui_logger` 导出
+from utils.ui_logger import ui_print
 
 
 def execute_commands_node(state: AgentState) -> dict:
@@ -25,20 +19,22 @@ def execute_commands_node(state: AgentState) -> dict:
     next_node = "summarizer"
     tool_output = []
 
+    is_workflow = state.get("is_workflow", False)
+
     for call in tool_calls:
         tool_name = call["tool_name"]
-        # args = call["tool_args"]
 
         tool_name_array = tool_name.split("_")
         base_name = tool_name_array[0]
         has_subcommand = len(tool_name_array) > 1
 
-        if base_name not in TOOL_LIST:
+        # Workflow 模式跳过 TOOL_LIST 校验（workflow 的 pipeline 名不在 TOOL_LIST 里）
+        if not is_workflow and base_name not in TOOL_LIST:
             history.append({"role": "assistant", "content": f"工具：{base_name}不在系统中，请重新规划选择。"})
             return {"chat_history": history, "next_node": "tools_selector"}
 
         # raw_cmd = build_command_for_call(call)
-        raw_cmd = build_command_for_call(call, is_workflow=state.get("is_workflow", False))
+        raw_cmd = build_command_for_call(call, is_workflow=is_workflow)
 
         if "error" in raw_cmd.lower():
             error_msg = f"工具 {tool_name} 预校验失败: {raw_cmd}"
@@ -46,7 +42,7 @@ def execute_commands_node(state: AgentState) -> dict:
             break
 
         ui_print(f"\n[Executor] 正在执行: {raw_cmd}")
-        final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=state.get("is_workflow", False))
+        final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=is_workflow)
         ui_print(f"\n[Executor] 真实执行: {final_cmd}")
         resp = executor.run(final_cmd)
 
@@ -58,8 +54,7 @@ def execute_commands_node(state: AgentState) -> dict:
             tool_output.append(output)
             history.append({"role": "assistant", "content": f"{success_msg} 输出路径已记录。"})
         else:
-            # next_node = "nfcore_param_generator" if base_name == "workflow" else "param_generator"
-            next_node = "param_generator" if has_subcommand else "summarizer"
+            next_node = "param_generator" if (has_subcommand or is_workflow) else "summarizer"
             error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
             fail_msg = f"{tool_name} 执行失败！报错信息:\n{error_log}"
             ui_print(f"\n[Executor] 执行失败: {fail_msg}")
