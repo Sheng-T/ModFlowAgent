@@ -1,0 +1,24 @@
+{
+  "fastqc": {
+    "subcommands": {
+      "run": {
+        "description": "Run FastQC quality control analysis on one or more sequence files",
+        "positional_args": [
+          {"name": "input", "description": "Input file(s): FASTQ, BAM, or SAM format (space-separated for multiple files)"}
+        ],
+        "kwargs": {
+          "--outdir": {"type": "str", "required": false, "description": "Output directory for results"},
+          "--threads": {"type": "int", "required": false, "description": "Number of files to process in parallel"},
+          "--format": {"type": "str", "required": false, "description": "Force file format: bam, sam, fastq, fastq_illumina, casava"},
+          "--extract": {"type": "flag", "required": false, "description": "Extract the zip file after creating it"},
+          "--noextract": {"type": "flag", "required": false, "description": "Do not extract the zip file"},
+          "--adapters": {"type": "str", "required": false, "description": "Path to a file containing adapter sequences"},
+          "--contaminants": {"type": "str", "required": false, "description": "Path to a file of contaminant sequences"},
+          "--limits": {"type": "str", "required": false, "description": "Path to a file of limits for quality modules"},
+          "--min-length": {"type": "int", "required": false, "description": "Discard reads shorter than this length"},
+          "--quiet": {"type": "flag", "required": false, "description": "Suppress all progress messages"}
+        }
+      }
+    }
+  }
+}

@@ -145,6 +145,9 @@ class EnhancedMDRAG:
 
                 final_docs.append(new_doc)
 
+        if not final_docs:
+            raise ValueError(f"文档为空，无法构建检索器: {self.doc_path}")
+
         # vector db
         if os.path.exists(db_dir) and os.listdir(db_dir):
 

@@ -1,0 +1,56 @@
+{
+  "modkit": {
+    "subcommands": {
+      "pileup": {
+        "description": "Aggregate per-read base modification calls into a bedMethyl pileup file",
+        "positional_args": [
+          {"name": "bam", "description": "Input BAM file (must be sorted and indexed)"},
+          {"name": "output", "description": "Output bedMethyl file path"}
+        ],
+        "kwargs": {
+          "--ref": {"type": "str", "required": true, "description": "Reference FASTA file"},
+          "--mod-thresholds": {"type": "str", "required": false, "description": "Per-modification threshold, e.g. m:0.8"},
+          "--threads": {"type": "int", "required": false, "description": "Number of threads (default: 4)"},
+          "--prefix": {"type": "str", "required": false, "description": "Prefix for output files when using --out-dir"},
+          "--out-dir": {"type": "str", "required": false, "description": "Output directory"},
+          "--combine-strands": {"type": "flag", "required": false, "description": "Combine modifications on both strands"},
+          "--cpg": {"type": "flag", "required": false, "description": "Output only CpG sites"},
+          "--ignore-index": {"type": "flag", "required": false, "description": "Ignore BAM index for input"}
+        }
+      },
+      "extract": {
+        "description": "Extract per-read base modification data from a BAM",
+        "positional_args": [
+          {"name": "bam", "description": "Input BAM file"},
+          {"name": "output", "description": "Output file path (.tsv or .txt)"}
+        ],
+        "kwargs": {
+          "--ref": {"type": "str", "required": false, "description": "Reference FASTA file"},
+          "--threads": {"type": "int", "required": false, "description": "Number of threads"},
+          "--read-ids-path": {"type": "str", "required": false, "description": "Path to file of read IDs to extract"}
+        }
+      },
+      "summary": {
+        "description": "Summarize the base modification calls in a BAM",
+        "positional_args": [
+          {"name": "bam", "description": "Input BAM file"}
+        ],
+        "kwargs": {
+          "--threads": {"type": "int", "required": false, "description": "Number of threads"},
+          "--tsv": {"type": "flag", "required": false, "description": "Output in TSV format"}
+        }
+      },
+      "adjust-mods": {
+        "description": "Adjust per-read base modification probabilities",
+        "positional_args": [
+          {"name": "in_bam", "description": "Input BAM file"},
+          {"name": "out_bam", "description": "Output BAM file"}
+        ],
+        "kwargs": {
+          "--ignore": {"type": "str", "required": false, "description": "Base modification code to ignore"},
+          "--convert": {"type": "str", "required": false, "description": "Comma-separated pair to convert, e.g. h,m"}
+        }
+      }
+    }
+  }
+}

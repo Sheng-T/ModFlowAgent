@@ -98,46 +98,185 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
 
 
 def summarize_execution_result_node(state: AgentState) -> AgentState:
-    tool_calls = state.get("tool_calls", [])
-    tool_output = state.get("tool_output", [])
+    import json
+    import os
+    import re
+
+    from tools.analyzers.registry import (
+        extract_output_paths,
+        get_file_analyzer,
+        FUNCTIONAL_ANALYZER_MENU,
+        get_functional_analyzer,
+    )
+    from utils.user_context import get_session_dir
+
+    tool_calls        = state.get("tool_calls", [])
+    tool_output       = state.get("tool_output", [])
+    pending_commands  = state.get("pending_commands", [])
+    run_dir           = state.get("run_dir", "")
 
     if not tool_calls:
         return state
 
-    ui_print("\n[Summarizer] 正在总结最终答案...")
+    ui_print("\n[Summarizer] 开始两层分析流程...")
+    llm = get_llm_instance(is_planner=False)
 
-    # 1. 构造 MD 标题和简介
-    summary_lines = [
-        "### ✅ 任务执行总结",
-        f"根据您的需求，已成功调用了 {len(tool_calls)} 个工具进行处理。",
-        ""
-    ]
+    # ── 步骤 1：从命令中提取输出文件路径 ──────────────────────────────────────
+    output_paths = extract_output_paths(pending_commands)
+    ui_print(f"[Summarizer] 检测到输出文件: {output_paths}")
 
-    # 2. 构造执行详情列表 (可选，增强可读性)
-    summary_lines.append("**执行步骤：**")
-    for i, call in enumerate(tool_calls):
-        tool_name = call["tool_name"]
-        # tool_name = call.get("function", {}).get("name", "未知工具")
-        summary_lines.append(f"{i + 1}. 运行工具: `{tool_name}`")
+    # ── 步骤 2：文件分析（按后缀确定性执行，不调用 LLM）─────────────────────
+    file_stats_map: dict[str, dict] = {}   # file_path → stats dict
+    for path in output_paths:
+        analyzer = get_file_analyzer(path)
+        if analyzer is None:
+            ui_print(f"[Summarizer] 无对应文件分析器，跳过: {os.path.basename(path)}")
+            continue
+        ui_print(f"[Summarizer] 分析文件: {os.path.basename(path)}")
+        stats = analyzer.analyze(path)
+        file_stats_map[path] = stats
+        ui_print(f"[Summarizer] 文件统计完成: {stats.get('type', '?')} — {len(stats)} 个指标")
 
-    summary_lines.append("\n---")  # 分割线
+    # ── 步骤 3：LLM 从菜单中选择功能分析模块 ─────────────────────────────────
+    tool_desc = ", ".join(c["tool_name"] for c in tool_calls)
+    menu_text = "\n".join(
+        f'- {item["name"]}: {item["description"]}'
+        for item in FUNCTIONAL_ANALYZER_MENU
+    )
+    select_prompt = (
+        f"已执行的工具：{tool_desc}\n\n"
+        f"可用功能分析模块：\n{menu_text}\n\n"
+        f"请根据执行的工具，从上述模块中选出所有相关的功能分析模块。\n"
+        f"只返回 JSON，格式：{{\"selected\": [\"module_name1\", \"module_name2\"]}}"
+    )
+    selected_modules: list[str] = []
+    try:
+        raw = llm.invoke(select_prompt)
+        content = raw if isinstance(raw, str) else raw.content
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        if "```" in content:
+            content = content.split("```")[1].lstrip("json").strip()
+        parsed = json.loads(content)
+        selected_modules = parsed.get("selected", [])
+        ui_print(f"[Summarizer] LLM 选择功能模块: {selected_modules}")
+    except Exception as e:
+        ui_print(f"[Summarizer] 功能模块选择失败: {e}，将跳过功能分析")
 
-    # 3. 构造核心输出（使用代码块包裹原始输出）
-    summary_lines.append("**💻 工具原始输出结果：**")
+    # ── 步骤 4：功能分析（规则判断，不调用 LLM）──────────────────────────────
+    functional_results: list[dict] = []
+    for module_name in selected_modules:
+        analyzer = get_functional_analyzer(module_name)
+        if analyzer is None:
+            continue
+        # 找到对应类型的文件统计
+        menu_item  = next((m for m in FUNCTIONAL_ANALYZER_MENU if m["name"] == module_name), {})
+        need_type  = menu_item.get("required_stat_type", "")
+        stats_input = next(
+            (s for s in file_stats_map.values() if s.get("type") == need_type),
+            None,
+        )
+        if stats_input is None:
+            ui_print(f"[Summarizer] 跳过 {module_name}：无匹配的 {need_type} 文件统计")
+            continue
+        ui_print(f"[Summarizer] 运行功能分析: {module_name}")
+        result = analyzer.analyze(stats_input)
+        functional_results.append(result)
 
-    if tool_output:
-        combined_output = "\n".join(tool_output).strip()
-        # 使用三个反引号包裹，并标注为 bash 或 plaintext
-        summary_lines.append(f"```bash\n{combined_output}\n```")
-    else:
-        summary_lines.append("> (无标准输出内容)")
+    # ── 步骤 5：LLM 生成自然语言报告 ─────────────────────────────────────────
+    # 过滤掉原始错误字段，避免 LLM 把内部错误信息当作报告内容输出
+    _error_keys = {"flagstat_error", "stats_error", "error"}
+    clean_stats_map = {
+        path: {k: v for k, v in stats.items() if k not in _error_keys}
+        for path, stats in file_stats_map.items()
+    }
 
-    # 4. 合并为最终字符串
-    final_md = "\n".join(summary_lines)
+    stats_json      = json.dumps(clean_stats_map,      ensure_ascii=False, indent=2)
+    func_json       = json.dumps(functional_results,   ensure_ascii=False, indent=2)
+    raw_output_text = "\n".join(tool_output).strip()[:1000]
 
-    state["final_answer"] = final_md
-    ui_print(f'\n[LLM Answer] (Markdown 已生成)')
+    report_prompt = f"""你是生物信息学专家，请根据以下分析结果生成一份专业的中文报告。
 
+【执行工具】：{tool_desc}
+【工具原始输出（摘要）】：
+{raw_output_text}
+
+【文件统计指标】：
+{stats_json}
+
+【功能分析结论】：
+{func_json}
+
+【背景知识】：
+- dorado basecaller 输出的 BAM 是未比对的原始碱基序列，mapped rate 为 0% 是完全正常的，不应作为问题报出。
+- basecall 质量评估应以平均 Q 值（avg_quality）和 reads 数量为核心指标。
+
+报告要求：
+1. 先给出一句话总结（任务是否成功、整体质量）；
+2. 按文件逐一列出关键统计数字（total_reads、avg_quality、avg_read_length 等）；
+3. 结合功能分析结论给出生物学解读；
+4. 如有真实问题或警告（如 Q 值过低、reads 数量不足），单独列出并给出建议；
+5. 语言简洁、专业，使用 Markdown 格式。不要把内部系统日志或错误字段写入报告。"""
+
+    try:
+        raw_report = llm.invoke(report_prompt)
+        report     = raw_report if isinstance(raw_report, str) else raw_report.content
+        report     = re.sub(r"<think>.*?</think>", "", report, flags=re.DOTALL).strip()
+    except Exception as e:
+        ui_print(f"[Summarizer] 报告生成失败: {e}")
+        report = f"### ✅ 任务执行总结\n\n工具执行完成，但报告生成失败：{e}"
+
+    # ── 步骤 6：画图（在 run_dir 内生成 PNG）────────────────────────────────
+    plot_paths_in_run: list[str] = []
+    if run_dir and os.path.isdir(run_dir):
+        try:
+            from tools.analyzers.file.bam_plotter import generate_bam_plots
+            _plotter_available = True
+        except ImportError as e:
+            ui_print(f"[Summarizer] 画图模块不可用（{e}），跳过图表生成")
+            _plotter_available = False
+
+        if _plotter_available:
+            for stats in file_stats_map.values():
+                if stats.get("type") == "bam" and "error" not in stats:
+                    try:
+                        ui_print("[Summarizer] 正在生成 BAM 图表...")
+                        generated = generate_bam_plots(stats, run_dir)
+                        plot_paths_in_run.extend(generated)
+                        ui_print(f"[Summarizer] 生成图表: {[os.path.basename(p) for p in generated]}")
+                    except Exception as e:
+                        ui_print(f"[Summarizer] 图表生成失败: {e}")
+
+    # ── 步骤 7：保存分析结果 JSON，将整个 run_dir 归档到 session_dir 下 ─────
+    session_dir   = get_session_dir()
+    archived_images: list[str] = []
+
+    if run_dir and os.path.isdir(run_dir) and session_dir and os.path.isdir(session_dir):
+        # 保存分析结果 JSON 到 run_dir 内
+        analysis_result = {
+            "file_stats":         file_stats_map,
+            "functional_results": functional_results,
+        }
+        json_path = os.path.join(run_dir, "analysis.json")
+        try:
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(analysis_result, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            ui_print(f"[Summarizer] 分析结果 JSON 写入失败: {e}")
+
+        # 收集 run_dir 内的图片路径（移动后更新）
+        for entry in os.scandir(run_dir):
+            if entry.is_file() and entry.name.endswith(".png"):
+                archived_images.append(os.path.join(run_dir, entry.name))
+
+        # run_dir 本身已是 session_dir 的子目录（get_or_create_run_dir 创建在 session_dir 下）
+        # 直接保留即可，无需额外移动；run_dir 不删除，作为本次运行的持久存档
+        ui_print(f"[Summarizer] 运行结果已归档至: {os.path.basename(run_dir)}")
+    elif run_dir:
+        ui_print("[Summarizer] 警告：run_dir 或 session_dir 无效，跳过文件归档")
+
+    state["final_answer"]    = report
+    state["analysis_images"] = archived_images
+    ui_print("[Summarizer] 报告生成完成")
     return state
 
 def handle_irrelevant_request_node(state: AgentState) -> AgentState:

@@ -1,16 +1,15 @@
 import json
+import os
 import re
 import torch
 from agent_graph.state import AgentState
-from agent_graph.prompts.toolchain_prompts import (
-    build_parameter_generator_prompt,
-)
-from configs import TOOL_LIST, TOOL_ARGS, WORKFLOW_PIPELINE_ARGS
+from agent_graph.prompts.toolchain_prompts import build_parameter_generator_prompt
+from configs import TOOL_LIST, TOOL_ARGS
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
-
-# 统一使用顶级 `utils.ui_logger` 导出
+from utils.user_context import get_or_create_run_dir
 from utils.ui_logger import ui_print
+
 
 def generate_tool_params_node(state: AgentState) -> AgentState:
     param_llm = get_llm_instance(is_planner=True)
@@ -19,7 +18,8 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
     rag_suggestion = state.get("rag_suggestion", {})
     tool_sequences = state.get("tool_sequence", [])
     is_workflow = state.get("is_workflow", False)
-    selected_workflow = state.get("selected_workflow")  # 例如 "methylong"
+    selected_workflow = state.get("selected_workflow", "")
+    pre_files = state.get("pre_files", [])
 
     print(f"\n[Param Generator] 正在为 {len(tool_sequences)} 个步骤配置参数...")
     if not tool_sequences:
@@ -33,36 +33,53 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
 
     for i, tool_name in enumerate(tool_sequences):
 
-        # ───────────────────── 取 schema 和 RAG ───────────────────────
+        # ── workflow 模式：强制关键参数，跳过 LLM ──────────────────────────────
         if is_workflow and selected_workflow:
-            # workflow 模式：schema 来自 WORKFLOW_PIPELINE_ARGS，RAG key 是 pipeline 名
-            tool_real_name = selected_workflow
-            current_schema = str(WORKFLOW_PIPELINE_ARGS.get(selected_workflow, "{}"))
-            current_rag = rag_suggestion.get(selected_workflow, "未找到相关 RAG 文档。")
-        else:
-            # 普通工具：schema 来自 TOOL_ARGS，RAG key 是工具名
-            tool_real_name = ""
-            for t in TOOL_LIST:
-                if t.lower() in tool_name.lower():
-                    tool_real_name = t.lower()
-                    break
-            if not tool_real_name:
-                print(f"  [Warning] 跳过无法识别的工具: {tool_name}")
-                continue
-            current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
-            current_rag = rag_suggestion.get(tool_real_name, "未找到相关 RAG 文档。")
-        # ─────────────────────────────────────────────────────────────
+            run_dir = get_or_create_run_dir()
+
+            # input 固定指向 run_dir 下的前置文件（由 review 节点写入）
+            if pre_files and run_dir:
+                input_path = os.path.join(run_dir, pre_files[0]["filename"])
+            else:
+                input_path = ""
+
+            tool_call = {
+                "tool_name": selected_workflow,
+                "tool_args": {
+                    "kwargs": {
+                        "pipeline": selected_workflow,
+                        "input":    input_path,
+                        "outdir":   "results",   # command_builder 会拼到 run_dir 下
+                    }
+                }
+            }
+            ui_print(f"[Param Generator] Workflow 参数已强制设置: pipeline={selected_workflow}, input={input_path}")
+            final_tool_calls.append(tool_call)
+            continue
+        # ──────────────────────────────────────────────────────────────────────
+
+        # ── 普通工具：RAG + LLM 生成参数 ──────────────────────────────────────
+        tool_real_name = ""
+        for t in TOOL_LIST:
+            if t.lower() in tool_name.lower():
+                tool_real_name = t.lower()
+                break
+        if not tool_real_name:
+            print(f"  [Warning] 跳过无法识别的工具: {tool_name}")
+            continue
+
+        current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
+        current_rag = rag_suggestion.get(tool_real_name, "未找到相关 RAG 文档。")
 
         print(f"  > 正在配置第 {i + 1} 步: {tool_name} (base: {tool_real_name})")
 
         last_params_snapshot = ""
-        if old_tool_calls:
-            for old_call in old_tool_calls:
-                if tool_name.lower() == old_call.get("tool_name", "").lower():
-                    last_params_snapshot = json.dumps(
-                        old_call.get("tool_args", {}), indent=2, ensure_ascii=False
-                    )
-                    break
+        for old_call in old_tool_calls:
+            if tool_name.lower() == old_call.get("tool_name", "").lower():
+                last_params_snapshot = json.dumps(
+                    old_call.get("tool_args", {}), indent=2, ensure_ascii=False
+                )
+                break
 
         final_prompt = build_parameter_generator_prompt().format(
             step_num=i + 1,
@@ -89,20 +106,17 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
             final_tool_calls.append(current_call)
 
             args = current_call.get("tool_args", {})
-            if args:
-                kwargs = args.get("kwargs", {})
-                last_step_output_file = (
-                    kwargs.get("output")
-                    or kwargs.get("output_file")
-                    or kwargs.get("output_dir")
-                    or kwargs.get("o")
-                    or ""
-                )
+            kwargs = args.get("kwargs", {})
+            last_step_output_file = (
+                kwargs.get("output")
+                or kwargs.get("output_file")
+                or kwargs.get("output_dir")
+                or kwargs.get("o")
+                or ""
+            )
         except Exception as e:
             print(f"  [Error] {tool_name} 配置失败: {e}")
             continue
 
     state["tool_calls"] = final_tool_calls
     return state
-
-

@@ -1,6 +1,6 @@
 
 llm_args = {
-    'device': 'auto',
+    'device': 'cuda:3',
 }
 
 embedding_args = {

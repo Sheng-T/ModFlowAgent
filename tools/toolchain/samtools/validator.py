@@ -14,8 +14,9 @@ def samtools(subcommand, subcommand_str, args_dict, data_path):
         return f"samtools {arg_str}".strip()
 
     data_dir = data_path['base_data_dir']
+    out_dir  = data_path.get('out_dir', data_dir)
     if subcommand == "sort":
-        kwargs['o'] = os.path.join(data_dir, f"sorted_{int(time.time())}.bam")
+        kwargs['o'] = os.path.join(out_dir, f"sorted_{int(time.time())}.bam")
         new_args = {
             "pos_args": pos_args,
             "kwargs": deduplicate_kwargs(kwargs)

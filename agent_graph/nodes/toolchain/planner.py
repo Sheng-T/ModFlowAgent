@@ -34,9 +34,14 @@ def retrieve_tool_docs_node(state: AgentState) -> AgentState:
     is_workflow = state.get("is_workflow", False)
 
     if is_workflow:
+        context = ""
         if "workflows" not in RAG_INSTANCES:
-            RAG_INSTANCES["workflows"] = EnhancedMDRAG(WORKFLOWS_DOC, llm=rag_llm, cache_dir=WORKFLOWS_CACHE_DIR,)
-        context = RAG_INSTANCES["workflows"].search(user_query)
+            try:
+                RAG_INSTANCES["workflows"] = EnhancedMDRAG(WORKFLOWS_DOC, llm=rag_llm, cache_dir=WORKFLOWS_CACHE_DIR)
+            except ValueError as e:
+                print(f"[RAG] Workflow 文档为空或无效，跳过检索: {e}")
+        if "workflows" in RAG_INSTANCES:
+            context = RAG_INSTANCES["workflows"].search(user_query)
         state["rag_suggestion"] = {"workflows": context}
         print(f"[RAG] Workflow 模式，检索 pipeline 目录完成")
     else:
@@ -89,10 +94,16 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
         workflow_context = state.get("rag_suggestion", {}).get("workflows", "")
         chain = ChatPromptTemplate.from_template(build_workflow_planner_prompt()) | planner_llm | JsonOutputParser()
         try:
+            from configs.workflow_config import SUPPORTED_PIPELINES
             response = chain.invoke({"input": user_input, "history": history_str, "workflow_context": workflow_context})
-            pipeline = response.get("pipeline")  # 例如 "rnaseq"
-            state["tool_sequence"] = [pipeline] if pipeline else []
-            state["selected_workflow"] = pipeline  # param_generator 用这个找 args
+            pipeline = response.get("pipeline", "").strip().lower()
+
+            if pipeline not in SUPPORTED_PIPELINES:
+                print(f"[Planner] LLM 返回了不支持的 pipeline: '{pipeline}'，回退到第一个支持的 pipeline")
+                pipeline = SUPPORTED_PIPELINES[0]
+
+            state["tool_sequence"] = [pipeline]
+            state["selected_workflow"] = pipeline
             print(f"[Planner] 选中 pipeline: {pipeline}，理由: {response.get('reason')}")
         except Exception as e:
             print(f"[Planner Error] {e}")

@@ -7,7 +7,9 @@ def reset_session_state_node(state: AgentState) -> AgentState:
     print(f"\n[Router] 正在分析用户输入: '{user_input[:30]}...'")
 
     history = state.get("chat_history", [])
-    return {**EMPTY_STATE, "input": user_input, "chat_history": history}
+    # user_choice 必须保留，否则 classify_intent_route 和 select_tools_node 里的模式判断会失效
+    user_choice = state.get("user_choice")
+    return {**EMPTY_STATE, "input": user_input, "chat_history": history, "user_choice": user_choice}
 
 
 def classify_intent_route(state: AgentState) -> str:
@@ -21,13 +23,15 @@ def classify_intent_route(state: AgentState) -> str:
             return "route_to_answer"
         elif choice == "tools":
             return "route_to_tools"
-        # else:
-        #     return "route_to_answer"
+        elif choice == "workflow":
+            return "route_to_tools"   # workflow 也走 tools 路由，selector 里会强制 is_workflow=True
+        # auto: 继续走下方 LLM 判断
 
-    
     # 1) Direct keyword routing for deterministic behavior
-    if any(k in user_input for k in ["nextflow", "nf-core", "workflow", "methylong"]):
-        return "route_to_tools"  # workflow也走tools路由
+    _workflow_kw = ["nextflow", "nf-core", "workflow", "pipeline", "流水线", "流程",
+                    "methylong", "rnaseq", "methylseq", "sarek", "ampliseq", "mag", "taxprofiler"]
+    if any(k in user_input for k in _workflow_kw):
+        return "route_to_tools"  # workflow 也走 tools 路由
     if any(k in user_input for k in ["dorado", "samtools", "basecall", "sort", "index"]):
         return "route_to_tools"
 
@@ -37,8 +41,8 @@ def classify_intent_route(state: AgentState) -> str:
 
     classification = llm.invoke(
         f"你是一个生物信息学专家助手。请分析用户意图并分类：\n"
-        f"- 如果用户要求执行具体的操作（如 basecall、排序、统计、运行工具、运行nextflow/nf-core），返回 'tools'；\n"
-        f"- 如果用户是询问生物学概念、生信知识、技术原理（如纳米孔、DNA、测序），返回 'answer'；\n"
+        f"- 如果用户要求执行具体操作、数据分析、运行工具或流水线（包括但不限于：basecall、排序、甲基化分析、转录组分析、变异检测、提供了测序文件要求分析），返回 'tools'；\n"
+        f"- 如果用户是询问生物学概念、生信知识、技术原理（如纳米孔、DNA、测序原理），返回 'answer'；\n"
         f"- 只有当用户在闲聊、骂人或说与科学完全无关的话时，才返回 'irrelevant'。\n"
         f"注意：只返回单词本身，不要任何标点。\n"
         f"用户输入: {user_input}"

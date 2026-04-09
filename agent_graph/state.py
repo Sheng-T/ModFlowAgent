@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List, Dict
+from typing import TypedDict, List, Dict
 
 EMPTY_STATE = {
     "identified_tools": [],
@@ -14,6 +14,9 @@ EMPTY_STATE = {
     "is_workflow": False,
     "user_choice": None,
     "pending_commands": [],
+    "pre_files": [],
+    "run_dir": "",
+    "analysis_images": [],
 }
 
 
@@ -55,3 +58,12 @@ class AgentState(TypedDict):
     selected_workflow: str  # workflow select
 
     pending_commands: List[str]
+
+    # workflow 前置文件（如 samplesheet.csv），执行前写入 session_dir
+    pre_files: List[Dict]
+
+    # 本次运行的临时目录（由 review 节点写入，summarizer 读取后移文件并清理）
+    run_dir: str
+
+    # 分析产生的图表文件路径列表（已移到 session_dir 下）
+    analysis_images: List[str]

@@ -19,6 +19,14 @@ def select_tools_node(state: AgentState) -> AgentState:
     user_feedback = state.get("user_feedback", "")
     history_str = format_history(state.get("chat_history", []))
     tool_sequence = state.get("tool_sequence", [])
+
+    # 用户明确选择了"流水线"模式，跳过 LLM 选择
+    if state.get("user_choice") == "workflow":
+        ui_print(f"\n[Tools Selector] 用户指定流水线模式，跳过工具识别")
+        state["identified_tools"] = ["workflow"]
+        state["is_workflow"] = True
+        return state
+
     ui_print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
     tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
     prompt = ChatPromptTemplate.from_template(build_tools_selector_prompt())
@@ -35,7 +43,8 @@ def select_tools_node(state: AgentState) -> AgentState:
             }
         )
         selected = response.get("selected_tools", [])
-        valid_tools = [t for t in selected if t in TOOLS_DOC.keys()]
+        # "workflow" 没有 doc 文件，单独允许
+        valid_tools = [t for t in selected if t in TOOLS_DOC.keys() or t == "workflow"]
 
         # 兜底关键词匹配（不变）
         if not valid_tools:

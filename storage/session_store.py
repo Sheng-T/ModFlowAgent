@@ -45,10 +45,24 @@ def _verify_password(password: str, stored: str) -> bool:
 class SessionStore:
     def __init__(self, db_path: str):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")  # 提升并发安全性
+        self._db_path = db_path
+        self._conn = self._new_conn()
         self._init_tables()
+
+    def _new_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")  # 锁等待最多 5s，减少并发冲突
+        return conn
+
+    def _reconnect(self):
+        """连接失效时重建。"""
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+        self._conn = self._new_conn()
 
     def _init_tables(self):
         """创建表 + 安全迁移 uid 列"""
@@ -87,7 +101,8 @@ class SessionStore:
             self._conn.execute("SELECT uid FROM users LIMIT 1")
         except sqlite3.OperationalError:
             print("[SessionStore] 添加 uid 列到 users 表...")
-            self._conn.execute("ALTER TABLE users ADD COLUMN uid INTEGER UNIQUE")
+            # 注意：旧版 SQLite 不支持 ALTER TABLE ADD COLUMN 带 UNIQUE 约束
+            self._conn.execute("ALTER TABLE users ADD COLUMN uid INTEGER")
             self._conn.commit()
 
         # 回填 uid（使用 rowid）
@@ -243,11 +258,20 @@ class SessionStore:
     # ── Messages ──────────────────────────────────────────────────────────────
 
     def append_message(self, session_id: str, role: str, content: str, thinking: str = ""):
-        self._conn.execute(
-            "INSERT INTO messages (session_id, role, content, thinking) VALUES (?,?,?,?)",
-            (session_id, role, content, thinking),
-        )
-        self._conn.commit()
+        for attempt in range(2):
+            try:
+                self._conn.execute(
+                    "INSERT INTO messages (session_id, role, content, thinking) VALUES (?,?,?,?)",
+                    (session_id, role, content, thinking),
+                )
+                self._conn.commit()
+                return
+            except sqlite3.OperationalError as e:
+                if attempt == 0:
+                    print(f"[SessionStore] append_message 失败，尝试重连: {e}")
+                    self._reconnect()
+                else:
+                    raise
 
     def get_messages(self, session_id: str) -> List[Dict]:
         rows = self._conn.execute(

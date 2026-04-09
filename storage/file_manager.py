@@ -118,6 +118,15 @@ class FileManager:
         if os.path.isdir(sdir):
             shutil.rmtree(sdir)
 
+    def delete_session_run_dirs(self, uid: int, session_id: str):
+        """只删除会话目录下的 run_* 子目录（保留用户上传文件）。"""
+        sdir = os.path.join(self.user_dir(uid), session_id)
+        if not os.path.isdir(sdir):
+            return
+        for entry in os.scandir(sdir):
+            if entry.is_dir() and entry.name.startswith("run_"):
+                shutil.rmtree(entry.path, ignore_errors=True)
+
 
 # ── 模块级单例 ────────────────────────────────────────────────────────────────
 

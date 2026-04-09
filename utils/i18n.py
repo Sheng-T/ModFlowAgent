@@ -42,6 +42,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "请选择处理方式：":            "Select processing mode:",
         "💬 对话问答":                 "💬 Chat Q&A",
         "🔧 工具调用":                 "🔧 Tool Call",
+        "🧬 流水线":                   "🧬 Pipeline",
         "🤖 自动判断":                 "🤖 Auto Detect",
 
         # ── 状态标签 ──────────────────────────────────────────────────────

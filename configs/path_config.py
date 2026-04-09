@@ -7,13 +7,19 @@ PROJECT_ROOT = os.path.dirname(current_dir)
 
 DATA_PATH = {
     "dorado": {
-        'base_data_dir': "~/agent_data",  # 基础数据路径
+        'base_data_dir': "~/agent_data",
         'dorado_models': "~/tools/dorado_model/"
     },
     "samtools": {
         'base_data_dir': "~/agent_data"
     },
-    "nextflow": {
+    "modkit": {
+        'base_data_dir': "~/agent_data"
+    },
+    "fastqc": {
+        'base_data_dir': "~/agent_data"
+    },
+    "workflow": {
         "base_data_dir": "~/agent_data",
         "work_dir": "~/agent_data/nextflow_work",
         "nfcore_home": "~/agent_data/.nextflow"

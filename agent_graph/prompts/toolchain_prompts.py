@@ -1,11 +1,17 @@
 def build_tools_selector_prompt() -> str:
     return """
-    你是一个生信流程调度专家。请分析用户的需求，从下方的工具列表中挑选出完成任务所需的【所有】工具。
+    你是一个生信流程调度专家。请分析用户的需求，从下方的工具列表中选出最合适的工具。
+
+    【选择原则】：
+    - 如果用户需要端到端的完整分析流程（如"分析我的数据"、"跑甲基化分析"、"做转录组分析"），选 workflow。
+    - 如果用户只需要某个具体操作步骤（如"basecall"、"排序"、"建索引"），选对应的单工具（dorado/samtools）。
+    - 当用户提供了原始测序文件（pod5/fastq）并且目标是最终生物学结论（甲基化/差异表达/变异），优先选 workflow。
+    - workflow 和单工具【互斥】，只能选其中一个。
 
     【可选工具列表】:
     {tools_info}
 
-    任务背景】:
+    【任务背景】:
     - 原始需求: {input}
     - 历史沟通轨迹: {history}
     - 本次你需要立即执行的修改: {user_feedback}
@@ -14,7 +20,7 @@ def build_tools_selector_prompt() -> str:
 
     请按以下 JSON 格式返回（只返回 JSON）:
     {{
-        "selected_tools": ["tool_name1", "tool_name2"],
+        "selected_tools": ["tool_name"],
         "reason": "简短的挑选理由"
     }}
     """

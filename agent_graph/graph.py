@@ -14,6 +14,8 @@ from agent_graph.nodes import (
     summarize_execution_result_node,
 )
 from agent_graph.nodes.workflows.planner import retrieve_pipeline_docs_node
+from agent_graph.nodes.workflows.prereq import generate_prereqs_node
+from utils.workflow_prerequisites import needs_prereq
 from agent_graph.state import AgentState
 
 
@@ -44,6 +46,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("rag", retrieve_tool_docs_node)
     workflow.add_node("planner", plan_tool_steps_node)
     workflow.add_node("rag_pipeline", retrieve_pipeline_docs_node)
+    workflow.add_node("prereq_generator", generate_prereqs_node)
     workflow.add_node("param_generator", generate_tool_params_node)
     # workflow.add_node("validator", validate_tool_calls_node)
     workflow.add_node("human_reviewer", review_execution_plan_node)
@@ -91,7 +94,15 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
             "route_to_summarize": "summarizer",
         }
     )
-    workflow.add_edge("rag_pipeline", "param_generator")
+    workflow.add_conditional_edges(
+        "rag_pipeline",
+        lambda state: "prereq_generator" if needs_prereq(state.get("selected_workflow", "")) else "param_generator",
+        {
+            "prereq_generator": "prereq_generator",
+            "param_generator": "param_generator",
+        }
+    )
+    workflow.add_edge("prereq_generator", "param_generator")
 
     # D. Executor 和 Summarizer 的最终流转
     workflow.add_edge("param_generator", "human_reviewer")

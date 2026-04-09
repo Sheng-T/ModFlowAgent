@@ -168,14 +168,19 @@ def crawl_docs(start_url, save_dir, max_depth=5):
 
 if __name__ == "__main__":
     # https://software-docs.nanoporetech.com/dorado/latest/
+    # https://nanoporetech.github.io/modkit/
+    # https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/
 
-    # target_url = "https://nf-co.re/methylong/2.0.0/"
-    # target_dir = "/home/buguai/project/agent/static/workflow/methylong/html"
+    # target_url = "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/"
+    # target_url = "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/1%20Introduction/"
+    # target_url = "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/2%20Basic%20Operations/"
+    # target_url = "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/3%20Analysis%20Modules/"
+    # target_dir = "/home/buguai/project/agent/static/fastqc/html"
     #
     # crawl_docs(target_url, target_dir)
 
     html2md(
-        input_dir="/home/buguai/project/agent/static/workflow/methylong/html",
-        output_file="/home/buguai/project/agent/static/workflow/methylong/methylong_doc.md",
-        title="Methylong Document"
+        input_dir="/home/buguai/project/agent/static/fastqc/html",
+        output_file="/home/buguai/project/agent/static/fastqc/fastqc_doc.md",
+        title="Fastqc Document"
     )

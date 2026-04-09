@@ -1,7 +1,7 @@
 import copy
 import os
 import time
-
+import re
 from tools.toolchain.command_builder import build_shell_args
 from utils.validator_utils import deduplicate_kwargs
 
@@ -10,7 +10,8 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
     args_dict = copy.deepcopy(args_dict)
     kwargs = args_dict.get("kwargs", {})
     pos_args = args_dict.get("pos_args", [])
-    data_dir = data_path['base_data_dir']
+    data_dir = data_path['base_data_dir']   # 输入文件目录
+    out_dir  = data_path.get('out_dir', data_dir)  # 输出目录（无则与输入同目录）
 
     if not subcommand:
         arg_str = build_shell_args(args_dict)
@@ -28,11 +29,28 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
             kwargs["emit-moves"] = True
 
         device = kwargs.get("device", "")
+
         if not device:
             kwargs["device"] = "auto"
         else:
-            if device not in ['cpu','auto','cuda']:
+            # 先统一转字符串（防止 None / int 等）
+            device = str(device)
+
+            # gpu -> cuda
+            m = re.match(r'^gpu(?::(\d+(?:,\d+)*))?$', device)
+            if m:
+                ids = m.group(1)
+                if ids:
+                    device = f'cuda:{ids}'
+                else:
+                    device = 'cuda'
+
+            # 校验合法性
+            if not re.match(r'^(cpu|auto|cuda(?::\d+(?:,\d+)*)?)$', device):
                 kwargs["device"] = "auto"
+            else:
+                # ❗关键：写回去
+                kwargs["device"] = device
 
         #  输出格式判断（从 kwargs）
         ext = "bam"
@@ -41,9 +59,9 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
         elif kwargs.get("emit-sam"):
             ext = "sam"
 
-        # 输出路径
+        # 输出路径（写入 out_dir）
         timestamp = int(time.time())
-        out_file = os.path.join(data_dir, f"dorado_out_{timestamp}.{ext}")
+        out_file = os.path.join(out_dir, f"dorado_out_{timestamp}.{ext}")
 
         # ======================
         # 路径重写（关键！！）
@@ -89,7 +107,7 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
         reads = pos_args[0]
 
         timestamp = int(time.time())
-        out_file = os.path.join(data_dir, f"{os.path.basename(reads)}_{timestamp}.summary.txt")
+        out_file = os.path.join(out_dir, f"{os.path.basename(reads)}_{timestamp}.summary.txt")
 
         arg_str = build_shell_args(args_dict)
         final_raw_cmd = f"dorado {subcommand_str} {arg_str} > {out_file}"
