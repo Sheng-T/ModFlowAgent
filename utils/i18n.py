@@ -31,6 +31,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "会话列表":                    "Sessions",
         "条消息":                      "messages",
         "语言":                        "Language",
+        "🧰 支持的工具与流水线":        "🧰 Supported Tools & Pipelines",
+        "单步工具":                    "Tools",
+        "分析流水线":                  "Pipelines",
+        "📁 文件管理":                 "📁 File Management",
+        "上传文件到当前会话":           "Upload files to current session",
+        "个文件":                      "files",
+        "🗑 清空当前会话文件":          "🗑 Clear session files",
+        "各会话占用":                  "Storage by session",
+        "当前":                        "current",
 
         # ── 主区域 ────────────────────────────────────────────────────────
         "🧬 Bio-Agent 智能分析平台":   "🧬 Bio-Agent Analytics Platform",

@@ -1,4 +1,31 @@
-def build_workflow_planner_prompt() -> str:
+def build_workflow_planner_prompt(lang: str = "en_US") -> str:
+    if lang == "en_US":
+        return """
+    You are a bioinformatics workflow selection expert.
+
+    [Hard Constraints]:
+    - Select exactly one pipeline
+    - The pipeline name must come strictly from the [Supported Pipelines] list — do not invent names
+    - Return only the pipeline name, no parameters
+
+    [Supported Pipelines]:
+    - methylong: Long-read methylation analysis for ONT or PacBio HiFi; input: BAM + reference genome FASTA
+
+    [Pipeline Documentation]:
+    {workflow_context}
+
+    User request:
+    {input}
+
+    History:
+    {history}
+
+    Return JSON only:
+    {{
+        "pipeline": "pipeline name, must be methylong",
+        "reason": "one-sentence rationale"
+    }}
+    """
     return """
     你是一个生物信息学 workflow 选择专家。
 
@@ -25,5 +52,3 @@ def build_workflow_planner_prompt() -> str:
         "reason": "选择理由，一句话"
     }}
     """
-
-

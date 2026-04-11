@@ -1,6 +1,19 @@
 def build_human_review_feedback_prompt(
-    user_input: str, tool_calls, identified_tools
+    user_input: str, tool_calls, identified_tools, lang: str = "en_US"
 ) -> str:
+    if lang == "en_US":
+        return f"""
+        User feedback: {user_input}
+        Currently planned steps: {tool_calls}
+        Currently selected tools: {identified_tools}
+
+        Evaluate the scope of this feedback and return strictly one of the following three words:
+        - 'SELECTOR': The user wants to introduce a completely new software category (e.g. originally only dorado, now requesting samtools). Return if the newly requested tool is not among the selected tools.
+        - 'REPLAN': Involves adding or removing logical steps within the same software (e.g. add a samtools index step after samtools sort). Return if the newly requested tool is already among the selected tools.
+        - 'REPARAM': Only modifying parameters of existing steps (e.g. changing input/output paths, model version, adding --reference). No new steps added.
+
+        Return exactly one word, no other characters.
+        """
     return f"""
         用户反馈: {user_input}
         当前已规划的步骤: {tool_calls}

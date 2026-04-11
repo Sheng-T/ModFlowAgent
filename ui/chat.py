@@ -18,13 +18,15 @@ except ImportError:
 # ── 内部工具 ───────────────────────────────────────────────────────────────────
 
 def _mask_cmd(cmd: str) -> str:
-    """将命令中的服务器绝对路径替换为用户友好占位符。"""
+    """Replace absolute server paths with user-friendly placeholders."""
+    from utils.lang_utils import get_lang
+    lang = get_lang()
     run_dir     = get_run_dir()
     session_dir = get_session_dir()
     if run_dir:
-        cmd = cmd.replace(run_dir, "[输出目录]")
+        cmd = cmd.replace(run_dir, "[output dir]" if lang == "en_US" else "[输出目录]")
     if session_dir:
-        cmd = cmd.replace(session_dir, "[上传目录]")
+        cmd = cmd.replace(session_dir, "[upload dir]" if lang == "en_US" else "[上传目录]")
     return cmd
 
 
@@ -38,11 +40,12 @@ def _remove_run_dir(run_dir: str | None):
 # ── 渲染工具 ──────────────────────────────────────────────────────────────────
 
 def render_log(log: str):
-    if "✓" in log or "成功" in log or "success" in log.lower():
+    lower = log.lower()
+    if "✓" in log or "成功" in log or "succeeded" in lower or "success" in lower:
         st.success(log)
-    elif "✗" in log or "失败" in log or "错误" in log or "error" in log.lower():
+    elif "✗" in log or "失败" in log or "错误" in log or "failed" in lower or "error" in lower:
         st.error(log)
-    elif "警告" in log or "warning" in log.lower():
+    elif "警告" in log or "warning" in lower:
         st.warning(log)
     else:
         st.text(log)
@@ -332,8 +335,9 @@ def run_second_segment(app, store, fm, user_uid,
             history = current_state.values.get("chat_history", [])
             last_error = None
             for msg in reversed(history):
-                if msg.get("role") == "assistant" and "失败" in msg.get("content", ""):
-                    last_error = msg["content"]
+                content = msg.get("content", "")
+                if msg.get("role") == "assistant" and ("failed" in content.lower() or "失败" in content):
+                    last_error = content
                     break
 
             st.session_state.pending_commands  = current_state.values.get("pending_commands", [])

@@ -115,7 +115,7 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         # ── 文件管理 ──────────────────────────────────────────────────────────
         st.divider()
-        st.markdown("**📁 文件管理**")
+        st.markdown(f"**{_('📁 文件管理')}**")
 
         usage = fm.get_usage(user_uid)
         used  = usage["total_bytes"]
@@ -124,7 +124,7 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         current_sid = st.session_state.get("current_session_id", "")
         uploaded = st.file_uploader(
-            "上传文件到当前会话",
+            _("上传文件到当前会话"),
             accept_multiple_files=True,
             key=f"uploader_{current_sid}",
             label_visibility="collapsed",
@@ -140,25 +140,25 @@ def render_sidebar(store, fm, user_id, user_uid):
                     st.session_state.uploaded_file_hashes.add(h)
                     new_files.append(f.name)
             if new_files:
-                st.success(f"已上传：{', '.join(new_files)}")
+                st.success(f"Uploaded: {', '.join(new_files)}")
 
         files = fm.list_session_files(user_uid, current_sid)
         if files:
-            st.markdown(f"*当前会话 {len(files)} 个文件*")
+            st.markdown(f"*{len(files)} {_('个文件')}*")
             for fi in files:
                 col_name, col_del = st.columns([5, 1])
                 col_name.caption(f"📄 {fi['name']}  `{fmt_size(fi['size'])}`")
                 if col_del.button("✕", key=f"fdel_{current_sid}_{fi['name']}"):
                     fm.delete_file(user_uid, current_sid, fi["name"])
                     st.rerun()
-            if st.button("🗑 清空当前会话文件", use_container_width=True):
+            if st.button(_("🗑 清空当前会话文件"), use_container_width=True):
                 fm.delete_session_files(user_uid, current_sid)
                 st.session_state.pop(f"uploaded_files_{current_sid}", None)
                 st.rerun()
 
         if len(usage["sessions"]) > 1:
-            with st.expander("各会话占用"):
+            with st.expander(_("各会话占用")):
                 for sid, sz in sorted(usage["sessions"].items(),
                                       key=lambda x: x[1], reverse=True):
-                    label = f"{sid} (当前)" if sid == current_sid else sid
+                    label = f"{sid} ({_('当前')})" if sid == current_sid else sid
                     st.caption(f"{label}: {fmt_size(sz)}")

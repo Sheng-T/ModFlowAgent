@@ -1,4 +1,4 @@
-DEFAULT_LANG = "zh_CN"
+DEFAULT_LANG = "en_US"
 
 SUPPORTED_LANGS: dict[str, str] = {
     "zh_CN": "中文",

@@ -11,8 +11,7 @@ from configs import TOOLS_DOC, RAG_INSTANCES, TOOL_ARGS, WORKFLOWS_DOC, WORKFLOW
 from storage.rag_retriever import EnhancedMDRAG
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
-
-# 统一使用顶级 `utils.ui_logger` 导出
+from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 
@@ -78,7 +77,8 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
         # ── 普通工具：选子命令 ──
         print(f"\n[Planner] 工具模式，选择子命令...")
         tools_args = [TOOL_ARGS.get(t) for t in identified_tools]
-        chain = ChatPromptTemplate.from_template(build_tool_planner_prompt()) | planner_llm | JsonOutputParser()
+        lang = get_lang()
+        chain = ChatPromptTemplate.from_template(build_tool_planner_prompt(lang)) | planner_llm | JsonOutputParser()
         try:
             response = chain.invoke({"input": user_input, "history": history_str, "tools_args": tools_args})
             subcmd = response.get("tool")  # 例如 "samtools sort"
@@ -92,7 +92,8 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
         # ── Workflow：选具体 pipeline ──
         print(f"\n[Planner] Workflow 模式，选择具体 pipeline...")
         workflow_context = state.get("rag_suggestion", {}).get("workflows", "")
-        chain = ChatPromptTemplate.from_template(build_workflow_planner_prompt()) | planner_llm | JsonOutputParser()
+        lang = get_lang()
+        chain = ChatPromptTemplate.from_template(build_workflow_planner_prompt(lang)) | planner_llm | JsonOutputParser()
         try:
             from configs.workflow_config import SUPPORTED_PIPELINES
             response = chain.invoke({"input": user_input, "history": history_str, "workflow_context": workflow_context})

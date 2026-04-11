@@ -2,46 +2,48 @@
 
 # 🧬 Bio-Agent
 
-**面向 HPC 集群的生物信息学 AI 智能体**
+**Bioinformatics AI Agent for HPC Clusters**
 
-基于 LangGraph 构建，支持自然语言驱动工具调用、Nextflow 流水线编排与 RAG 增强问答
+Built on LangGraph — natural-language-driven tool invocation, Nextflow pipeline orchestration, and RAG-enhanced Q&A
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-1C3C3C?logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraph)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-[功能特性](#-功能特性) · [快速开始](#-快速开始) · [架构设计](#-架构设计) · [项目结构](#-项目结构)
+**[English](README.md) · [中文](README_CN.md)**
+
+[Features](#-features) · [Quick Start](#-quick-start) · [Architecture](#-architecture) · [Project Structure](#-project-structure)
 
 </div>
 
 ---
 
-## ✨ 功能特性
+## ✨ Features
 
-| 功能 | 说明 |
+| Feature | Description |
 |---|---|
-| 🤖 **意图路由** | 自动识别用户输入，分流至工具调用 / Workflow 流水线 / 知识问答 / 无关拒答 |
-| 🔧 **工具链调用** | 支持 `dorado`（ONT basecall）、`samtools`、`modkit`、`fastqc`，LLM 自动生成参数，通过 Singularity 容器执行 |
-| 🔬 **Workflow 编排** | 对接本地 Nextflow 流水线（`methylong`），自动生成 samplesheet，自然语言配置参数 |
-| 🧠 **RAG 增强问答** | 混合检索（BM25 + ChromaDB）工具文档，结合实时网络搜索回答生信领域问题 |
-| 👤 **Human-in-the-Loop** | 执行前自动暂停，展示完整命令（含前置文件写入），支持确认 / 修改 / 取消，二次确认防误触 |
-| 💾 **持久化会话** | 多用户 + 多会话隔离，SQLite 存储对话历史与 LangGraph checkpoint，用户文件按 uid/session 独立存储 |
-| 🌐 **多语言 UI** | 界面支持中文 / English 切换，语言偏好按用户持久化 |
-| 📊 **结果分析** | 执行完成后自动分析输出文件（BAM flagstat/stats），生成 QC 图表并展示报告 |
+| 🤖 **Intent Routing** | Automatically classifies user input and routes to tool invocation / workflow pipeline / knowledge Q&A / off-topic rejection |
+| 🔧 **Tool Chain** | Supports `dorado` (ONT basecall), `samtools`, `modkit`, `fastqc` — LLM auto-generates parameters, executed inside Singularity containers |
+| 🔬 **Workflow Orchestration** | Integrates local Nextflow pipelines (`methylong`), auto-generates samplesheets, configures parameters via natural language |
+| 🧠 **RAG-Enhanced Q&A** | Hybrid retrieval (BM25 + ChromaDB) over tool docs, combined with real-time web search for bioinformatics questions |
+| 👤 **Human-in-the-Loop** | Pauses before every execution — shows the full command (including pre-file writes), supports Confirm / Modify / Cancel with a second confirmation to prevent accidents |
+| 💾 **Persistent Sessions** | Multi-user + multi-session isolation; SQLite stores conversation history and LangGraph checkpoints; user files are stored under `uid/session` |
+| 🌐 **Bilingual UI** | Interface supports English / 中文 switching; language preference is persisted per user |
+| 📊 **Result Analysis** | After execution, automatically analyses output files (BAM flagstat/stats), generates QC charts and displays a summary report |
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 环境要求
+### Requirements
 
 - Python 3.10+
-- Singularity / Apptainer（工具链容器运行时）
-- Nextflow 23+（Workflow 模式）
-- matplotlib（结果图表，`pip install matplotlib`）
+- Singularity / Apptainer (container runtime for tool chain)
+- Nextflow 23+ (Workflow mode)
+- matplotlib (`pip install matplotlib`)
 
-### 安装
+### Installation
 
 ```bash
 git clone https://github.com/yourname/bio-agent.git
@@ -49,21 +51,21 @@ cd bio-agent
 pip install -r requirements.txt
 ```
 
-### 配置
+### Configuration
 
 ```bash
 configs/
-├── model_config.py      # LLM 模型路径 / API 设置
-├── path_config.py       # 数据目录、镜像路径（image_store、user_data_root 等）
-├── rag_config.py        # RAG 文档自动发现、向量库缓存目录
-└── workflow_config.py   # 支持的 Nextflow pipeline 列表
+├── model_config.py      # LLM model path / API settings
+├── path_config.py       # Data directories, image paths (image_store, user_data_root, etc.)
+├── rag_config.py        # RAG document discovery, vector cache directory
+└── workflow_config.py   # Supported Nextflow pipeline list
 ```
 
-主要路径配置（`configs/path_config.py`）：
+Key path settings (`configs/path_config.py`):
 
 ```python
 IMAGE_PATH = {
-    'image_store': "~/singularity_image",   # Singularity 镜像目录，子目录按工具名组织
+    'image_store': "~/singularity_image",   # Singularity image dir, sub-dirs named by tool
 }
 DATA_PATH = {
     "dorado": {'base_data_dir': "~/agent_data", 'dorado_models': "~/tools/dorado_model/"},
@@ -71,7 +73,7 @@ DATA_PATH = {
 }
 ```
 
-### 启动 Web UI
+### Launch Web UI
 
 ```bash
 streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
@@ -79,69 +81,69 @@ streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
 
 ---
 
-## 🏗️ 架构设计
+## 🏗️ Architecture
 
-Bio-Agent 以 **LangGraph** 为核心，将推理过程拆分为可观测节点图：
+Bio-Agent uses **LangGraph** as its core, splitting the reasoning process into an observable node graph:
 
 ```
-用户输入
+User Input
    │
    ▼
-[router] ── 意图分类 ──────────────────────────────────┐
-   │                                                  │
-   ▼ 工具 / 流水线                              ▼ 问答  ▼ 无关
+[router] ── intent classification ───────────────────────────┐
+   │                                                         │
+   ▼ tool / pipeline                            ▼ Q&A   ▼ off-topic
 [tools_selector]                          [llm_answer] [irrelevant]
    │
    ▼
 [rag]
    │
    ▼
-[planner] ── tool_sequence 为空 ──────────────────────── [summarizer] → END
+[planner] ── tool_sequence empty ────────────────────── [summarizer] → END
    │
-   ├── 普通工具 ──────────────────────────────────────▶ [param_generator]
-   │                                                         │
-   └── Workflow ──▶ [rag_pipeline]                           │
-                          │                                  │
-                          ├── 有前置文件 ──▶ [prereq_generator] ──▶ [param_generator]
-                          │                                  │
-                          └── 无前置文件 ──────────────────────▶ [param_generator]
-                                                             │
-                                                     [human_reviewer] ── ⏸️ interrupt_before
-                                                             │
-                                            ┌────────────────┼─────────────────────┐
-                                            ▼                ▼                     ▼
-                                      "executor"      "param_generator"        "end_node"
-                                     (确认执行)        (修改重新生成)            (取消)
-                                            │
-                                       [executor]
-                                            │
-                                 ┌──────────┴───────────┐
-                                 ▼                      ▼
-                           [summarizer] → END     [param_generator]  (执行失败重试)
+   ├── regular tool ───────────────────────────────────▶ [param_generator]
+   │                                                           │
+   └── Workflow ──▶ [rag_pipeline]                             │
+                          │                                    │
+                          ├── has prereqs ──▶ [prereq_generator] ──▶ [param_generator]
+                          │                                    │
+                          └── no prereqs ────────────────────▶ [param_generator]
+                                                               │
+                                                       [human_reviewer] ── ⏸️ interrupt_before
+                                                               │
+                                              ┌────────────────┼──────────────────────┐
+                                              ▼                ▼                      ▼
+                                        "executor"      "param_generator"         "end_node"
+                                       (confirm run)    (modify & regenerate)      (cancel)
+                                              │
+                                         [executor]
+                                              │
+                                   ┌──────────┴───────────┐
+                                   ▼                      ▼
+                             [summarizer] → END     [param_generator]  (retry on failure)
 ```
 
-### 关键设计
+### Key Design Decisions
 
-- **interrupt_before=["executor"]**：执行前强制暂停，用户审查命令（含 samplesheet 预览）后二次确认才放行
-- **run_dir 隔离**：每次运行在 `session_dir/run_{id}_{timestamp}/` 下创建独立目录，前置文件、运行结果、分析图表均归档在此，不覆盖用户上传文件
-- **pending_commands 复用**：review 节点构建命令时一次性确定所有路径（含时间戳），executor 直接复用，避免重复生成导致路径不一致
-- **Singularity 封装**：工具链命令自动提取绑定路径，透明包裹进 `singularity exec`；Nextflow 流水线由宿主机直接执行，内部通过 `-profile singularity` 管理容器
+- **`interrupt_before=["executor"]`** — Forces a pause before execution; the user reviews the full command (including samplesheet preview) and confirms before the agent proceeds.
+- **`run_dir` isolation** — Each run creates an independent directory at `session_dir/run_{id}_{timestamp}/`; pre-files, outputs, and QC charts are all archived there without overwriting uploaded files.
+- **`pending_commands` reuse** — Commands (including all paths and timestamps) are built once in the review node and reused by the executor, preventing path inconsistencies from regeneration.
+- **Singularity wrapping** — Tool commands automatically extract bind paths and are transparently wrapped in `singularity exec`; Nextflow pipelines run on the host and manage containers internally via `-profile singularity`.
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 bio-agent/
 ├── agent_graph/
-│   ├── graph.py                  # LangGraph 图定义（节点 + 边 + 编译）
-│   ├── state.py                  # AgentState 定义
+│   ├── graph.py                  # LangGraph graph definition (nodes + edges + compile)
+│   ├── state.py                  # AgentState definition
 │   ├── nodes/
-│   │   ├── router/               # 意图分类、会话重置
-│   │   ├── toolchain/            # 工具选择、RAG、Planner、参数生成
-│   │   ├── workflows/            # Pipeline 选择、RAG、前置文件生成
-│   │   └── execution/            # 命令审查、执行、结果总结
-│   └── prompts/                  # LLM prompt 模板
+│   │   ├── router/               # Intent classification, session reset
+│   │   ├── toolchain/            # Tool selection, RAG, Planner, parameter generation
+│   │   ├── workflows/            # Pipeline selection, RAG, prereq file generation
+│   │   └── execution/            # Command review, execution, result summarisation
+│   └── prompts/                  # LLM prompt templates (bilingual)
 ├── tools/
 │   ├── toolchain/
 │   │   ├── dorado/               # dorado validator & command builder
@@ -150,74 +152,74 @@ bio-agent/
 │   │   └── fastqc/               # fastqc validator
 │   ├── workflow/
 │   │   └── methylong/            # methylong command builder
-│   └── analyzers/                # 输出文件分析（BAM QC、甲基化等）
+│   └── analyzers/                # Output file analysis (BAM QC, methylation, etc.)
 ├── runtime/
-│   ├── executor.py               # 命令执行（subprocess）
-│   └── env_wrapper.py            # Singularity 封装 + 路径自动绑定
+│   ├── executor.py               # Command execution (subprocess)
+│   └── env_wrapper.py            # Singularity wrapping + automatic path binding
 ├── storage/
-│   ├── checkpointer.py           # SqliteSaver 单例
-│   ├── session_store.py          # 用户 / 会话 / 消息持久化
-│   ├── file_manager.py           # 用户文件管理（配额、归档）
-│   └── rag_retriever.py          # BM25 + ChromaDB 混合检索
-├── configs/                      # 所有配置集中管理
+│   ├── checkpointer.py           # SqliteSaver singleton
+│   ├── session_store.py          # User / session / message persistence
+│   ├── file_manager.py           # User file management (quota, archiving)
+│   └── rag_retriever.py          # BM25 + ChromaDB hybrid retrieval
+├── configs/                      # Centralised configuration
 ├── static/
-│   ├── dorado/                   # dorado 工具文档 + args schema
-│   ├── samtools/                 # samtools 工具文档 + args schema
-│   ├── modkit/                   # modkit 工具文档 + args schema
-│   ├── fastqc/                   # fastqc 工具文档 + args schema
-│   └── workflow/                 # workflow pipeline 文档 + prereqs 配置
+│   ├── dorado/                   # dorado tool docs + args schema
+│   ├── samtools/                 # samtools tool docs + args schema
+│   ├── modkit/                   # modkit tool docs + args schema
+│   ├── fastqc/                   # fastqc tool docs + args schema
+│   └── workflow/                 # workflow pipeline docs + prereqs config
 ├── utils/
-│   ├── search_utils.py           # 网络搜索 + 网页爬取 + RAG 增强
-│   ├── user_context.py           # 线程本地 session/run_dir 上下文
-│   ├── i18n.py                   # 国际化 _() 函数
-│   └── ui_logger.py              # 节点日志 → Streamlit 队列桥接
-├── locales/                      # i18n 语言文件（zh_CN / en_US）
+│   ├── search_utils.py           # Web search + scraping + RAG augmentation
+│   ├── user_context.py           # Thread-local session/run_dir context
+│   ├── lang_utils.py             # get_lang() helper
+│   ├── i18n.py                   # Internationalisation _() function
+│   └── ui_logger.py              # Node logs → Streamlit queue bridge
 ├── ui/
-│   ├── app_ui.py                 # Streamlit 主入口
-│   ├── chat.py                   # 聊天区域、审查面板、执行流程
-│   ├── sidebar.py                # 会话管理、文件上传、工具能力一览
-│   └── login.py                  # 用户登录
-└── main.py                       # CLI 入口
+│   ├── app_ui.py                 # Streamlit main entry point
+│   ├── chat.py                   # Chat area, review panel, execution flow
+│   ├── sidebar.py                # Session management, file upload, tool capability list
+│   └── login.py                  # User login
+└── main.py                       # CLI entry point
 ```
 
 ---
 
-## 🛠️ 技术栈
+## 🛠️ Tech Stack
 
-| 层 | 技术 |
+| Layer | Technology |
 |---|---|
-| Agent 框架 | LangGraph + LangChain |
-| LLM | 本地部署模型（Qwen3 等）/ 远程 API |
-| 向量检索 | ChromaDB + HuggingFace Embeddings + BM25 混合 |
+| Agent Framework | LangGraph + LangChain |
+| LLM | Locally deployed models (Qwen3, etc.) / Remote API |
+| Vector Retrieval | ChromaDB + HuggingFace Embeddings + BM25 hybrid |
 | Web UI | Streamlit |
-| 持久化 | SQLite（会话历史 + LangGraph checkpoint） |
-| 容器运行时 | Singularity / Apptainer |
-| 流水线引擎 | Nextflow + 本地 pipeline |
+| Persistence | SQLite (session history + LangGraph checkpoints) |
+| Container Runtime | Singularity / Apptainer |
+| Pipeline Engine | Nextflow + local pipelines |
 
 ---
 
-## 📖 使用示例
+## 📖 Usage Examples
 
-**生信知识问答**
+**Bioinformatics Q&A**
 ```
->>> ONT 测序的甲基化检测原理是什么？
+>>> What is the principle of methylation detection in ONT sequencing?
 ```
-Agent 触发 RAG 检索 + 网络搜索，综合回答。
+Agent triggers RAG retrieval + web search and synthesises an answer.
 
-**工具调用**
+**Tool Invocation**
 ```
->>> 用 dorado basecaller 对我上传的 pod5 文件进行 basecall，模型用 sup
+>>> Run dorado basecaller on my uploaded pod5 file using the sup model
 ```
-Agent 选择 dorado → RAG 检索参数文档 → 生成命令 → 展示审查 → 确认后在 Singularity 容器内执行 → 自动分析 BAM 输出并生成 QC 报告。
+Agent selects dorado → RAG retrieves parameter docs → generates command → shows review panel → after confirmation, executes inside Singularity → automatically analyses BAM output and generates a QC report.
 
-**Nextflow 流水线**
+**Nextflow Pipeline**
 ```
->>> 用 methylong 流水线分析我上传的 BAM 文件和参考基因组
+>>> Run the methylong pipeline on my uploaded BAM file and reference genome
 ```
-Agent 选择 methylong pipeline → LLM 根据上传文件生成 samplesheet.csv → 展示 samplesheet 预览和完整命令 → 用户二次确认后写入 samplesheet 并执行 Nextflow。
+Agent selects methylong pipeline → LLM generates samplesheet.csv from uploaded files → displays samplesheet preview and full command → after user confirmation, writes the samplesheet and launches Nextflow.
 
 ---
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 或 Pull Request。
+Issues and pull requests are welcome.

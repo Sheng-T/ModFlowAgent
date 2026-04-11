@@ -29,6 +29,9 @@ msgstr "➕ 新建会话"
 msgid "会话列表"
 msgstr "会话列表"
 
+msgid "会话"
+msgstr "会话"
+
 msgid "条消息"
 msgstr "条消息"
 

@@ -10,8 +10,7 @@ from configs import TOOL_DESCIPTION, TOOLS_DOC
 
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
-
-# 统一使用顶级 `utils.ui_logger` 导出
+from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 def select_tools_node(state: AgentState) -> AgentState:
@@ -29,7 +28,7 @@ def select_tools_node(state: AgentState) -> AgentState:
 
     ui_print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
     tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
-    prompt = ChatPromptTemplate.from_template(build_tools_selector_prompt())
+    prompt = ChatPromptTemplate.from_template(build_tools_selector_prompt(get_lang()))
     selector_llm = get_llm_instance(is_planner=True)
     chain = prompt | selector_llm | JsonOutputParser()
     try:

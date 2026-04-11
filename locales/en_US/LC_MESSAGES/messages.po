@@ -28,6 +28,9 @@ msgstr "➕ New Session"
 msgid "会话列表"
 msgstr "Sessions"
 
+msgid "会话"
+msgstr "Session"
+
 msgid "条消息"
 msgstr "messages"
 

@@ -4,85 +4,69 @@
 需要依赖: pip install ddgs html2text beautifulsoup4
 """
 from agent_graph.state import AgentState
+from agent_graph.prompts.qa_prompts import build_qa_prompt
 from utils.llm_utils import get_llm_instance
 from utils.search_utils import SearchAugmentedQA
-
-# 统一使用顶级 `utils.ui_logger` 导出
+from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
+
 def answer_general_question_node(state: AgentState, use_search: bool = True, num_searches: int = 5) -> AgentState:
-    """
-    问答节点 - 支持Web搜索增强
-    参数:
-      use_search: 启用搜索增强 (default: True)
-      num_searches: 搜索结果数 (default: 5)
-    流程: 搜索 → 爬取 → 转MD → RAG → LLM回答 → 清理
-    """
+    """Q&A node with optional web-search augmentation."""
+    import re
+
     user_input = state["input"]
     augmented_context = ""
     qa_tool = None
-    
+
+    # detect current UI language
     try:
-        # 1. 可选：Web搜索和RAG增强
+        import streamlit as st
+        lang = st.session_state.get("lang", "en_US")
+    except Exception:
+        lang = "en_US"
+
+    try:
+        # 1. optional web search
         if use_search:
-            ui_print(f"\n[Search] 正在搜索和检索相关信息...")
+            ui_print(f"\n[Search] Fetching reference material...")
             qa_tool = SearchAugmentedQA()
-            
             try:
                 augmented_context = qa_tool.augment_query(user_input, num_searches=num_searches)
                 if augmented_context:
-                    ui_print(f"[Search] 成功获取搜索结果上文 ({len(augmented_context)} 字符)")
+                    ui_print(f"[Search] Retrieved {len(augmented_context)} chars of context")
                 else:
-                    ui_print(f"[Search] 搜索未返回结果，继续使用纯LLM回答")
+                    ui_print("[Search] No results — falling back to LLM knowledge")
             except Exception as e:
-                ui_print(f"[Search] 搜索异常: {type(e).__name__}，继续使用纯LLM回答")
+                ui_print(f"[Search] Error ({type(e).__name__}), falling back to LLM knowledge")
                 augmented_context = ""
-        
-        # 2. 构建最终提示词
-        if augmented_context:
-            final_prompt = f"""你是生物信息学领域的专家助手。以下是为回答用户问题而检索到的参考资料：
 
-【参考资料】
-{augmented_context}
+        # 2. build prompt
+        final_prompt = build_qa_prompt(user_input, augmented_context, lang)
 
-【用户问题】
-{user_input}
-
-回答要求：
-- 如果参考资料与问题直接相关，优先基于资料内容作答；
-- 如果参考资料与问题关联不足或内容偏离，请直接用你自己的专业知识回答，不必提及或评价资料内容；
-- 直接给出答案，不要解释"资料里有没有"。"""
-        else:
-            final_prompt = user_input
-        
-        # 3. 调用LLM
-        ui_print(f"\n[LLM Answer] 正在调用 LLM 回答问题: {user_input[:30]}...")
+        # 3. call LLM
+        ui_print(f"\n[LLM Answer] Invoking LLM: {user_input[:40]}...")
         answer_llm = get_llm_instance(is_planner=False)
-        
         llm_response = answer_llm.invoke(final_prompt)
-        llm_response = llm_response.strip()
-        
-        # 清理 <think>...</think> 思维过程标签
-        if '<think>' in llm_response:
-            import re
-            llm_response = re.sub(r'<think>.*?</think>', '', llm_response, flags=re.DOTALL)
-            llm_response = llm_response.strip()
-        
+        llm_response = llm_response.strip() if isinstance(llm_response, str) else llm_response.content.strip()
+        llm_response = re.sub(r"<think>.*?</think>", "", llm_response, flags=re.DOTALL).strip()
+
         state["final_answer"] = llm_response
-        
+
     except Exception as e:
-        ui_print(f"[LLM Answer] 调用失败: {e}")
-        state["final_answer"] = "抱歉，服务暂时不可用，无法回答您的问题。"
-    
+        ui_print(f"[LLM Answer] Failed: {e}")
+        state["final_answer"] = (
+            "Sorry, the service is temporarily unavailable." if lang == "en_US"
+            else "抱歉，服务暂时不可用，无法回答您的问题。"
+        )
+
     finally:
-        # 4. 清理临时文件
         if qa_tool:
             try:
                 qa_tool.cleanup()
-                ui_print("[Cleanup] 临时文件已清理")
-            except Exception as e:
-                ui_print(f"[Cleanup] 清理失败: {e}")
-    
+            except Exception:
+                pass
+
     # 输出完整回答
     answer = state["final_answer"]
     if not answer:
@@ -109,6 +93,8 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         get_functional_analyzer,
     )
     from utils.user_context import get_session_dir
+
+    lang = get_lang()
 
     tool_calls        = state.get("tool_calls", [])
     tool_output       = state.get("tool_output", [])
@@ -143,12 +129,20 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         f'- {item["name"]}: {item["description"]}'
         for item in FUNCTIONAL_ANALYZER_MENU
     )
-    select_prompt = (
-        f"已执行的工具：{tool_desc}\n\n"
-        f"可用功能分析模块：\n{menu_text}\n\n"
-        f"请根据执行的工具，从上述模块中选出所有相关的功能分析模块。\n"
-        f"只返回 JSON，格式：{{\"selected\": [\"module_name1\", \"module_name2\"]}}"
-    )
+    if lang == "en_US":
+        select_prompt = (
+            f"Tools executed: {tool_desc}\n\n"
+            f"Available analysis modules:\n{menu_text}\n\n"
+            f"Select all modules relevant to the tools that were executed.\n"
+            f"Return JSON only: {{\"selected\": [\"module_name1\", \"module_name2\"]}}"
+        )
+    else:
+        select_prompt = (
+            f"已执行的工具：{tool_desc}\n\n"
+            f"可用功能分析模块：\n{menu_text}\n\n"
+            f"请根据执行的工具，从上述模块中选出所有相关的功能分析模块。\n"
+            f"只返回 JSON，格式：{{\"selected\": [\"module_name1\", \"module_name2\"]}}"
+        )
     selected_modules: list[str] = []
     try:
         raw = llm.invoke(select_prompt)
@@ -194,7 +188,31 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     func_json       = json.dumps(functional_results,   ensure_ascii=False, indent=2)
     raw_output_text = "\n".join(tool_output).strip()[:1000]
 
-    report_prompt = f"""你是生物信息学专家，请根据以下分析结果生成一份专业的中文报告。
+    if lang == "en_US":
+        report_prompt = f"""You are a bioinformatics expert. Generate a professional report based on the analysis results below.
+
+[Tools Executed]: {tool_desc}
+[Raw Tool Output (summary)]:
+{raw_output_text}
+
+[File Statistics]:
+{stats_json}
+
+[Functional Analysis Results]:
+{func_json}
+
+[Background]:
+- BAM files from dorado basecaller contain unaligned raw base calls; a mapped rate of 0% is completely normal and should not be flagged as an issue.
+- Basecall quality should be evaluated primarily by avg_quality and read count.
+
+Report requirements:
+1. Start with a one-sentence summary (success/failure, overall quality).
+2. List key statistics per file (total_reads, avg_quality, avg_read_length, etc.).
+3. Provide biological interpretation based on functional analysis results.
+4. If there are genuine issues or warnings (e.g. low Q-score, insufficient reads), list them separately with recommendations.
+5. Use Markdown format. Do not include internal system logs or raw error fields."""
+    else:
+        report_prompt = f"""你是生物信息学专家，请根据以下分析结果生成一份专业的中文报告。
 
 【执行工具】：{tool_desc}
 【工具原始输出（摘要）】：
@@ -222,8 +240,12 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         report     = raw_report if isinstance(raw_report, str) else raw_report.content
         report     = re.sub(r"<think>.*?</think>", "", report, flags=re.DOTALL).strip()
     except Exception as e:
-        ui_print(f"[Summarizer] 报告生成失败: {e}")
-        report = f"### ✅ 任务执行总结\n\n工具执行完成，但报告生成失败：{e}"
+        ui_print(f"[Summarizer] Report generation failed: {e}")
+        report = (
+            f"### ✅ Execution Summary\n\nTools completed, but report generation failed: {e}"
+            if lang == "en_US" else
+            f"### ✅ 任务执行总结\n\n工具执行完成，但报告生成失败：{e}"
+        )
 
     # ── 步骤 6：画图（在 run_dir 内生成 PNG）────────────────────────────────
     plot_paths_in_run: list[str] = []
@@ -280,8 +302,13 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     return state
 
 def handle_irrelevant_request_node(state: AgentState) -> AgentState:
-    ui_print("\n[Irrelevant] 生成不相关回复...")
-    state["final_answer"] = "抱歉，我专注于纳米孔测序和修饰检测相关的任务，无法为您提供该信息。"
+    ui_print("\n[Irrelevant] Generating off-topic reply...")
+    lang = get_lang()
+    state["final_answer"] = (
+        "Sorry, I specialise in nanopore sequencing and modification detection tasks and cannot help with that."
+        if lang == "en_US" else
+        "抱歉，我专注于纳米孔测序和修饰检测相关的任务，无法为您提供该信息。"
+    )
     ui_print(f'\n[LLM Answer] {state["final_answer"]}')
     return state
 

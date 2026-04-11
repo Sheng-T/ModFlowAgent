@@ -8,7 +8,7 @@ from runtime.executor import ToolExecutor
 from utils.nodes_utils import build_command_for_call
 from utils.user_context import get_run_dir, get_session_dir
 
-# 统一使用顶级 `utils.ui_logger` 导出
+from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 
@@ -60,6 +60,7 @@ def _write_pre_files(pre_files: list, session_dir: str):
 def execute_commands_node(state: AgentState) -> dict:
     wrapper = EnvWrapper()
     executor = ToolExecutor()
+    lang = get_lang()
 
     tool_calls = state.get("tool_calls", [])
     history = state.get("chat_history", [])
@@ -67,45 +68,50 @@ def execute_commands_node(state: AgentState) -> dict:
     tool_output = []
 
     is_workflow = state.get("is_workflow", False)
-
     pending_commands = state.get("pending_commands", [])
 
+    def _msg(en: str, zh: str) -> str:
+        return en if lang == "en_US" else zh
+
     if is_workflow:
-        # workflow 模式：直接按序执行 pending_commands（含前置文件写入 + nextflow 命令）
         for raw_cmd in pending_commands:
             if "error" in raw_cmd.lower():
-                history.append({"role": "assistant", "content": f"系统拦截预校验失败: {raw_cmd}"})
+                history.append({"role": "assistant", "content": _msg(
+                    f"Pre-validation intercepted an error: {raw_cmd}",
+                    f"系统拦截预校验失败: {raw_cmd}",
+                )})
                 next_node = "param_generator"
                 break
 
-            ui_print(f"\n[Executor] 正在执行: {raw_cmd}")
+            ui_print(f"\n[Executor] Running: {raw_cmd}")
             final_cmd = wrapper.wrap_command("workflow", raw_cmd, is_workflow=True)
-            ui_print(f"\n[Executor] 真实执行: {final_cmd}")
             resp = executor.run(final_cmd)
 
             if resp["status"] == "success":
                 output = resp.get("output", "")
                 tool_output.append(output)
-                history.append({"role": "assistant", "content": f"命令执行成功\n输出: {output[-200:]}"})
+                history.append({"role": "assistant", "content": _msg(
+                    f"Command succeeded.\nOutput: {output[-200:]}",
+                    f"命令执行成功\n输出: {output[-200:]}",
+                )})
             else:
                 next_node = "param_generator"
                 error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
-                ui_print(f"\n[Executor] 执行失败: {error_log}")
-                history.append({
-                    "role": "assistant",
-                    "content": f"执行失败，报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
-                })
+                ui_print(f"\n[Executor] Failed: {error_log}")
+                history.append({"role": "assistant", "content": _msg(
+                    f"Execution failed:\n{error_log}\nI will correct the parameters.",
+                    f"执行失败，报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
+                )})
                 _cleanup_run_dir(get_run_dir())
                 break
     else:
-        # 普通工具模式：写入前置文件，然后按 tool_calls 执行
         pre_files = state.get("pre_files", [])
         if pre_files:
             session_dir = get_session_dir()
             if session_dir:
                 _write_pre_files(pre_files, session_dir)
             else:
-                ui_print("[Executor] 警告：无法获取 session_dir，前置文件未写入")
+                ui_print("[Executor] Warning: session_dir unavailable, pre-files not written")
 
         for i, call in enumerate(tool_calls):
             tool_name = call["tool_name"]
@@ -114,42 +120,42 @@ def execute_commands_node(state: AgentState) -> dict:
             has_subcommand = len(tool_name_array) > 1
 
             if base_name not in TOOL_LIST:
-                history.append({"role": "assistant", "content": f"工具：{base_name}不在系统中，请重新规划选择。"})
+                history.append({"role": "assistant", "content": _msg(
+                    f"Tool '{base_name}' is not registered in the system. Please re-select.",
+                    f"工具：{base_name}不在系统中，请重新规划选择。",
+                )})
                 return {"chat_history": history, "next_node": "tools_selector"}
 
-            if i < len(pending_commands):
-                raw_cmd = pending_commands[i]
-            else:
-                raw_cmd = build_command_for_call(call, is_workflow=False)
+            raw_cmd = pending_commands[i] if i < len(pending_commands) else build_command_for_call(call, is_workflow=False)
 
             if "error" in raw_cmd.lower():
-                history.append({"role": "assistant", "content": f"系统拦截：{tool_name} 预校验失败: {raw_cmd}，请重新配置参数。"})
+                history.append({"role": "assistant", "content": _msg(
+                    f"Pre-validation failed for {tool_name}: {raw_cmd}. Please reconfigure.",
+                    f"系统拦截：{tool_name} 预校验失败: {raw_cmd}，请重新配置参数。",
+                )})
                 break
 
-            ui_print(f"\n[Executor] 正在执行: {raw_cmd}")
+            ui_print(f"\n[Executor] Running: {raw_cmd}")
             final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=False)
-            ui_print(f"\n[Executor] 真实执行: {final_cmd}")
             resp = executor.run(final_cmd)
 
             if resp["status"] == "success":
                 output = resp.get("output", "")
-                success_log = output[-200:]
-                success_msg = f"{tool_name} 成功\n输出摘要: {success_log}"
-                ui_print(f"\n[Executor] {success_msg}")
                 tool_output.append(output)
-                history.append({"role": "assistant", "content": f"{success_msg} 输出路径已记录。"})
+                history.append({"role": "assistant", "content": _msg(
+                    f"{tool_name} succeeded.\nOutput summary: {output[-200:]}",
+                    f"{tool_name} 成功\n输出摘要: {output[-200:]}",
+                )})
             else:
                 next_node = "param_generator" if has_subcommand else "summarizer"
                 error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
-                fail_msg = f"{tool_name} 执行失败！报错信息:\n{error_log}"
-                ui_print(f"\n[Executor] 执行失败: {fail_msg}")
-                history.append({
-                    "role": "assistant",
-                    "content": f"我尝试执行了 {tool_name}，但失败了。报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
-                })
+                ui_print(f"\n[Executor] Failed: {error_log}")
+                history.append({"role": "assistant", "content": _msg(
+                    f"Execution of {tool_name} failed:\n{error_log}\nI will correct the parameters.",
+                    f"我尝试执行了 {tool_name}，但失败了。报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
+                )})
                 _cleanup_run_dir(get_run_dir())
                 break
-            # 执行失败：删除 run_dir 及其中的不完整输出
             _cleanup_run_dir(get_run_dir())
             break
 

@@ -8,6 +8,7 @@ from configs import TOOL_LIST, TOOL_ARGS
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 from utils.user_context import get_or_create_run_dir
+from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 
@@ -81,7 +82,7 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
                 )
                 break
 
-        final_prompt = build_parameter_generator_prompt().format(
+        final_prompt = build_parameter_generator_prompt(get_lang()).format(
             step_num=i + 1,
             tool_name=tool_name,
             schema=current_schema,

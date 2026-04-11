@@ -1,0 +1,47 @@
+/* ── page background ─────────────────────────────────────────── */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #e8f0fe 0%, #f0f4ff 50%, #e8eaf6 100%) !important;
+    min-height: 100vh;
+}
+[data-testid="stHeader"],
+[data-testid="stToolbar"] { background: transparent !important; }
+
+/* ── card: style the middle column block ─────────────────────── */
+[data-testid="stHorizontalBlock"]
+  > [data-testid="stColumn"]:nth-child(2)
+  > div:first-child {
+    background: #ffffff !important;
+    border: 1px solid rgba(76,139,245,0.15) !important;
+    border-radius: 18px !important;
+    padding: 2.6rem 2.2rem 2rem !important;
+    box-shadow: 0 8px 40px rgba(76,139,245,0.10) !important;
+}
+
+/* ── brand block ─────────────────────────────────────────────── */
+.brand-icon  { font-size: 2.8rem; line-height: 1; margin-bottom: .5rem; }
+.brand-title {
+    font-size: 2rem; font-weight: 700; letter-spacing: .5px;
+    background: linear-gradient(90deg, #4c8bf5 0%, #7c4dff 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: .1rem 0 .3rem;
+}
+.brand-sub {
+    font-size: .82rem; color: #6b7280;
+    letter-spacing: .3px; margin-bottom: .4rem;
+}
+
+/* ── submit button ───────────────────────────────────────────── */
+[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(90deg, #4c8bf5, #7c4dff) !important;
+    color: #fff !important; font-weight: 600 !important;
+    border: none !important; border-radius: 9px !important;
+    letter-spacing: .5px !important; margin-top: .4rem !important;
+    transition: opacity .2s !important;
+}
+[data-testid="stFormSubmitButton"] button:hover { opacity: .88 !important; }
+
+/* ── footer ──────────────────────────────────────────────────── */
+.login-footer {
+    text-align: center; font-size: .72rem;
+    color: #9ca3af; margin-top: 1.2rem;
+}
