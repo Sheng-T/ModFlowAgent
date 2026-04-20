@@ -1,4 +1,5 @@
 # English translations for Bio-Agent
+# Source language: English. msgid == msgstr (identity — no translation needed).
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -6,107 +7,179 @@ msgstr ""
 "Language: en_US\n"
 
 # Login
-msgid "请输入用户名以继续"
+msgid "Enter your username to continue"
 msgstr "Enter your username to continue"
 
-msgid "用户名"
+msgid "Username"
 msgstr "Username"
 
-msgid "例如：alice"
+msgid "e.g. alice"
 msgstr "e.g. alice"
 
-msgid "登录"
+msgid "Login"
 msgstr "Login"
 
 # Sidebar
-msgid "切换用户"
+msgid "Switch User"
 msgstr "Switch User"
 
-msgid "➕ 新建会话"
-msgstr "➕ New Session"
-
-msgid "会话列表"
-msgstr "Sessions"
-
-msgid "会话"
-msgstr "Session"
-
-msgid "条消息"
-msgstr "messages"
-
-msgid "语言"
+msgid "Language"
 msgstr "Language"
 
+msgid "🧰 Supported Tools & Pipelines"
+msgstr "🧰 Supported Tools & Pipelines"
+
+msgid "Tools"
+msgstr "Tools"
+
+msgid "Pipelines"
+msgstr "Pipelines"
+
+msgid "➕ New Session"
+msgstr "➕ New Session"
+
+msgid "Session"
+msgstr "Session"
+
+msgid "Sessions"
+msgstr "Sessions"
+
+msgid "messages"
+msgstr "messages"
+
+msgid "📁 File Management"
+msgstr "📁 File Management"
+
+msgid "Upload files to current session"
+msgstr "Upload files to current session"
+
+msgid "files"
+msgstr "files"
+
+msgid "🗑 Clear session files"
+msgstr "🗑 Clear session files"
+
+msgid "Storage by session"
+msgstr "Storage by session"
+
+msgid "current"
+msgstr "current"
+
 # Main area
-msgid "🧬 Bio-Agent 智能分析平台"
+msgid "🧬 Bio-Agent Analytics Platform"
 msgstr "🧬 Bio-Agent Analytics Platform"
 
-msgid "正在加载模型..."
+msgid "Loading model..."
 msgstr "Loading model..."
 
-msgid "请输入你的分析指令..."
+msgid "Enter your analysis instruction..."
 msgstr "Enter your analysis instruction..."
 
 # Mode selection
-msgid "你的输入"
+msgid "Your input"
 msgstr "Your input"
 
-msgid "请选择处理方式："
+msgid "Select processing mode:"
 msgstr "Select processing mode:"
 
-msgid "💬 对话问答"
+msgid "💬 Chat Q&A"
 msgstr "💬 Chat Q&A"
 
-msgid "🔧 工具调用"
+msgid "🔧 Tool Call"
 msgstr "🔧 Tool Call"
 
-msgid "🤖 自动判断"
+msgid "🧬 Pipeline"
+msgstr "🧬 Pipeline"
+
+msgid "🤖 Auto Detect"
 msgstr "🤖 Auto Detect"
 
-# Status
-msgid "🔄 Agent 执行中..."
+# Status labels
+msgid "🔄 Agent running..."
 msgstr "🔄 Agent running..."
 
-msgid "⏸️ 等待你的确认"
+msgid "⏸️ Awaiting confirmation"
 msgstr "⏸️ Awaiting confirmation"
 
-msgid "✅ 执行完成"
+msgid "✅ Completed"
 msgstr "✅ Completed"
 
-msgid "🔄 继续执行..."
+msgid "🔄 Resuming..."
 msgstr "🔄 Resuming..."
 
-# Review
-msgid "📋 待执行命令，请确认"
-msgstr "📋 Pending commands, please confirm"
+# Review panel
+msgid "Pending commands — please confirm"
+msgstr "Pending commands — please confirm"
 
-msgid "步骤"
+msgid "Last run failed — commands have been auto-corrected"
+msgstr "Last run failed — commands have been auto-corrected"
+
+msgid "View error details"
+msgstr "View error details"
+
+msgid "Review the corrected commands below and confirm to re-run:"
+msgstr "Review the corrected commands below and confirm to re-run:"
+
+msgid "Pre-requisite files"
+msgstr "Pre-requisite files"
+
+msgid "Commands to execute"
+msgstr "Commands to execute"
+
+msgid "Step"
 msgstr "Step"
 
-msgid "命令列表为空，请检查参数生成是否正常"
-msgstr "Command list is empty, check parameter generation"
+msgid "Command list is empty — check parameter generation"
+msgstr "Command list is empty — check parameter generation"
 
-msgid "🔧 修改意见（提交修改时填写）"
-msgstr "🔧 Revision notes (fill when submitting)"
+msgid "🔧 Revision notes (fill in before submitting)"
+msgstr "🔧 Revision notes (fill in before submitting)"
 
-msgid "✅ 确认执行"
-msgstr "✅ Confirm & Execute"
+msgid "✅ Confirm & Run"
+msgstr "✅ Confirm & Run"
 
-msgid "❌ 取消任务"
+msgid "⚠️ This will run on the server immediately. Are you sure?"
+msgstr "⚠️ This will run on the server immediately. Are you sure?"
+
+msgid "▶ Yes, run it"
+msgstr "▶ Yes, run it"
+
+msgid "← Let me check again"
+msgstr "← Let me check again"
+
+msgid "❌ Cancel"
 msgstr "❌ Cancel"
 
-msgid "💬 提交修改"
+msgid "💬 Submit Revision"
 msgstr "💬 Submit Revision"
 
-msgid "请先填写修改意见"
+msgid "Please fill in revision notes first"
 msgstr "Please fill in revision notes first"
 
-# Common
-msgid "🧠 查看思考过程"
+msgid "🚫 Cancelling..."
+msgstr "🚫 Cancelling..."
+
+msgid "🔄 Regenerating commands..."
+msgstr "🔄 Regenerating commands..."
+
+msgid "⏳ Submitted — task is running, please wait..."
+msgstr "⏳ Submitted — task is running, please wait..."
+
+msgid "✅ Task cancelled"
+msgstr "✅ Task cancelled"
+
+msgid "❌ Execution failed — commands auto-corrected, please re-confirm"
+msgstr "❌ Execution failed — commands auto-corrected, please re-confirm"
+
+# General
+msgid "🧠 View thinking process"
 msgstr "🧠 View thinking process"
 
-msgid "✅ 任务处理完成"
-msgstr "✅ Task completed"
+msgid "**📊 Analyze charts**"
+msgstr "**📊 Analyze charts**"
 
-msgid "会话"
-msgstr "Session"
+msgid "Download chart"
+msgstr "Download chart"
+
+msgid "✅ Task completed"
+msgstr "✅ Task completed"

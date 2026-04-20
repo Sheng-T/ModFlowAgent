@@ -15,7 +15,12 @@
 import hashlib
 import os
 import shutil
+import threading
 from typing import Dict, List, Optional
+
+# 每个用户一把锁，防止并发上传时配额竞态
+_user_locks: dict[int, threading.Lock] = {}
+_locks_meta = threading.Lock()
 
 def file_hash(file):
     return hashlib.md5(file.getvalue()).hexdigest()
@@ -46,6 +51,15 @@ class FileManager:
         self.quota = quota_bytes
         os.makedirs(self.root, exist_ok=True)
 
+    # ── 锁工具 ────────────────────────────────────────────────────────────────
+
+    def _user_lock(self, uid: int) -> threading.Lock:
+        """返回该用户专属锁，确保配额检查与写入是原子操作。"""
+        with _locks_meta:
+            if uid not in _user_locks:
+                _user_locks[uid] = threading.Lock()
+            return _user_locks[uid]
+
     # ── 目录工具 ───────────────────────────────────────────────────────────────
 
     def user_dir(self, uid: int) -> str:
@@ -60,17 +74,47 @@ class FileManager:
 
     # ── 写入 ──────────────────────────────────────────────────────────────────
 
-    def save_file(self, uid: int, session_id: str, filename: str, data: bytes) -> str:
-        """保存上传文件，返回服务器绝对路径。配额不足时抛出 ValueError。"""
+    def save_file(self, uid: int, session_id: str, filename: str, data) -> str:
+        """保存上传文件，返回服务器绝对路径。配额不足时抛出 ValueError。
+        data 可以是 bytes 或任何支持 read() 的类文件对象（流式写入，不占满内存）。
+        """
+        with self._user_lock(uid):
+            return self._save_file_locked(uid, session_id, filename, data)
+
+    def _save_file_locked(self, uid: int, session_id: str, filename: str, data) -> str:
+        """save_file 的实际实现，调用前须持有用户锁。"""
         usage = self.get_usage(uid)
-        if usage["total_bytes"] + len(data) > self.quota:
-            raise ValueError(
-                f"存储配额不足：已用 {fmt_size(usage['total_bytes'])}，"
-                f"配额 {fmt_size(self.quota)}"
-            )
         dest = os.path.join(self.session_dir(uid, session_id), filename)
-        with open(dest, "wb") as f:
-            f.write(data)
+
+        if isinstance(data, (bytes, bytearray)):
+            if usage["total_bytes"] + len(data) > self.quota:
+                raise ValueError(
+                    f"存储配额不足：已用 {fmt_size(usage['total_bytes'])}，"
+                    f"配额 {fmt_size(self.quota)}"
+                )
+            with open(dest, "wb") as f:
+                f.write(data)
+        else:
+            # 流式写入：边写边检查配额，超出则删除已写部分
+            written = 0
+            chunk = 8 * 1024 * 1024  # 8 MB per chunk
+            try:
+                with open(dest, "wb") as f:
+                    while True:
+                        buf = data.read(chunk)
+                        if not buf:
+                            break
+                        if usage["total_bytes"] + written + len(buf) > self.quota:
+                            raise ValueError(
+                                f"存储配额不足：已用 {fmt_size(usage['total_bytes'])}，"
+                                f"配额 {fmt_size(self.quota)}"
+                            )
+                        f.write(buf)
+                        written += len(buf)
+            except Exception:
+                if os.path.exists(dest):
+                    os.unlink(dest)
+                raise
         return dest
 
     # ── 查询 ──────────────────────────────────────────────────────────────────

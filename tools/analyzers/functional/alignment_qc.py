@@ -26,21 +26,21 @@ class AlignmentQCAnalyzer(FunctionalAnalyzer):
             grade = "PASS"
         elif mapped_rate >= self.MAPPED_RATE_WARN:
             grade = "WARNING"
-            issues.append(f"映射率偏低 ({mapped_rate:.1f}%，建议 ≥90%)")
+            issues.append(f"Mapping rate low ({mapped_rate:.1f}%, recommended ≥90%)")
         else:
             grade = "FAIL"
-            issues.append(f"映射率过低 ({mapped_rate:.1f}%)")
+            issues.append(f"Mapping rate critically low ({mapped_rate:.1f}%)")
 
-        # reads 数量检查
+        # read count check
         if total_reads < self.MIN_READS_WARN:
-            issues.append(f"reads 总数偏少 ({total_reads:,})")
+            issues.append(f"Total reads low ({total_reads:,})")
             if grade == "PASS":
                 grade = "WARNING"
 
-        # 平均质量检查（仅当 samtools stats 成功时）
+        # average quality check (only when samtools stats succeeded)
         if avg_quality is not None:
             if avg_quality < 7:
-                issues.append(f"平均碱基质量偏低 (Q{avg_quality:.1f}，建议 ≥Q10)")
+                issues.append(f"Mean base quality low (Q{avg_quality:.1f}, recommended ≥Q10)")
                 if grade == "PASS":
                     grade = "WARNING"
 

@@ -30,7 +30,7 @@ def _open(path: str):
 class BedAnalyzer(FileAnalyzer):
     def analyze(self, file_path: str) -> dict:
         if not os.path.isfile(file_path):
-            return {"error": f"文件不存在: {file_path}"}
+            return {"error": f"File not found: {file_path}"}
 
         coverages: list[int]   = []
         meth_rates: list[float] = []
@@ -73,7 +73,7 @@ class BedAnalyzer(FileAnalyzer):
 
         if total_sites == 0:
             return {"file": os.path.basename(file_path), "type": "bed",
-                    "total_sites": 0, "error": "文件为空或格式不匹配"}
+                    "total_sites": 0, "error": "File is empty or format mismatch"}
 
         result = {
             "file":        os.path.basename(file_path),

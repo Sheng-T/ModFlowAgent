@@ -21,12 +21,12 @@ def select_tools_node(state: AgentState) -> AgentState:
 
     # 用户明确选择了"流水线"模式，跳过 LLM 选择
     if state.get("user_choice") == "workflow":
-        ui_print(f"\n[Tools Selector] 用户指定流水线模式，跳过工具识别")
+        ui_print(f"\n[Tools Selector] Pipeline mode selected by user, skipping tool identification")
         state["identified_tools"] = ["workflow"]
         state["is_workflow"] = True
         return state
 
-    ui_print(f"\n[Tools Selector] 正在分析任务涉及的工具...")
+    ui_print(f"\n[Tools Selector] Identifying tools for the task...")
     tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
     prompt = ChatPromptTemplate.from_template(build_tools_selector_prompt(get_lang()))
     selector_llm = get_llm_instance(is_planner=True)
@@ -64,12 +64,12 @@ def select_tools_node(state: AgentState) -> AgentState:
             and state["identified_tools"][0] == "workflow"
         )
 
-        ui_print(f"[Tools Selector] 已确定工具: {state['identified_tools']}")
-        ui_print(f"[Tools Selector] 是否为 workflow 工具: {state['is_workflow']}")
-        ui_print(f"[Tools Selector] 理由: {response.get('reason', '无')}")
+        ui_print(f"[Tools Selector] Identified tools: {state['identified_tools']}")
+        ui_print(f"[Tools Selector] Is workflow: {state['is_workflow']}")
+        ui_print(f"[Tools Selector] Reason: {response.get('reason', 'N/A')}")
 
     except Exception as e:
-        ui_print(f"[Tools Selector Error] 解析失败，使用默认兜底: {e}")
+        ui_print(f"[Tools Selector Error] Parse failed, using fallback: {e}")
         state["identified_tools"] = []
         state["is_workflow"] = False
 

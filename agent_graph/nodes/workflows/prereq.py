@@ -7,53 +7,22 @@
 import os
 
 from agent_graph.state import AgentState
+from agent_graph.prompts.workflow_prompts import build_prereq_prompt
 from utils.workflow_prerequisites import get_prereqs
 from utils.llm_utils import get_llm_instance
+from utils.lang_utils import get_lang
 from utils.user_context import get_session_dir
 
 
 def _list_session_files(session_dir: str) -> list[str]:
-    """列出 session_dir 下的所有文件名（不含子目录）。"""
+    """Return full absolute paths of all files in session_dir (no subdirectories)."""
     if not session_dir or not os.path.isdir(session_dir):
         return []
     return [
-        e.name for e in os.scandir(session_dir)
+        e.path for e in os.scandir(session_dir)
         if e.is_file()
     ]
 
-
-def _build_prompt(prereq: dict, uploaded_files: list[str], user_input: str) -> str:
-    columns = prereq["columns"]
-    header = ",".join(columns)
-    example = prereq["example_row"]
-    description = prereq["description"]
-
-    files_str = "\n".join(f"  - {f}" for f in uploaded_files) if uploaded_files else "  （无已上传文件）"
-
-    return f"""你是生物信息学专家，需要根据用户上传的文件生成一个 CSV 格式的 samplesheet。
-
-【samplesheet 格式说明】
-{description}
-
-表头（第一行，固定不变）：
-{header}
-
-示例行：
-{example}
-
-【用户已上传的文件】
-{files_str}
-
-【用户原始需求】
-{user_input}
-
-请根据上述文件列表和用户需求，生成完整的 samplesheet CSV 内容。
-要求：
-- 第一行必须是固定表头：{header}
-- 每个数据行对应一个样本，路径只填文件名（不含目录前缀）
-- 如果某列在该样本中不适用，填空字符串
-- 只输出 CSV 纯文本，不要加任何说明或代码块标记
-"""
 
 
 def generate_prereqs_node(state: AgentState) -> dict:
@@ -67,26 +36,94 @@ def generate_prereqs_node(state: AgentState) -> dict:
     session_dir = get_session_dir()
     uploaded_files = _list_session_files(session_dir)
     user_input = state.get("input", "")
-    llm = get_llm_instance(is_planner=False)
+    lang = get_lang()
+    llm = get_llm_instance(is_planner=True)
+
+    import re
+    import csv
+    import io
+
+    MAX_RETRIES = 3
+
+    def _parse_content(raw) -> str:
+        content = raw if isinstance(raw, str) else raw.content
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+        content = re.sub(r"<think>.*",          "", content, flags=re.DOTALL)
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.split("\n", 1)[-1]
+            content = content.rsplit("```", 1)[0].strip()
+        return content
+
+    def _validate_content(content: str, prereq: dict) -> tuple[bool, str]:
+        """
+        Validate generated content against the prereq spec.
+        Returns (ok, reason).  Dispatches on prereq["type"].
+        """
+        if not content:
+            return False, "content is empty"
+
+        file_type = prereq.get("type", "")
+
+        if file_type == "csv":
+            required_cols = prereq.get("columns", [])
+            try:
+                reader = csv.DictReader(io.StringIO(content))
+                header = reader.fieldnames or []
+                missing_cols = [c for c in required_cols if c not in header]
+                if missing_cols:
+                    return False, f"missing columns: {missing_cols} (got header: {header})"
+                data_rows = [r for r in reader if any(v.strip() for v in r.values())]
+                if not data_rows:
+                    return False, "header present but no data rows"
+                # Check every required column has a non-empty value in every data row
+                for row_idx, row in enumerate(data_rows, 1):
+                    empty_cols = [c for c in required_cols if not (row.get(c) or "").strip()]
+                    if empty_cols:
+                        return False, f"row {row_idx} has empty values for required columns: {empty_cols}"
+            except Exception as exc:
+                return False, f"CSV parse error: {exc}"
+            return True, ""
+
+        # 未知类型：只检查非空
+        return True, ""
 
     pre_files = []
     for prereq in prereqs:
-        print(f"[PrereqGenerator] 正在生成 {prereq['filename']} ...")
-        prompt = _build_prompt(prereq, uploaded_files, user_input)
-        try:
-            import re
-            raw = llm.invoke(prompt)
-            content = raw if isinstance(raw, str) else raw.content
-            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            if content.startswith("```"):
-                content = content.split("\n", 1)[-1]
-                content = content.rsplit("```", 1)[0].strip()
-            pre_files.append({
-                "filename": prereq["filename"],
-                "content": content,
-            })
-            print(f"[PrereqGenerator] {prereq['filename']} 生成完成")
-        except Exception as e:
-            print(f"[PrereqGenerator] 生成 {prereq['filename']} 失败: {e}")
+        filename = prereq["filename"]
+        print(f"[PrereqGenerator] Generating {filename}...")
+        prompt = build_prereq_prompt(prereq, uploaded_files, user_input, lang)
+        content = ""
+        fail_reason = ""
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                raw = llm.invoke(prompt)
+                content = _parse_content(raw)
+                ok, fail_reason = _validate_content(content, prereq)
+                if ok:
+                    print(f"[PrereqGenerator] {filename} validated (attempt {attempt})")
+                    break
+                print(f"[PrereqGenerator] {filename} validation failed (attempt {attempt}): {fail_reason}, retrying...")
+                content = ""
+            except Exception as e:
+                print(f"[PrereqGenerator] Attempt {attempt} exception: {e}")
+                content = ""
+
+        if not content:
+            print(f"[PrereqGenerator] ERROR: {filename} still invalid after {MAX_RETRIES} attempts: {fail_reason}, skipping")
+            continue
+
+        pre_files.append({"filename": filename, "content": content})
 
     return {"pre_files": pre_files}
+
+
+def human_prereq_reviewer_node(state: AgentState) -> dict:  # noqa: ARG001
+    """
+    Pass-through interrupt node between prereq_generator and param_generator.
+    The graph pauses BEFORE this node so the UI can render an editable samplesheet.
+    The UI calls app.update_state({"pre_files": edited}) then resumes — this node
+    just forwards state unchanged.
+    """
+    _ = state  # intentionally unused; graph state is passed through unchanged
+    return {}

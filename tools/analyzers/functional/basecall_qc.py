@@ -26,19 +26,19 @@ class BasecallQCAnalyzer(FunctionalAnalyzer):
         # Q 值评级
         if avg_quality is None:
             quality_grade = "unknown"
-            issues.append("无法获取平均 Q 值（samtools stats 未运行或失败）")
+            issues.append("Mean Q-score unavailable (samtools stats did not run or failed)")
         elif avg_quality >= self.Q_GOOD:
             quality_grade = "good"
         elif avg_quality >= self.Q_ACCEPTABLE:
             quality_grade = "acceptable"
-            issues.append(f"平均 Q 值较低 (Q{avg_quality:.1f}，建议 ≥Q15)")
+            issues.append(f"Mean Q-score below recommended (Q{avg_quality:.1f}, recommended ≥Q15)")
         else:
             quality_grade = "poor"
-            issues.append(f"平均 Q 值过低 (Q{avg_quality:.1f})")
+            issues.append(f"Mean Q-score too low (Q{avg_quality:.1f})")
 
-        # reads 数量
+        # read count
         if total_reads < self.MIN_READS_ACCEPTABLE:
-            issues.append(f"reads 数量偏少 ({total_reads:,})，结果可靠性受限")
+            issues.append(f"Read count low ({total_reads:,}), reliability may be limited")
 
         return {
             "module":          "basecall_qc",

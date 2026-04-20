@@ -337,7 +337,7 @@ def generate_bam_plots(stats: dict, output_dir: str) -> list[str]:
         if p:
             paths.append(p)
     except Exception as e:
-        print(f"[BamPlotter] bam_summary 生成失败: {e}")
+        print(f"[BamPlotter] bam_summary generation failed: {e}")
 
     for fn, plotter in [
         ("mapping_stats.png", plot_mapping_stats),
@@ -349,6 +349,6 @@ def generate_bam_plots(stats: dict, output_dir: str) -> list[str]:
             if p and p not in paths:
                 paths.append(p)
         except Exception as e:
-            print(f"[BamPlotter] {fn} 生成失败: {e}")
+            print(f"[BamPlotter] {fn} generation failed: {e}")
 
     return paths

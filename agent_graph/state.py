@@ -17,6 +17,11 @@ EMPTY_STATE = {
     "pre_files": [],
     "run_dir": "",
     "analysis_images": [],
+    "workflow_result_zip": "",
+    "selected_modules": [],
+    "module_candidates": [],
+    "module_confident": True,
+    "forced_modules": [],
 }
 
 
@@ -67,3 +72,12 @@ class AgentState(TypedDict):
 
     # 分析产生的图表文件路径列表（已移到 session_dir 下）
     analysis_images: List[str]
+
+    # workflow 结果压缩包路径（供用户下载）
+    workflow_result_zip: str
+
+    # 功能分析模块选择
+    selected_modules: List[str]    # LLM 选定的模块（confident 时使用）
+    module_candidates: List[str]   # LLM 不确定时列出的候选模块供用户选择
+    module_confident: bool         # True = LLM 对选择有把握，False = 需要用户确认
+    forced_modules: List[str]      # 用户手动选择覆盖 LLM 结果

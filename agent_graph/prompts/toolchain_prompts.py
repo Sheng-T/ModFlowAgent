@@ -109,6 +109,10 @@ def build_parameter_generator_prompt(lang: str = "en_US") -> str:
         [Tool Schema]: {schema}
         [RAG Official Docs]: {rag}
 
+        [Files available in the user's session directory]:
+        {session_files}
+        When the user has not specified an input file, choose the most appropriate file from this list based on the tool and context. Use the full path shown.
+
         [Context]:
         - User request: {user_input}
         - Full conversation history: {history}
@@ -145,6 +149,10 @@ def build_parameter_generator_prompt(lang: str = "en_US") -> str:
         【当前工具】: {tool_name}
         【工具 Schema】: {schema}
         【RAG 官方文档】: {rag}
+
+        【用户会话目录中的可用文件】:
+        {session_files}
+        当用户未明确指定输入文件时，请根据工具类型和上下文从上方列表中选择最合适的文件，使用完整路径。
 
         【上下文逻辑】:
         - 原始需求: {user_input}

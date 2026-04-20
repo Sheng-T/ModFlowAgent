@@ -33,7 +33,7 @@ def _build_singularity_cmd(bam_path: str, samtools_args: str) -> str:
             f"samtools {samtools_args}"
         )
     # 未找到镜像，回退到本地 samtools
-    print("[BamAnalyzer] 未找到 samtools 镜像，尝试本地执行")
+    print("[BamAnalyzer] No samtools image found, falling back to local samtools")
     return f"samtools {samtools_args}"
 
 
@@ -144,7 +144,7 @@ def _parse_stats(text: str) -> dict:
 class BamAnalyzer(FileAnalyzer):
     def analyze(self, file_path: str) -> dict:
         if not os.path.isfile(file_path):
-            return {"error": f"文件不存在: {file_path}"}
+            return {"error": f"File not found: {file_path}"}
 
         result = {"file": os.path.basename(file_path), "type": "bam"}
 

@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict
 
 from configs import DATA_PATH
@@ -34,7 +35,7 @@ def build_command_for_call(call: dict, is_workflow: bool = False) -> str:
             wf_data_path["base_data_dir"] = session_dir
         if run_dir:
             wf_data_path["out_dir"] = run_dir   # --outdir → run_dir/results
-            wf_data_path["work_dir"] = run_dir
+            wf_data_path["work_dir"] = os.path.join(run_dir, "work")
         verify_func = WORKFLOW_REGISTRY.get(tool_name)
         if verify_func:
             return verify_func(tool_args, wf_data_path)

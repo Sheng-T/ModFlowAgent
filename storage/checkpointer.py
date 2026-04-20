@@ -26,6 +26,8 @@ def get_checkpointer():
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver
         conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=10000")
         _checkpointer = SqliteSaver(conn)
     except ImportError:
         # langgraph-checkpoint-sqlite 未安装，降级

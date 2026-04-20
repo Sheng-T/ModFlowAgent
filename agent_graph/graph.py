@@ -6,15 +6,17 @@ from agent_graph.nodes import (
     finish_session_node,
     generate_tool_params_node,
     handle_irrelevant_request_node,
+    human_module_selector_node,
     plan_tool_steps_node,
     reset_session_state_node,
     retrieve_tool_docs_node,
     review_execution_plan_node,
+    select_analysis_modules_node,
     select_tools_node,
     summarize_execution_result_node,
 )
 from agent_graph.nodes.workflows.planner import retrieve_pipeline_docs_node
-from agent_graph.nodes.workflows.prereq import generate_prereqs_node
+from agent_graph.nodes.workflows.prereq import generate_prereqs_node, human_prereq_reviewer_node
 from utils.workflow_prerequisites import needs_prereq
 from agent_graph.state import AgentState
 
@@ -47,10 +49,13 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("planner", plan_tool_steps_node)
     workflow.add_node("rag_pipeline", retrieve_pipeline_docs_node)
     workflow.add_node("prereq_generator", generate_prereqs_node)
+    workflow.add_node("human_prereq_reviewer", human_prereq_reviewer_node)
     workflow.add_node("param_generator", generate_tool_params_node)
     # workflow.add_node("validator", validate_tool_calls_node)
     workflow.add_node("human_reviewer", review_execution_plan_node)
     workflow.add_node("executor", execute_commands_node)
+    workflow.add_node("module_selector", select_analysis_modules_node)
+    workflow.add_node("human_module_selector", human_module_selector_node)
     workflow.add_node("summarizer", summarize_execution_result_node)
     workflow.add_node("llm_answer", answer_general_question_node)
     workflow.add_node("irrelevant", handle_irrelevant_request_node)
@@ -102,7 +107,8 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
             "param_generator": "param_generator",
         }
     )
-    workflow.add_edge("prereq_generator", "param_generator")
+    workflow.add_edge("prereq_generator", "human_prereq_reviewer")
+    workflow.add_edge("human_prereq_reviewer", "param_generator")
 
     # D. Executor 和 Summarizer 的最终流转
     workflow.add_edge("param_generator", "human_reviewer")
@@ -121,12 +127,22 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
 
     workflow.add_conditional_edges(
         "executor",
-        lambda state: state.get("next_node") or "summarizer",
+        lambda state: state.get("next_node") or "module_selector",
         {
             "param_generator": "param_generator",
-            # "nfcore_param_generator": "nfcore_param_generator",  # 删掉这行
+            "module_selector": "module_selector",
+            "summarizer":      "summarizer",
+            "tools_selector":  "tools_selector",
+        }
+    )
+
+    # module_selector: confident → summarizer directly, else interrupt for user choice
+    workflow.add_conditional_edges(
+        "module_selector",
+        lambda state: "summarizer" if state.get("module_confident", True) else "human_module_selector",
+        {
             "summarizer": "summarizer",
-            "tools_selector": "tools_selector",
+            "human_module_selector": "human_module_selector",
         }
     )
 
@@ -136,10 +152,12 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_edge("end_node", END)      # 流程结束
 
     # 5. 编译图
+    workflow.add_edge("human_module_selector", "summarizer")
+
     from storage.checkpointer import get_checkpointer; checkpointer = get_checkpointer()
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_before=["executor"]  # 到 executor 前自动暂停
+        interrupt_before=["executor", "human_module_selector", "human_prereq_reviewer"],
     )
     app.name = agent_name
     if is_save_graph_image:

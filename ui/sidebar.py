@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import streamlit as st
-from storage.file_manager import fmt_size, file_hash
+from storage.file_manager import fmt_size
 from configs.i18n_config import SUPPORTED_LANGS
 from configs.path_config import USER_QUOTA_BYTES
 from configs.tool_config import TOOL_DESCIPTION
@@ -28,7 +28,7 @@ def render_sidebar(store, fm, user_id, user_uid):
     with st.sidebar:
         # ── 用户信息 ──────────────────────────────────────────────────────────
         st.markdown(f"**👤 {user_id}**")
-        if st.button(_("切换用户"), use_container_width=True):
+        if st.button(_("Switch User"), use_container_width=True):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -40,7 +40,7 @@ def render_sidebar(store, fm, user_id, user_uid):
         lang_labels   = list(SUPPORTED_LANGS.values())
         current_idx   = lang_options.index(st.session_state.get("lang", "zh_CN"))
         selected_label = st.selectbox(
-            _("语言"), options=lang_labels, index=current_idx, key="lang_selector"
+            _("Language"), options=lang_labels, index=current_idx, key="lang_selector"
         )
         selected_lang = lang_options[lang_labels.index(selected_label)]
         if selected_lang != st.session_state.get("lang"):
@@ -51,29 +51,29 @@ def render_sidebar(store, fm, user_id, user_uid):
         st.divider()
 
         # ── 能力一览 ──────────────────────────────────────────────────────────
-        with st.expander(_("🧰 支持的工具与流水线"), expanded=False):
-            st.markdown(f"**{_('单步工具')}**")
+        with st.expander(_("🧰 Supported Tools & Pipelines"), expanded=False):
+            st.markdown(f"**{_('Tools')}**")
             for t in TOOL_DESCIPTION:
                 if t["name"] == "workflow":
                     continue
-                st.markdown(f"- **{t['name']}**")
+                st.markdown(f"- **{t['name']}**: {t['short_description']}")
 
-            st.markdown(f"**{_('分析流水线')}**")
-            for name, (desc, inputs) in PIPELINE_DESCRIPTIONS.items():
-                st.markdown(f"- **{name}**：{desc}  \n  `{inputs}`")
+            st.markdown(f"**{_('Pipelines')}**")
+            for p in PIPELINE_DESCRIPTIONS:
+                st.markdown(f"- **{p['name']}**: {p['short_description']}  \n  `{p['input']}`")
 
         st.divider()
 
         # ── 会话管理 ──────────────────────────────────────────────────────────
-        if st.button(_("➕ 新建会话"), use_container_width=True):
+        if st.button(_("➕ New Session"), use_container_width=True):
             new_sess = store.create_session(
                 user_id,
-                name=f"{_('会话')} {datetime.now().strftime('%m-%d %H:%M')}",
+                name=f"{_('Session')} {datetime.now().strftime('%m-%d %H:%M')}",
             )
             switch_session(store, new_sess["session_id"])
             st.rerun()
 
-        st.markdown(f"**{_('会话列表')}**")
+        st.markdown(f"**{_('Sessions')}**")
         sessions = store.get_user_sessions(user_id)
         for sess in sessions:
             is_active = sess["session_id"] == st.session_state.current_session_id
@@ -111,11 +111,11 @@ def render_sidebar(store, fm, user_id, user_uid):
                     if is_active:
                         st.session_state.current_session_id = None
                     st.rerun()
-            st.caption(f"  {store.message_count(sess['session_id'])} {_('条消息')}")
+            st.caption(f"  {store.message_count(sess['session_id'])} {_('messages')}")
 
         # ── 文件管理 ──────────────────────────────────────────────────────────
         st.divider()
-        st.markdown(f"**{_('📁 文件管理')}**")
+        st.markdown(f"**{_('📁 File Management')}**")
 
         usage = fm.get_usage(user_uid)
         used  = usage["total_bytes"]
@@ -124,41 +124,44 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         current_sid = st.session_state.get("current_session_id", "")
         uploaded = st.file_uploader(
-            _("上传文件到当前会话"),
+            _("Upload files to current session"),
             accept_multiple_files=True,
             key=f"uploader_{current_sid}",
             label_visibility="collapsed",
         )
         if uploaded:
-            if "uploaded_file_hashes" not in st.session_state:
-                st.session_state.uploaded_file_hashes = set()
+            if "uploaded_file_keys" not in st.session_state:
+                st.session_state.uploaded_file_keys = set()
             new_files = []
             for f in uploaded:
-                h = file_hash(f)
-                if h not in st.session_state.uploaded_file_hashes:
-                    fm.save_file(user_uid, current_sid, f.name, f.read())
-                    st.session_state.uploaded_file_hashes.add(h)
-                    new_files.append(f.name)
+                file_key = f"{f.name}_{f.size}"
+                if file_key not in st.session_state.uploaded_file_keys:
+                    try:
+                        fm.save_file(user_uid, current_sid, f.name, f)
+                        st.session_state.uploaded_file_keys.add(file_key)
+                        new_files.append(f.name)
+                    except ValueError as e:
+                        st.error(str(e))
             if new_files:
                 st.success(f"Uploaded: {', '.join(new_files)}")
 
         files = fm.list_session_files(user_uid, current_sid)
         if files:
-            st.markdown(f"*{len(files)} {_('个文件')}*")
+            st.markdown(f"*{len(files)} {_('files')}*")
             for fi in files:
                 col_name, col_del = st.columns([5, 1])
                 col_name.caption(f"📄 {fi['name']}  `{fmt_size(fi['size'])}`")
                 if col_del.button("✕", key=f"fdel_{current_sid}_{fi['name']}"):
                     fm.delete_file(user_uid, current_sid, fi["name"])
                     st.rerun()
-            if st.button(_("🗑 清空当前会话文件"), use_container_width=True):
+            if st.button(_("🗑 Clear session files"), use_container_width=True):
                 fm.delete_session_files(user_uid, current_sid)
                 st.session_state.pop(f"uploaded_files_{current_sid}", None)
                 st.rerun()
 
         if len(usage["sessions"]) > 1:
-            with st.expander(_("各会话占用")):
+            with st.expander(_("Storage by session")):
                 for sid, sz in sorted(usage["sessions"].items(),
                                       key=lambda x: x[1], reverse=True):
-                    label = f"{sid} ({_('当前')})" if sid == current_sid else sid
+                    label = f"{sid} ({_('current')})" if sid == current_sid else sid
                     st.caption(f"{label}: {fmt_size(sz)}")

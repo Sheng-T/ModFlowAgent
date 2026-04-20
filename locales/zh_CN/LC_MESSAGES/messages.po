@@ -1,113 +1,185 @@
 # Chinese (Simplified) translations for Bio-Agent
-# 源语言文件，key == value
+# Source language: English. msgid = English, msgstr = Chinese.
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: zh_CN\n"
 
-# 登录
-msgid "请输入用户名以继续"
+# Login
+msgid "Enter your username to continue"
 msgstr "请输入用户名以继续"
 
-msgid "用户名"
+msgid "Username"
 msgstr "用户名"
 
-msgid "例如：alice"
+msgid "e.g. alice"
 msgstr "例如：alice"
 
-msgid "登录"
+msgid "Login"
 msgstr "登录"
 
-# 侧边栏
-msgid "切换用户"
+# Sidebar
+msgid "Switch User"
 msgstr "切换用户"
 
-msgid "➕ 新建会话"
-msgstr "➕ 新建会话"
-
-msgid "会话列表"
-msgstr "会话列表"
-
-msgid "会话"
-msgstr "会话"
-
-msgid "条消息"
-msgstr "条消息"
-
-msgid "语言"
+msgid "Language"
 msgstr "语言"
 
-# 主区域
-msgid "🧬 Bio-Agent 智能分析平台"
+msgid "🧰 Supported Tools & Pipelines"
+msgstr "🧰 支持的工具与流水线"
+
+msgid "Tools"
+msgstr "单步工具"
+
+msgid "Pipelines"
+msgstr "分析流水线"
+
+msgid "➕ New Session"
+msgstr "➕ 新建会话"
+
+msgid "Session"
+msgstr "会话"
+
+msgid "Sessions"
+msgstr "会话列表"
+
+msgid "messages"
+msgstr "条消息"
+
+msgid "📁 File Management"
+msgstr "📁 文件管理"
+
+msgid "Upload files to current session"
+msgstr "上传文件到当前会话"
+
+msgid "files"
+msgstr "个文件"
+
+msgid "🗑 Clear session files"
+msgstr "🗑 清空当前会话文件"
+
+msgid "Storage by session"
+msgstr "各会话占用"
+
+msgid "current"
+msgstr "当前"
+
+# Main area
+msgid "🧬 Bio-Agent Analytics Platform"
 msgstr "🧬 Bio-Agent 智能分析平台"
 
-msgid "正在加载模型..."
+msgid "Loading model..."
 msgstr "正在加载模型..."
 
-msgid "请输入你的分析指令..."
+msgid "Enter your analysis instruction..."
 msgstr "请输入你的分析指令..."
 
-# 模式选择
-msgid "你的输入"
+# Mode selection
+msgid "Your input"
 msgstr "你的输入"
 
-msgid "请选择处理方式："
+msgid "Select processing mode:"
 msgstr "请选择处理方式："
 
-msgid "💬 对话问答"
+msgid "💬 Chat Q&A"
 msgstr "💬 对话问答"
 
-msgid "🔧 工具调用"
+msgid "🔧 Tool Call"
 msgstr "🔧 工具调用"
 
-msgid "🤖 自动判断"
+msgid "🧬 Pipeline"
+msgstr "🧬 流水线"
+
+msgid "🤖 Auto Detect"
 msgstr "🤖 自动判断"
 
-# 状态标签
-msgid "🔄 Agent 执行中..."
+# Status labels
+msgid "🔄 Agent running..."
 msgstr "🔄 Agent 执行中..."
 
-msgid "⏸️ 等待你的确认"
+msgid "⏸️ Awaiting confirmation"
 msgstr "⏸️ 等待你的确认"
 
-msgid "✅ 执行完成"
+msgid "✅ Completed"
 msgstr "✅ 执行完成"
 
-msgid "🔄 继续执行..."
+msgid "🔄 Resuming..."
 msgstr "🔄 继续执行..."
 
-# 审查确认
-msgid "📋 待执行命令，请确认"
-msgstr "📋 待执行命令，请确认"
+# Review panel
+msgid "Pending commands — please confirm"
+msgstr "待执行命令，请确认"
 
-msgid "步骤"
+msgid "Last run failed — commands have been auto-corrected"
+msgstr "上次执行失败，系统已自动修正命令"
+
+msgid "View error details"
+msgstr "查看错误详情"
+
+msgid "Review the corrected commands below and confirm to re-run:"
+msgstr "请检查以下修正后的命令，确认无误后重新执行："
+
+msgid "Pre-requisite files"
+msgstr "前置文件"
+
+msgid "Commands to execute"
+msgstr "待执行命令"
+
+msgid "Step"
 msgstr "步骤"
 
-msgid "命令列表为空，请检查参数生成是否正常"
+msgid "Command list is empty — check parameter generation"
 msgstr "命令列表为空，请检查参数生成是否正常"
 
-msgid "🔧 修改意见（提交修改时填写）"
+msgid "🔧 Revision notes (fill in before submitting)"
 msgstr "🔧 修改意见（提交修改时填写）"
 
-msgid "✅ 确认执行"
+msgid "✅ Confirm & Run"
 msgstr "✅ 确认执行"
 
-msgid "❌ 取消任务"
+msgid "⚠️ This will run on the server immediately. Are you sure?"
+msgstr "⚠️ 命令将立即在服务器执行，确定吗？"
+
+msgid "▶ Yes, run it"
+msgstr "▶ 确定执行"
+
+msgid "← Let me check again"
+msgstr "← 我再看看"
+
+msgid "❌ Cancel"
 msgstr "❌ 取消任务"
 
-msgid "💬 提交修改"
+msgid "💬 Submit Revision"
 msgstr "💬 提交修改"
 
-msgid "请先填写修改意见"
+msgid "Please fill in revision notes first"
 msgstr "请先填写修改意见"
 
-# 通用
-msgid "🧠 查看思考过程"
+msgid "🚫 Cancelling..."
+msgstr "🚫 正在取消任务..."
+
+msgid "🔄 Regenerating commands..."
+msgstr "🔄 正在重新生成命令..."
+
+msgid "⏳ Submitted — task is running, please wait..."
+msgstr "⏳ 已提交，任务执行中，请稍候..."
+
+msgid "✅ Task cancelled"
+msgstr "✅ 任务已取消"
+
+msgid "❌ Execution failed — commands auto-corrected, please re-confirm"
+msgstr "❌ 执行失败，已自动修正命令，请重新确认"
+
+# General
+msgid "🧠 View thinking process"
 msgstr "🧠 查看思考过程"
 
-msgid "✅ 任务处理完成"
-msgstr "✅ 任务处理完成"
+msgid "**📊 Analyze charts**"
+msgstr "**📊 分析图表**"
 
-msgid "会话"
-msgstr "会话"
+msgid "Download chart"
+msgstr "下载图表"
+
+msgid "✅ Task completed"
+msgstr "✅ 任务处理完成"

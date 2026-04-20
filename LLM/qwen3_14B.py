@@ -81,7 +81,7 @@ def get_llm(
     system_role: str = "You are a helpful assistant."
 ) -> LLM:
 
-    print(f"--- 正在加载模型: {model_dir} ---")
+    print(f"--- Loading model: {model_dir} ---")
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_dir,
@@ -106,7 +106,7 @@ def get_llm(
 
     model.eval()
 
-    print("--- 模型加载完成 ---")
+    print("--- Loading model finish ---")
 
     return Qwen3LLM(
         model=model,

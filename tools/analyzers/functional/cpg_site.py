@@ -31,14 +31,14 @@ class CpGSiteAnalyzer(FunctionalAnalyzer):
             assessment = "sufficient"
         elif cov_median >= self.COV_MARGINAL:
             assessment = "marginal"
-            issues.append(f"中位覆盖度偏低 ({cov_median:.1f}x，建议 ≥10x)")
+            issues.append(f"Median coverage low ({cov_median:.1f}x, recommended ≥10x)")
         else:
             assessment = "insufficient"
-            issues.append(f"覆盖度不足 (中位 {cov_median:.1f}x，≥10x 位点仅占 {ge10_frac*100:.1f}%)")
+            issues.append(f"Coverage insufficient (median {cov_median:.1f}x, only {ge10_frac*100:.1f}% sites ≥10x)")
 
-        # 位点数量检查
+        # site count check
         if total_sites < 100_000:
-            issues.append(f"检测到的 CpG 位点较少 ({total_sites:,})，可能影响全局甲基化评估")
+            issues.append(f"Few CpG sites detected ({total_sites:,}), may affect global methylation assessment")
 
         return {
             "module":            "cpg_site_coverage",

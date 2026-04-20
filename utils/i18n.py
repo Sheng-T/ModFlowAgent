@@ -1,92 +1,114 @@
 """
-轻量 i18n 工具。
+Lightweight i18n helper.
 
-用法:
+Usage:
     from utils.i18n import _
-    st.button(_("登录"))
+    st.button(_("Login"))
 
-翻译策略:
-  - zh_CN 是源语言，直接返回原字符串（零开销）
-  - 其他语言在 TRANSLATIONS[lang] 中查找；缺失 key 则 fallback 到原字符串
-  - 当前语言从 st.session_state.lang 读取，缺失时用 DEFAULT_LANG
+Strategy:
+  - English (en_US) is the source language — key is returned as-is (zero-cost).
+  - Other languages look up TRANSLATIONS[lang]; missing keys fall back to the English source.
+  - Active language is read from st.session_state.lang, defaulting to DEFAULT_LANG.
 """
 
 from configs.i18n_config import DEFAULT_LANG
 
-# ── 翻译表 ────────────────────────────────────────────────────────────────────
-# key = zh_CN 原始字符串，value = 目标语言字符串
-# 添加新语言：在 TRANSLATIONS 里增加一个 lang key，填入对应翻译即可。
+# ── Translation table ─────────────────────────────────────────────────────────
+# key = English source string, value = translated string
+# To add a new language: add a new lang key in TRANSLATIONS and fill in translations.
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
-    "en_US": {
-        # ── 登录 ──────────────────────────────────────────────────────────
-        "请输入用户名以继续":          "Enter your username to continue",
-        "用户名":                      "Username",
-        "例如：alice":                 "e.g. alice",
-        "登录":                        "Login",
+    "zh_CN": {
+        # ── Login ──────────────────────────────────────────────────────────
+        "Enter your username to continue":   "请输入用户名以继续",
+        "Username":                          "用户名",
+        "e.g. alice":                        "例如：alice",
+        "Login":                             "登录",
 
-        # ── 侧边栏 ────────────────────────────────────────────────────────
-        "切换用户":                    "Switch User",
-        "➕ 新建会话":                 "➕ New Session",
-        "会话列表":                    "Sessions",
-        "条消息":                      "messages",
-        "语言":                        "Language",
-        "🧰 支持的工具与流水线":        "🧰 Supported Tools & Pipelines",
-        "单步工具":                    "Tools",
-        "分析流水线":                  "Pipelines",
-        "📁 文件管理":                 "📁 File Management",
-        "上传文件到当前会话":           "Upload files to current session",
-        "个文件":                      "files",
-        "🗑 清空当前会话文件":          "🗑 Clear session files",
-        "各会话占用":                  "Storage by session",
-        "当前":                        "current",
+        # ── Sidebar ────────────────────────────────────────────────────────
+        "Switch User":                       "切换用户",
+        "Language":                          "语言",
+        "🧰 Supported Tools & Pipelines":    "🧰 支持的工具与流水线",
+        "Tools":                             "单步工具",
+        "Pipelines":                         "分析流水线",
+        "➕ New Session":                    "➕ 新建会话",
+        "Session":                           "会话",
+        "Sessions":                          "会话列表",
+        "messages":                          "条消息",
+        "📁 File Management":                "📁 文件管理",
+        "Upload files to current session":   "上传文件到当前会话",
+        "files":                             "个文件",
+        "🗑 Clear session files":            "🗑 清空当前会话文件",
+        "Storage by session":                "各会话占用",
+        "current":                           "当前",
 
-        # ── 主区域 ────────────────────────────────────────────────────────
-        "🧬 Bio-Agent 智能分析平台":   "🧬 Bio-Agent Analytics Platform",
-        "正在加载模型...":             "Loading model...",
-        "请输入你的分析指令...":       "Enter your analysis instruction...",
+        # ── Main area ──────────────────────────────────────────────────────
+        "🧬 Bio-Agent Analytics Platform":   "🧬 Bio-Agent 智能分析平台",
+        "Loading model...":                  "正在加载模型...",
+        "Enter your analysis instruction...": "请输入你的分析指令...",
 
-        # ── 模式选择 ──────────────────────────────────────────────────────
-        "你的输入":                    "Your input",
-        "请选择处理方式：":            "Select processing mode:",
-        "💬 对话问答":                 "💬 Chat Q&A",
-        "🔧 工具调用":                 "🔧 Tool Call",
-        "🧬 流水线":                   "🧬 Pipeline",
-        "🤖 自动判断":                 "🤖 Auto Detect",
+        # ── Mode selector ──────────────────────────────────────────────────
+        "Your input":                        "你的输入",
+        "Select processing mode:":           "请选择处理方式：",
+        "💬 Chat Q&A":                       "💬 对话问答",
+        "🔧 Tool Call":                      "🔧 工具调用",
+        "🧬 Pipeline":                       "🧬 流水线",
+        "🤖 Auto Detect":                    "🤖 自动判断",
 
-        # ── 状态标签 ──────────────────────────────────────────────────────
-        "🔄 Agent 执行中...":          "🔄 Agent running...",
-        "⏸️ 等待你的确认":            "⏸️ Awaiting confirmation",
-        "✅ 执行完成":                 "✅ Completed",
-        "🔄 继续执行...":              "🔄 Resuming...",
+        # ── Status labels ──────────────────────────────────────────────────
+        "🔄 Agent running...":               "🔄 Agent 执行中...",
+        "⏸️ Awaiting confirmation":          "⏸️ 等待你的确认",
+        "✅ Completed":                      "✅ 执行完成",
+        "🔄 Resuming...":                    "🔄 继续执行...",
 
-        # ── 审查确认 ──────────────────────────────────────────────────────
-        "📋 待执行命令，请确认":       "📋 Pending commands, please confirm",
-        "步骤":                        "Step",
-        "命令列表为空，请检查参数生成是否正常": "Command list is empty, check parameter generation",
-        "🔧 修改意见（提交修改时填写）":        "🔧 Revision notes (fill when submitting)",
-        "✅ 确认执行":                 "✅ Confirm & Execute",
-        "❌ 取消任务":                 "❌ Cancel",
-        "💬 提交修改":                 "💬 Submit Revision",
-        "请先填写修改意见":            "Please fill in revision notes first",
+        # ── Review panel ───────────────────────────────────────────────────
+        "Pending commands — please confirm": "待执行命令，请确认",
+        "Last run failed — commands have been auto-corrected":
+                                             "上次执行失败，系统已自动修正命令",
+        "View error details":                "查看错误详情",
+        "Review the corrected commands below and confirm to re-run:":
+                                             "请检查以下修正后的命令，确认无误后重新执行：",
+        "Pre-requisite files":               "前置文件",
+        "Commands to execute":               "待执行命令",
+        "Step":                              "步骤",
+        "Command list is empty — check parameter generation":
+                                             "命令列表为空，请检查参数生成是否正常",
+        "🔧 Revision notes (fill in before submitting)":
+                                             "🔧 修改意见（提交修改时填写）",
+        "✅ Confirm & Run":                  "✅ 确认执行",
+        "⚠️ This will run on the server immediately. Are you sure?":
+                                             "⚠️ 命令将立即在服务器执行，确定吗？",
+        "▶ Yes, run it":                    "▶ 确定执行",
+        "← Let me check again":             "← 我再看看",
+        "❌ Cancel":                         "❌ 取消任务",
+        "💬 Submit Revision":                "💬 提交修改",
+        "Please fill in revision notes first": "请先填写修改意见",
+        "🚫 Cancelling...":                  "🚫 正在取消任务...",
+        "🔄 Regenerating commands...":       "🔄 正在重新生成命令...",
+        "⏳ Submitted — task is running, please wait...":
+                                             "⏳ 已提交，任务执行中，请稍候...",
+        "✅ Task cancelled":                 "✅ 任务已取消",
+        "❌ Execution failed — commands auto-corrected, please re-confirm":
+                                             "❌ 执行失败，已自动修正命令，请重新确认",
 
-        # ── 通用 ──────────────────────────────────────────────────────────
-        "🧠 查看思考过程":             "🧠 View thinking process",
-        "✅ 任务处理完成":             "✅ Task completed",
-        "会话":                        "Session",
+        # ── General ────────────────────────────────────────────────────────
+        "🧠 View thinking process":          "🧠 查看思考过程",
+        "**📊 Analyze charts**":             "**📊 分析图表**",
+        "Download chart":                    "下载图表",
+        "✅ Task completed":                 "✅ 任务处理完成",
     }
 }
 
 
 def _(text: str) -> str:
-    """翻译函数。zh_CN 直接原路返回；其他语言查字典，缺失则 fallback 原文。"""
+    """Translate text. en_US returns the key as-is; other languages look up the table."""
     try:
         import streamlit as st
         lang = st.session_state.get("lang", DEFAULT_LANG)
     except Exception:
         lang = DEFAULT_LANG
 
-    if lang == "zh_CN" or lang not in TRANSLATIONS:
+    if lang == "en_US" or lang not in TRANSLATIONS:
         return text
 
     return TRANSLATIONS[lang].get(text, text)

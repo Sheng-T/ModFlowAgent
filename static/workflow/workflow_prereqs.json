@@ -6,8 +6,8 @@
         "type": "csv",
         "filename": "samplesheet.csv",
         "columns": ["group", "sample", "path", "ref", "method"],
-        "example_row": "group1,sample1,sample1.bam,sample1.fasta,pacbio",
-        "description": "methylong samplesheet 每行代表一个样本。\n- group: 样本分组名（字符串，同组可含多个样本）\n- sample: 样本名称\n- path: BAM 文件路径（填用户上传文件的文件名，不含目录）\n- ref: 参考基因组 FASTA 文件路径（填用户上传文件的文件名，不含目录）\n- method: 测序平台，pacbio 或 ont"
+        "example_row": "group1,sample1,/data/uploads/abc123/sample1.bam,/data/uploads/abc123/genome.fa,ont",
+        "description": "methylong samplesheet — one row per sample.\n- group: sample group name (string; multiple samples can share a group). If not specified by user, auto-generate as 'group1', 'group2'...\n- sample: sample name. If not specified, use the input filename without extension as sample name (e.g. 'PAU05248_pass_ffa693eb' from 'PAU05248_pass_ffa693eb.bam')\n- path: FULL absolute path to the BAM/pod5 file\n- ref: FULL absolute path to the reference genome FASTA\n- method: sequencing platform — 'pacbio' or 'ont'"
       }
     ]
   },
@@ -19,67 +19,7 @@
         "filename": "samplesheet.csv",
         "columns": ["sample", "fastq_1", "fastq_2", "strandedness"],
         "example_row": "sample1,sample1_R1.fastq.gz,sample1_R2.fastq.gz,auto",
-        "description": "rnaseq samplesheet 每行代表一个样本。\n- sample: 样本名称\n- fastq_1: Read1 fastq 文件路径（文件名，不含目录）\n- fastq_2: Read2 fastq 文件路径（单端测序填空字符串）\n- strandedness: 链特异性，auto / forward / reverse / unstranded"
-      }
-    ]
-  },
-  "methylseq": {
-    "needs_prereq": true,
-    "prereqs": [
-      {
-        "type": "csv",
-        "filename": "samplesheet.csv",
-        "columns": ["sample", "fastq_1", "fastq_2"],
-        "example_row": "sample1,sample1_R1.fastq.gz,sample1_R2.fastq.gz",
-        "description": "methylseq samplesheet 每行代表一个样本。\n- sample: 样本名称\n- fastq_1: Read1 fastq 文件路径（文件名）\n- fastq_2: Read2 fastq 文件路径（单端留空）"
-      }
-    ]
-  },
-  "sarek": {
-    "needs_prereq": true,
-    "prereqs": [
-      {
-        "type": "csv",
-        "filename": "samplesheet.csv",
-        "columns": ["patient", "sample", "lane", "fastq_1", "fastq_2"],
-        "example_row": "patient1,sample1,lane1,sample1_R1.fastq.gz,sample1_R2.fastq.gz",
-        "description": "sarek samplesheet 每行代表一个测序文库。\n- patient: 患者/受试者 ID\n- sample: 样本 ID\n- lane: 测序 lane 编号\n- fastq_1: Read1 fastq 文件路径（文件名）\n- fastq_2: Read2 fastq 文件路径（文件名）"
-      }
-    ]
-  },
-  "ampliseq": {
-    "needs_prereq": true,
-    "prereqs": [
-      {
-        "type": "csv",
-        "filename": "samplesheet.csv",
-        "columns": ["sampleID", "forwardReads", "reverseReads", "run"],
-        "example_row": "sample1,sample1_R1.fastq.gz,sample1_R2.fastq.gz,1",
-        "description": "ampliseq samplesheet 每行代表一个样本。\n- sampleID: 样本 ID\n- forwardReads: 正向 fastq 文件路径（文件名）\n- reverseReads: 反向 fastq 文件路径（文件名）\n- run: 测序批次编号（整数）"
-      }
-    ]
-  },
-  "mag": {
-    "needs_prereq": true,
-    "prereqs": [
-      {
-        "type": "csv",
-        "filename": "samplesheet.csv",
-        "columns": ["sample", "group", "short_reads_1", "short_reads_2", "long_reads"],
-        "example_row": "sample1,0,sample1_R1.fastq.gz,sample1_R2.fastq.gz,",
-        "description": "mag samplesheet 每行代表一个样本。\n- sample: 样本名称\n- group: 拼装分组编号（0-based 整数，同组样本合并拼装）\n- short_reads_1: Illumina Read1 fastq 路径（文件名，无则留空）\n- short_reads_2: Illumina Read2 fastq 路径（文件名，无则留空）\n- long_reads: 长读长 fastq 路径（文件名，无则留空）"
-      }
-    ]
-  },
-  "taxprofiler": {
-    "needs_prereq": true,
-    "prereqs": [
-      {
-        "type": "csv",
-        "filename": "samplesheet.csv",
-        "columns": ["sample", "run_accession", "instrument_platform", "fastq_1", "fastq_2", "fasta"],
-        "example_row": "sample1,run1,ILLUMINA,sample1_R1.fastq.gz,sample1_R2.fastq.gz,",
-        "description": "taxprofiler samplesheet 每行代表一个测序 run。\n- sample: 样本名称\n- run_accession: 测序 run 编号\n- instrument_platform: 测序平台，ILLUMINA / OXFORD_NANOPORE / PACBIO_SMRT\n- fastq_1: Read1 fastq 路径（文件名）\n- fastq_2: Read2 fastq 路径（单端或长读长留空）\n- fasta: FASTA 文件路径（fastq 模式留空）"
+        "description": "Each row in the rnaseq sample sheet represents a sample.\n- sample: Sample name\n- fastq_1: Path to Read1 fastq file (filename, excluding directory)\n- fastq_2: Path to Read2 fastq file (gap-filling string for single-end sequencing)\n- strandedness: Strandedness, auto / forward / reverse / unstranded"
       }
     ]
   }

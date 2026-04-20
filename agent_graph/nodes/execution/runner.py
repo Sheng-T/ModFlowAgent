@@ -3,7 +3,7 @@ import shutil
 
 from agent_graph.state import AgentState
 from configs import TOOL_LIST
-from runtime.env_wrapper import EnvWrapper
+from runtime.env_wrapper import EnvWrapper, cleanup_temp_scripts
 from runtime.executor import ToolExecutor
 from utils.nodes_utils import build_command_for_call
 from utils.user_context import get_run_dir, get_session_dir
@@ -12,37 +12,37 @@ from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 
-def _collect_run_outputs(run_dir: str) -> list[str]:
-    """返回 run_dir 下所有文件的绝对路径。"""
-    if not run_dir or not os.path.isdir(run_dir):
-        return []
-    return [
-        os.path.join(run_dir, name)
-        for name in os.listdir(run_dir)
-        if os.path.isfile(os.path.join(run_dir, name))
-    ]
 
 
-def _move_outputs_to_session(run_dir: str, session_dir: str):
-    """将 run_dir 下所有文件移动到 session_dir，然后删除 run_dir。"""
-    for fpath in _collect_run_outputs(run_dir):
-        dest = os.path.join(session_dir, os.path.basename(fpath))
-        # 同名文件加时间戳后缀，避免覆盖
-        if os.path.exists(dest):
-            base, ext = os.path.splitext(os.path.basename(fpath))
-            import time
-            dest = os.path.join(session_dir, f"{base}_{int(time.time())}{ext}")
-        shutil.move(fpath, dest)
-        ui_print(f"[Executor] 输出文件已归档: {os.path.basename(dest)}")
-    shutil.rmtree(run_dir, ignore_errors=True)
-    ui_print(f"[Executor] 运行目录已清理")
+def _format_error(resp: dict, tail: int = 3000) -> str:
+    """取 stdout + stderr 各自末尾拼成可读错误信息，优先展示末尾（关键错误通常在最后）。"""
+    stdout = (resp.get("stdout") or "").strip()
+    stderr = (resp.get("stderr") or "").strip()
+    parts = []
+    if stderr:
+        parts.append("--- stderr ---\n" + (stderr[-tail:] if len(stderr) > tail else stderr))
+    if stdout:
+        parts.append("--- stdout ---\n" + (stdout[-tail:] if len(stdout) > tail else stdout))
+    return "\n".join(parts) if parts else "(no output)"
 
 
 def _cleanup_run_dir(run_dir: str):
-    """执行失败时删除整个 run_dir（含不完整的输出文件）。"""
-    if run_dir and os.path.isdir(run_dir):
-        shutil.rmtree(run_dir, ignore_errors=True)
-        ui_print(f"[Executor] 执行失败，运行目录已清理")
+    """执行失败时清理 run_dir 内的中间产物，但保留前置文件（samplesheet 等）。
+    只删除 nextflow 产生的子目录（work/ results/ .nextflow/ 等），不删整个目录。
+    """
+    if not run_dir or not os.path.isdir(run_dir):
+        return
+    nf_subdirs = {"work", "results", ".nextflow"}
+    for entry in os.scandir(run_dir):
+        if entry.name in nf_subdirs or (entry.name.startswith(".nextflow")):
+            if entry.is_dir():
+                shutil.rmtree(entry.path, ignore_errors=True)
+            else:
+                try:
+                    os.unlink(entry.path)
+                except OSError:
+                    pass
+    ui_print(f"[Executor] Execution failed, intermediate files cleaned up (pre-files preserved)")
 
 
 def _write_pre_files(pre_files: list, session_dir: str):
@@ -52,7 +52,7 @@ def _write_pre_files(pre_files: list, session_dir: str):
         dest = os.path.join(session_dir, pf["filename"])
         with open(dest, "w", encoding="utf-8") as f:
             f.write(pf["content"])
-        ui_print(f"[Executor] 已写入前置文件: {pf['filename']}")
+        ui_print(f"[Executor] Pre-file written: {pf['filename']}")
         written.append(dest)
     return written
 
@@ -84,7 +84,9 @@ def execute_commands_node(state: AgentState) -> dict:
                 break
 
             ui_print(f"\n[Executor] Running: {raw_cmd}")
-            final_cmd = wrapper.wrap_command("workflow", raw_cmd, is_workflow=True)
+            run_dir = state.get("run_dir") or ""
+            final_cmd = wrapper.wrap_command("workflow", raw_cmd, is_workflow=True,
+                                             cwd=run_dir)
             resp = executor.run(final_cmd)
 
             if resp["status"] == "success":
@@ -96,13 +98,14 @@ def execute_commands_node(state: AgentState) -> dict:
                 )})
             else:
                 next_node = "param_generator"
-                error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
-                ui_print(f"\n[Executor] Failed: {error_log}")
+                error_log = _format_error(resp)
+                ui_print(f"\n[Executor] Failed:\n{error_log}")
                 history.append({"role": "assistant", "content": _msg(
                     f"Execution failed:\n{error_log}\nI will correct the parameters.",
                     f"执行失败，报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
                 )})
-                _cleanup_run_dir(get_run_dir())
+                # [DEBUG] 注释掉清理逻辑，保留 work 目录用于调试
+                # _cleanup_run_dir(state.get("run_dir") or "")
                 break
     else:
         pre_files = state.get("pre_files", [])
@@ -136,7 +139,9 @@ def execute_commands_node(state: AgentState) -> dict:
                 break
 
             ui_print(f"\n[Executor] Running: {raw_cmd}")
-            final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=False)
+            run_dir = state.get("run_dir") or get_session_dir() or ""
+            final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=False,
+                                             cwd=run_dir)
             resp = executor.run(final_cmd)
 
             if resp["status"] == "success":
@@ -148,18 +153,27 @@ def execute_commands_node(state: AgentState) -> dict:
                 )})
             else:
                 next_node = "param_generator" if has_subcommand else "summarizer"
-                error_log = resp["stderr"][:1500] + "\n...\n" + resp["stderr"][-500:]
-                ui_print(f"\n[Executor] Failed: {error_log}")
+                error_log = _format_error(resp)
+                ui_print(f"\n[Executor] Failed:\n{error_log}")
                 history.append({"role": "assistant", "content": _msg(
                     f"Execution of {tool_name} failed:\n{error_log}\nI will correct the parameters.",
                     f"我尝试执行了 {tool_name}，但失败了。报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
                 )})
-                _cleanup_run_dir(get_run_dir())
+                # [DEBUG] 注释掉清理逻辑，保留 work 目录用于调试
+                # _cleanup_run_dir(state.get("run_dir") or "")
                 break
-            _cleanup_run_dir(get_run_dir())
+            # [DEBUG] 注释掉成功后的清理逻辑，保留中间文件用于调试
+            # _cleanup_run_dir(state.get("run_dir") or "")
             break
 
     # 成功路径不在此处移动文件：summarize 节点完成分析后统一移动并清理 run_dir
-
-    return {"chat_history": history, "next_node": next_node, "tool_output": tool_output}
+    # workflow 模式下 nextflow 进程是同步等待完成后才返回，脚本已用完可以清理
+    # 但 workflow 脚本在 Popen.wait() 返回时已执行完毕，安全清理
+    cleanup_temp_scripts()
+    return {
+        "chat_history": history,
+        "next_node": next_node,
+        "tool_output": tool_output,
+        "run_dir": state.get("run_dir", ""),
+    }
 

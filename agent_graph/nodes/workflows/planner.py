@@ -7,20 +7,20 @@ from utils.llm_utils import get_llm_instance
 def retrieve_pipeline_docs_node(state: AgentState) -> AgentState:
     pipeline = state.get("selected_workflow")
     if not pipeline:
-        print("[RAG Pipeline] 未找到 selected_workflow，跳过")
+        print("[RAG Pipeline] No selected_workflow found, skipping")
         return state
 
     user_query = state["input"]
     user_feedback = state.get("user_feedback", "")
     if user_feedback:
-        user_query = f"初始需求: {user_query}\n用户追加指令: {user_feedback}"
+        user_query = f"Original request: {user_query}\nUser follow-up: {user_feedback}"
 
     doc_path = WORKFLOW_PIPELINE_DOCS.get(pipeline)
     if not doc_path:
-        print(f"[RAG Pipeline] 警告: 未找到 {pipeline} 的文档，跳过")
+        print(f"[RAG Pipeline] Warning: no docs found for {pipeline}, skipping")
         return state
 
-    print(f"\n[RAG Pipeline] 正在检索 {pipeline} 的参数文档...")
+    print(f"\n[RAG Pipeline] Retrieving parameter docs for {pipeline}...")
     rag_llm = get_llm_instance(is_planner=False)
 
     cache_key = f"pipeline_{pipeline}"
@@ -31,6 +31,6 @@ def retrieve_pipeline_docs_node(state: AgentState) -> AgentState:
 
     # 写入 rag_suggestion，key 用 pipeline 名，param_generator 直接取
     state["rag_suggestion"][pipeline] = context
-    print(f"[RAG Pipeline] {pipeline} 文档检索完成")
+    print(f"[RAG Pipeline] {pipeline} docs retrieved")
     return state
 

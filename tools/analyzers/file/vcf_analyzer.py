@@ -26,7 +26,7 @@ def _open(path: str):
 class VcfAnalyzer(FileAnalyzer):
     def analyze(self, file_path: str) -> dict:
         if not os.path.isfile(file_path):
-            return {"error": f"文件不存在: {file_path}"}
+            return {"error": f"File not found: {file_path}"}
 
         total_variants  = 0
         pass_variants   = 0

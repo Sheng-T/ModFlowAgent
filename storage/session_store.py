@@ -56,6 +56,16 @@ class SessionStore:
         conn.execute("PRAGMA busy_timeout=5000")  # 锁等待最多 5s，减少并发冲突
         return conn
 
+    def close(self):
+        """显式关闭数据库连接。"""
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+
+    def __del__(self):
+        self.close()
+
     def _reconnect(self):
         """连接失效时重建。"""
         try:
@@ -100,13 +110,13 @@ class SessionStore:
         try:
             self._conn.execute("SELECT uid FROM users LIMIT 1")
         except sqlite3.OperationalError:
-            print("[SessionStore] 添加 uid 列到 users 表...")
+            print("[SessionStore] add uid to users table...")
             # 注意：旧版 SQLite 不支持 ALTER TABLE ADD COLUMN 带 UNIQUE 约束
             self._conn.execute("ALTER TABLE users ADD COLUMN uid INTEGER")
             self._conn.commit()
 
         # 回填 uid（使用 rowid）
-        print("[SessionStore] 正在回填 uid...")
+        print("[SessionStore] Backfilling UID in progress...")
         self._conn.execute("UPDATE users SET uid = rowid WHERE uid IS NULL")
         self._conn.commit()
 
@@ -167,7 +177,7 @@ class SessionStore:
 
             if not row:
                 # 新用户
-                print(f"[SessionStore] 创建默认用户: {user_name}")
+                print(f"[SessionStore] Create default user: {user_name}")
                 cursor = self._conn.execute(
                     "INSERT INTO users (user_name, password_hash) VALUES (?, ?)",
                     (user_name, _hash_password(password))
@@ -185,13 +195,13 @@ class SessionStore:
                 )
             elif not row["password_hash"] or row["password_hash"] == '':
                 # 补写密码
-                print(f"[SessionStore] 为用户 {user_name} 补写密码")
+                print(f"[SessionStore] Reset password for user {user_name}")
                 self._conn.execute(
                     "UPDATE users SET password_hash=? WHERE user_name=?",
                     (_hash_password(password), user_name)
                 )
             else:
-                print(f"[SessionStore] 用户 {user_name} 已存在且有密码，跳过")
+                print(f"[SessionStore] The user {user_name} already exists and has a password. Skipping")
 
         self._conn.commit()
 
@@ -220,7 +230,7 @@ class SessionStore:
         session_id = uuid.uuid4().hex[:10]
         thread_id = f"{user_name}::{session_id}"
         if not name:
-            name = f"会话 {datetime.now().strftime('%m-%d %H:%M')}"
+            name = f"session {datetime.now().strftime('%m-%d %H:%M')}"
         self._conn.execute(
             "INSERT INTO sessions (session_id, user_name, name, thread_id) VALUES (?,?,?,?)",
             (session_id, user_name, name, thread_id),
@@ -268,7 +278,7 @@ class SessionStore:
                 return
             except sqlite3.OperationalError as e:
                 if attempt == 0:
-                    print(f"[SessionStore] append_message 失败，尝试重连: {e}")
+                    print(f"[SessionStore] append_message failed, attempting to reconnect: {e}")
                     self._reconnect()
                 else:
                     raise

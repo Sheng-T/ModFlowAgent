@@ -9,46 +9,75 @@
         ],
         "kwargs": {
           "--ref": {"type": "str", "required": true, "description": "Reference FASTA file"},
-          "--mod-thresholds": {"type": "str", "required": false, "description": "Per-modification threshold, e.g. m:0.8"},
           "--threads": {"type": "int", "required": false, "description": "Number of threads (default: 4)"},
-          "--prefix": {"type": "str", "required": false, "description": "Prefix for output files when using --out-dir"},
-          "--out-dir": {"type": "str", "required": false, "description": "Output directory"},
-          "--combine-strands": {"type": "flag", "required": false, "description": "Combine modifications on both strands"},
           "--cpg": {"type": "flag", "required": false, "description": "Output only CpG sites"},
-          "--ignore-index": {"type": "flag", "required": false, "description": "Ignore BAM index for input"}
+          "--combine-strands": {"type": "flag", "required": false, "description": "Combine modifications on both strands into a single record"},
+          "--mod-thresholds": {"type": "str", "required": false, "description": "Per-modification probability threshold, e.g. m:0.8"},
+          "--filter-threshold": {"type": "float", "required": false, "description": "Global threshold for filtering low-confidence calls (0.0–1.0)"},
+          "--no-filtering": {"type": "flag", "required": false, "description": "Disable all probability filtering"},
+          "--region": {"type": "str", "required": false, "description": "Genomic region to process, e.g. chr1:1000-5000"},
+          "--include-bed": {"type": "str", "required": false, "description": "BED file of regions to include"},
+          "--exclude-bed": {"type": "str", "required": false, "description": "BED file of regions to exclude"},
+          "--max-depth": {"type": "int", "required": false, "description": "Maximum read depth per position (default: 8000)"},
+          "--out-dir": {"type": "str", "required": false, "description": "Output directory (used with --prefix)"},
+          "--prefix": {"type": "str", "required": false, "description": "Prefix for output files when using --out-dir"},
+          "--motif": {"type": "str", "required": false, "description": "Restrict output to a specific sequence motif, e.g. CG 0 (motif and offset space-separated)"},
+          "--ignore-index": {"type": "flag", "required": false, "description": "Ignore BAM index and process all records"},
+          "--force": {"type": "flag", "required": false, "description": "Overwrite existing output files"},
+          "--only-tabs": {"type": "flag", "required": false, "description": "Use only tab separators in output (no spaces)"},
+          "--log-filepath": {"type": "str", "required": false, "description": "Path to write log output"}
         }
       },
       "extract": {
-        "description": "Extract per-read base modification data from a BAM",
+        "description": "Extract per-read base modification data from a BAM into a TSV table",
         "positional_args": [
           {"name": "bam", "description": "Input BAM file"},
-          {"name": "output", "description": "Output file path (.tsv or .txt)"}
+          {"name": "output", "description": "Output TSV file path"}
         ],
         "kwargs": {
-          "--ref": {"type": "str", "required": false, "description": "Reference FASTA file"},
+          "--ref": {"type": "str", "required": false, "description": "Reference FASTA file (enables reference-anchored positions)"},
           "--threads": {"type": "int", "required": false, "description": "Number of threads"},
-          "--read-ids-path": {"type": "str", "required": false, "description": "Path to file of read IDs to extract"}
+          "--read-ids-path": {"type": "str", "required": false, "description": "Path to file listing read IDs to extract (one per line)"},
+          "--num-reads": {"type": "int", "required": false, "description": "Maximum number of reads to process"},
+          "--mapped": {"type": "flag", "required": false, "description": "Only process mapped reads"},
+          "--allow-non-primary": {"type": "flag", "required": false, "description": "Include secondary and supplementary alignments"},
+          "--ignore": {"type": "str", "required": false, "description": "Base modification code to ignore (e.g. h)"},
+          "--motif": {"type": "str", "required": false, "description": "Restrict to a specific sequence motif, e.g. CG 0"},
+          "--region": {"type": "str", "required": false, "description": "Genomic region to process, e.g. chr1:1000-5000"},
+          "--include-bed": {"type": "str", "required": false, "description": "BED file of regions to include"},
+          "--exclude-bed": {"type": "str", "required": false, "description": "BED file of regions to exclude"},
+          "--filter-threshold": {"type": "float", "required": false, "description": "Probability threshold for filtering calls"},
+          "--no-filtering": {"type": "flag", "required": false, "description": "Disable all probability filtering"},
+          "--force": {"type": "flag", "required": false, "description": "Overwrite existing output files"},
+          "--log-filepath": {"type": "str", "required": false, "description": "Path to write log output"}
         }
       },
       "summary": {
-        "description": "Summarize the base modification calls in a BAM",
+        "description": "Summarize the base modification calls in a BAM file",
         "positional_args": [
           {"name": "bam", "description": "Input BAM file"}
         ],
         "kwargs": {
           "--threads": {"type": "int", "required": false, "description": "Number of threads"},
-          "--tsv": {"type": "flag", "required": false, "description": "Output in TSV format"}
+          "--tsv": {"type": "flag", "required": false, "description": "Output results in TSV format"},
+          "--num-reads": {"type": "int", "required": false, "description": "Maximum number of reads to process"},
+          "--filter-threshold": {"type": "float", "required": false, "description": "Probability threshold for filtering calls"},
+          "--no-filtering": {"type": "flag", "required": false, "description": "Disable all probability filtering"},
+          "--mod-thresholds": {"type": "str", "required": false, "description": "Per-modification threshold, e.g. m:0.8"},
+          "--log-filepath": {"type": "str", "required": false, "description": "Path to write log output"}
         }
       },
       "adjust-mods": {
-        "description": "Adjust per-read base modification probabilities",
+        "description": "Adjust per-read base modification probabilities in a BAM file",
         "positional_args": [
           {"name": "in_bam", "description": "Input BAM file"},
           {"name": "out_bam", "description": "Output BAM file"}
         ],
         "kwargs": {
-          "--ignore": {"type": "str", "required": false, "description": "Base modification code to ignore"},
-          "--convert": {"type": "str", "required": false, "description": "Comma-separated pair to convert, e.g. h,m"}
+          "--ignore": {"type": "str", "required": false, "description": "Base modification code to remove/ignore, e.g. h"},
+          "--convert": {"type": "str", "required": false, "description": "Convert one modification code to another, e.g. h m (space-separated pair)"},
+          "--threads": {"type": "int", "required": false, "description": "Number of threads"},
+          "--log-filepath": {"type": "str", "required": false, "description": "Path to write log output"}
         }
       }
     }

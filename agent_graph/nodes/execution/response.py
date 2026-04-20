@@ -4,7 +4,7 @@
 需要依赖: pip install ddgs html2text beautifulsoup4
 """
 from agent_graph.state import AgentState
-from agent_graph.prompts.qa_prompts import build_qa_prompt
+from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context
 from utils.llm_utils import get_llm_instance
 from utils.search_utils import SearchAugmentedQA
 from utils.lang_utils import get_lang
@@ -27,8 +27,22 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
         lang = "en_US"
 
     try:
-        # 1. optional web search
+        # 1. decide whether search is worth it
+        needs_search = False
         if use_search:
+            try:
+                decision_llm = get_llm_instance(is_planner=False)
+                decision_raw = decision_llm.invoke(build_search_decision_prompt(user_input))
+                decision_text = (
+                    decision_raw if isinstance(decision_raw, str) else decision_raw.content
+                ).strip().upper()
+                needs_search = decision_text.startswith("YES")
+                ui_print(f"[Search] Decision: {decision_text} → {'searching' if needs_search else 'skipping search'}")
+            except Exception as e:
+                ui_print(f"[Search] Decision call failed ({e}), skipping search")
+
+        # 2. optional web search (only if LLM decided it's needed)
+        if needs_search:
             ui_print(f"\n[Search] Fetching reference material...")
             qa_tool = SearchAugmentedQA()
             try:
@@ -42,7 +56,8 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
                 augmented_context = ""
 
         # 2. build prompt
-        final_prompt = build_qa_prompt(user_input, augmented_context, lang)
+        final_prompt = build_qa_prompt(user_input, augmented_context, lang,
+                                       platform_context=build_platform_context())
 
         # 3. call LLM
         ui_print(f"\n[LLM Answer] Invoking LLM: {user_input[:40]}...")
@@ -70,14 +85,305 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
     # 输出完整回答
     answer = state["final_answer"]
     if not answer:
-        answer = "（无内容）"
+        answer = "(no content)"
     
     # 输出回答，限制控制台显示长度
     if len(answer) > 1000:
-        ui_print(f'\n[LLM Answer]\n{answer[:1000]}\n...\n[更多内容已生成，共 {len(answer)} 字符]')
+        ui_print(f'\n[LLM Answer]\n{answer[:1000]}\n...\n[{len(answer)} chars total]')
     else:
         ui_print(f'\n[LLM Answer]\n{answer}')
     
+    return state
+
+
+def select_analysis_modules_node(state: AgentState) -> AgentState:
+    """
+    Standalone node that asks the LLM which functional analysis modules to apply.
+    Sets selected_modules, module_candidates, module_confident in state.
+    Runs between executor and summarizer so the result can be overridden by the user.
+    """
+    import json
+    import re
+
+    from tools.analyzers.registry import FUNCTIONAL_ANALYZER_MENU
+    from utils.llm_utils import get_llm_instance
+    from utils.lang_utils import get_lang
+    from utils.ui_logger import ui_print
+
+    lang = get_lang()
+    tool_calls = state.get("tool_calls", [])
+
+    # Use user-forced selection if already provided
+    forced = state.get("forced_modules", [])
+    if forced:
+        ui_print(f"[ModuleSelector] Using user-forced modules: {forced}")
+        state["selected_modules"] = forced
+        state["module_confident"] = True
+        state["module_candidates"] = []
+        return state
+
+    if not tool_calls:
+        state["selected_modules"] = []
+        state["module_confident"] = True
+        state["module_candidates"] = []
+        return state
+
+    llm = get_llm_instance(is_planner=False)
+    tool_desc = ", ".join(c["tool_name"] for c in tool_calls)
+    menu_text = "\n".join(
+        f'- {item["name"]}: {item["description"]}'
+        for item in FUNCTIONAL_ANALYZER_MENU
+    )
+    all_module_names = [item["name"] for item in FUNCTIONAL_ANALYZER_MENU]
+
+    if lang == "en_US":
+        prompt = (
+            f"You are a bioinformatics analysis routing expert.\n\n"
+            f"Tools executed: {tool_desc}\n\n"
+            f"Available analysis modules:\n{menu_text}\n\n"
+            f"Select the most appropriate modules for the executed tools.\n"
+            f"Set confident=true when the tool clearly maps to specific modules.\n"
+            f"Set confident=false only when multiple modules are equally plausible and the correct one is ambiguous.\n\n"
+            f"Return JSON only:\n"
+            f'{{\"selected\": [\"module_name\"], \"confident\": true, \"candidates\": [\"module_name\", \"other\"]}}'
+        )
+    else:
+        prompt = (
+            f"你是生信分析路由专家。\n\n"
+            f"已执行的工具：{tool_desc}\n\n"
+            f"可用功能分析模块：\n{menu_text}\n\n"
+            f"根据执行的工具选择最合适的分析模块。\n"
+            f"当工具与模块映射明确时，设置 confident=true。\n"
+            f"仅当多个模块同等合理、无法确定时，设置 confident=false。\n\n"
+            f"只返回 JSON：\n"
+            f'{{\"selected\": [\"module_name\"], \"confident\": true, \"candidates\": [\"module_name\", \"other\"]}}'
+        )
+
+    selected_modules: list[str] = []
+    module_confident = True
+    module_candidates: list[str] = []
+
+    try:
+        raw = llm.invoke(prompt)
+        content = raw if isinstance(raw, str) else raw.content
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        if "```" in content:
+            content = content.split("```")[1].lstrip("json").strip()
+        parsed = json.loads(content)
+        selected_modules = parsed.get("selected", [])
+        module_confident = bool(parsed.get("confident", True))
+        module_candidates = parsed.get("candidates", selected_modules)
+        ui_print(f"[ModuleSelector] selected={selected_modules} confident={module_confident} candidates={module_candidates}")
+    except Exception as e:
+        ui_print(f"[ModuleSelector] LLM selection failed ({e}) — using all modules as candidates")
+        module_confident = False
+        module_candidates = all_module_names
+
+    state["selected_modules"] = selected_modules
+    state["module_confident"] = module_confident
+    state["module_candidates"] = module_candidates
+    return state
+
+
+def human_module_selector_node(state: AgentState) -> AgentState:
+    """
+    Interrupt node — the graph pauses here when module_confident=False.
+    The UI renders a module selection widget and resumes with forced_modules set.
+    This node itself just applies forced_modules → selected_modules and continues.
+    """
+    forced = state.get("forced_modules", [])
+    if forced:
+        state["selected_modules"] = forced
+        state["module_confident"] = True
+        state["module_candidates"] = []
+        ui_print(f"[ModuleSelector] User selected modules: {forced}")
+    return state
+
+
+def _summarize_workflow(state: AgentState) -> AgentState:
+    """Workflow-specific summarizer: calls per-workflow analyzer then generates a report."""
+    import json
+    import os
+    import re
+    import zipfile
+
+    from tools.analyzers.workflow.registry import get_workflow_analyzer
+    from tools.analyzers.workflow.multiqc_parser import (
+        find_multiqc_data_json, find_multiqc_pngs, parse_multiqc_json,
+    )
+
+    lang         = get_lang()
+    tool_calls   = state.get("tool_calls", [])
+    tool_output  = state.get("tool_output", [])
+    run_dir      = state.get("run_dir", "")
+    workflow_name = state.get("selected_workflow", "")
+    if not workflow_name and tool_calls:
+        workflow_name = tool_calls[0].get("tool_name", "workflow")
+
+    # outdir = run_dir/results  (set by build_workflow_command)
+    _NF_INTERNAL = {"work", "bio_agent_analysis"}
+    outdir = os.path.join(run_dir, "results") if run_dir else ""
+    if outdir and not os.path.isdir(outdir):
+        # fallback: first child directory of run_dir that isn't a nextflow internal dir
+        if run_dir and os.path.isdir(run_dir):
+            for entry in sorted(os.scandir(run_dir), key=lambda e: e.name):
+                if (entry.is_dir()
+                        and entry.name not in _NF_INTERNAL
+                        and not entry.name.startswith(".")
+                        and not entry.name.startswith("work")):
+                    outdir = entry.path
+                    break
+        else:
+            outdir = ""
+
+    analysis_dir = os.path.join(run_dir, "bio_agent_analysis", workflow_name) if run_dir else ""
+    if analysis_dir:
+        os.makedirs(analysis_dir, exist_ok=True)
+
+    if run_dir and os.path.isdir(run_dir):
+        _children = [e.name for e in os.scandir(run_dir)]
+        ui_print(f"[WorkflowSummarizer] run_dir contents: {_children}")
+    ui_print(f"[WorkflowSummarizer] workflow={workflow_name}  outdir={outdir}")
+
+    # ── run workflow-specific or generic analyzer ──────────────────────────────
+    plot_paths: list[str] = []
+    warnings:   list[str] = []
+    summary:    dict      = {}
+
+    if outdir and os.path.isdir(outdir):
+        analyzer = get_workflow_analyzer(workflow_name)
+        if analyzer:
+            ui_print(f"[WorkflowSummarizer] Using {workflow_name}-specific analyzer")
+            try:
+                result     = analyzer.analyze(outdir, analysis_dir)
+                summary    = result.get("summary", {})
+                plot_paths = result.get("plot_paths", [])
+                warnings   = result.get("warnings", [])
+            except Exception as e:
+                ui_print(f"[WorkflowSummarizer] Analyzer error: {e}")
+                warnings.append(f"Workflow analyzer error: {e}")
+        else:
+            ui_print("[WorkflowSummarizer] No specific analyzer — using generic MultiQC fallback")
+            mq = find_multiqc_data_json(outdir)
+            if mq:
+                summary["multiqc"] = parse_multiqc_json(mq)
+            else:
+                warnings.append("multiqc_data.json not found")
+            plot_paths = find_multiqc_pngs(outdir)
+    else:
+        warnings.append(f"outdir not found or empty: {outdir}")
+
+    # ── zip key result files for download (exclude large binary files) ───────
+    # BAM/CRAM files can be several GB; users can access raw alignments on the server.
+    import shutil
+    from datetime import datetime
+    from utils.user_context import get_session_dir
+    
+    _SKIP_EXTS = {".bam", ".bai", ".cram", ".crai", ".sam"}
+    zip_path = ""
+    if outdir and os.path.isdir(outdir) and run_dir:
+        temp_zip = os.path.join(run_dir, f"{workflow_name}_results.zip")
+        try:
+            ui_print("[WorkflowSummarizer] Creating results zip (excluding BAM/CRAM)...")
+            with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+                for root, _, files in os.walk(outdir):
+                    for fname in files:
+                        if any(fname.endswith(ext) for ext in _SKIP_EXTS):
+                            continue
+                        full = os.path.join(root, fname)
+                        arcname = os.path.relpath(full, os.path.dirname(outdir))
+                        zf.write(full, arcname)
+            size_mb = os.path.getsize(temp_zip) / 1024 / 1024
+            ui_print(f"[WorkflowSummarizer] Zip ready: {temp_zip} ({size_mb:.1f} MB)")
+            
+            # 移动压缩包到 session_dir，使其能被 UI 检索到
+            session_dir = get_session_dir()
+            zip_moved = False
+            if session_dir and os.path.isdir(session_dir):
+                try:
+                    zip_path = os.path.join(session_dir, f"{workflow_name}_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
+                    shutil.move(temp_zip, zip_path)
+                    ui_print(f"[WorkflowSummarizer] Zip moved to session: {zip_path}")
+                    zip_moved = True
+                except Exception as move_err:
+                    ui_print(f"[WorkflowSummarizer] Move to session failed: {move_err}, keeping in run_dir")
+                    zip_path = temp_zip
+            else:
+                ui_print(f"[WorkflowSummarizer] Warning: session_dir unavailable (got {session_dir}), keeping zip in run_dir")
+                zip_path = temp_zip
+        except Exception as e:
+            ui_print(f"[WorkflowSummarizer] Zip failed: {e}")
+            zip_path = ""
+            zip_moved = False
+        
+        # 只有当压缩包成功移动到 session_dir 后，才删除运行目录
+        # 这样可以保证压缩包不会丢失
+        if zip_moved and os.path.isdir(run_dir):
+            try:
+                ui_print(f"[WorkflowSummarizer] Cleaning up run directory: {run_dir}")
+                shutil.rmtree(run_dir, ignore_errors=True)
+                ui_print("[WorkflowSummarizer] Run directory deleted")
+            except Exception as e:
+                ui_print(f"[WorkflowSummarizer] Cleanup warning: {e}")
+        elif not zip_moved:
+            ui_print("[WorkflowSummarizer] Skipping run directory cleanup (zip not safely moved)")
+
+    # ── LLM report ────────────────────────────────────────────────────────────
+    raw_out   = "\n".join(tool_output).strip()[:800]
+    stats_txt = json.dumps(summary, ensure_ascii=False, indent=2)[:4000]
+    warn_txt  = "\n".join(f"- {w}" for w in warnings) or "None"
+
+    if lang == "en_US":
+        prompt = f"""You are a bioinformatics expert. Generate a professional Markdown report for a completed Nextflow workflow run.
+
+[Workflow]: {workflow_name}
+[Runtime output (excerpt)]:
+{raw_out}
+
+[Analysis statistics]:
+{stats_txt}
+
+[Warnings / issues]:
+{warn_txt}
+
+Requirements:
+1. One-sentence overall summary (completed / partial / failed).
+2. Per-sample key metrics (mapping rate, mean methylation, CpG coverage, etc. as available).
+3. Biological interpretation of the results.
+4. Warnings section with actionable recommendations.
+5. Markdown only. Do not echo raw JSON or internal log lines."""
+    else:
+        prompt = f"""你是生物信息学专家，请根据以下信息生成一份专业的 Markdown 报告。
+
+【Workflow】：{workflow_name}
+【运行输出（摘要）】：
+{raw_out}
+
+【分析统计数据】：
+{stats_txt}
+
+【警告信息】：
+{warn_txt}
+
+要求：
+1. 一句话总体概况（完成/部分完成/失败）。
+2. 按样本列出关键指标（比对率、平均甲基化率、CpG 覆盖率等）。
+3. 结合数据给出生物学解读。
+4. 列出警告并给出建议。
+5. 只输出 Markdown，不输出原始 JSON 或内部日志。"""
+
+    try:
+        raw = get_llm_instance(is_planner=False).invoke(prompt)
+        report = raw if isinstance(raw, str) else raw.content
+        report = re.sub(r"<think>.*?</think>", "", report, flags=re.DOTALL).strip()
+    except Exception as e:
+        report = (f"### ✅ Workflow Completed\n\nReport generation error: {e}"
+                  if lang == "en_US" else
+                  f"### ✅ Workflow 已完成\n\n报告生成失败：{e}")
+
+    state["final_answer"]        = report
+    state["analysis_images"]     = [p for p in plot_paths if os.path.isfile(p)]
+    state["workflow_result_zip"] = zip_path
     return state
 
 
@@ -96,6 +402,10 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
 
     lang = get_lang()
 
+    # ── workflow 走专用分支 ────────────────────────────────────────────────────
+    if state.get("is_workflow"):
+        return _summarize_workflow(state)
+
     tool_calls        = state.get("tool_calls", [])
     tool_output       = state.get("tool_output", [])
     pending_commands  = state.get("pending_commands", [])
@@ -104,57 +414,53 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     if not tool_calls:
         return state
 
-    ui_print("\n[Summarizer] 开始两层分析流程...")
+    ui_print("\n[Summarizer] Starting two-stage analysis pipeline...")
     llm = get_llm_instance(is_planner=False)
 
     # ── 步骤 1：从命令中提取输出文件路径 ──────────────────────────────────────
     output_paths = extract_output_paths(pending_commands)
-    ui_print(f"[Summarizer] 检测到输出文件: {output_paths}")
+    ui_print(f"[Summarizer] Detected output files: {output_paths}")
+
+    # ── 早退：命令只有 stdout 输出，无任何输出文件 ────────────────────────────
+    # 例如 dorado download --list / samtools view --header 等只打印到终端的命令
+    existing_output_paths = [p for p in output_paths if os.path.isfile(p)]
+    if not existing_output_paths:
+        raw_lines = "\n".join(tool_output).strip()
+        if raw_lines:
+            if lang == "en_US":
+                state["final_answer"] = (
+                    "**Command output:**\n\n```\n" + raw_lines + "\n```"
+                )
+            else:
+                state["final_answer"] = (
+                    "**命令输出：**\n\n```\n" + raw_lines + "\n```"
+                )
+        else:
+            state["final_answer"] = (
+                "✅ Command completed with no output."
+                if lang == "en_US" else
+                "✅ 命令执行完成，无输出内容。"
+            )
+        state["analysis_images"] = []
+        ui_print("[Summarizer] No output files detected — displaying raw command output")
+        return state
 
     # ── 步骤 2：文件分析（按后缀确定性执行，不调用 LLM）─────────────────────
     file_stats_map: dict[str, dict] = {}   # file_path → stats dict
-    for path in output_paths:
+    for path in existing_output_paths:
         analyzer = get_file_analyzer(path)
         if analyzer is None:
-            ui_print(f"[Summarizer] 无对应文件分析器，跳过: {os.path.basename(path)}")
+            ui_print(f"[Summarizer] No analyzer for file type, skipping: {os.path.basename(path)}")
             continue
-        ui_print(f"[Summarizer] 分析文件: {os.path.basename(path)}")
+        ui_print(f"[Summarizer] Analyzing file: {os.path.basename(path)}")
         stats = analyzer.analyze(path)
         file_stats_map[path] = stats
-        ui_print(f"[Summarizer] 文件统计完成: {stats.get('type', '?')} — {len(stats)} 个指标")
+        ui_print(f"[Summarizer] File stats done: {stats.get('type', '?')} — {len(stats)} metrics")
 
-    # ── 步骤 3：LLM 从菜单中选择功能分析模块 ─────────────────────────────────
+    # ── 步骤 3：使用 select_analysis_modules_node 预先选定的模块 ───────────
+    selected_modules: list[str] = state.get("selected_modules", [])
     tool_desc = ", ".join(c["tool_name"] for c in tool_calls)
-    menu_text = "\n".join(
-        f'- {item["name"]}: {item["description"]}'
-        for item in FUNCTIONAL_ANALYZER_MENU
-    )
-    if lang == "en_US":
-        select_prompt = (
-            f"Tools executed: {tool_desc}\n\n"
-            f"Available analysis modules:\n{menu_text}\n\n"
-            f"Select all modules relevant to the tools that were executed.\n"
-            f"Return JSON only: {{\"selected\": [\"module_name1\", \"module_name2\"]}}"
-        )
-    else:
-        select_prompt = (
-            f"已执行的工具：{tool_desc}\n\n"
-            f"可用功能分析模块：\n{menu_text}\n\n"
-            f"请根据执行的工具，从上述模块中选出所有相关的功能分析模块。\n"
-            f"只返回 JSON，格式：{{\"selected\": [\"module_name1\", \"module_name2\"]}}"
-        )
-    selected_modules: list[str] = []
-    try:
-        raw = llm.invoke(select_prompt)
-        content = raw if isinstance(raw, str) else raw.content
-        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        if "```" in content:
-            content = content.split("```")[1].lstrip("json").strip()
-        parsed = json.loads(content)
-        selected_modules = parsed.get("selected", [])
-        ui_print(f"[Summarizer] LLM 选择功能模块: {selected_modules}")
-    except Exception as e:
-        ui_print(f"[Summarizer] 功能模块选择失败: {e}，将跳过功能分析")
+    ui_print(f"[Summarizer] Using analysis modules: {selected_modules}")
 
     # ── 步骤 4：功能分析（规则判断，不调用 LLM）──────────────────────────────
     functional_results: list[dict] = []
@@ -170,9 +476,9 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
             None,
         )
         if stats_input is None:
-            ui_print(f"[Summarizer] 跳过 {module_name}：无匹配的 {need_type} 文件统计")
+            ui_print(f"[Summarizer] Skipping {module_name}: no matching {need_type} file stats")
             continue
-        ui_print(f"[Summarizer] 运行功能分析: {module_name}")
+        ui_print(f"[Summarizer] Running functional analysis: {module_name}")
         result = analyzer.analyze(stats_input)
         functional_results.append(result)
 
@@ -254,19 +560,19 @@ Report requirements:
             from tools.analyzers.file.bam_plotter import generate_bam_plots
             _plotter_available = True
         except ImportError as e:
-            ui_print(f"[Summarizer] 画图模块不可用（{e}），跳过图表生成")
+            ui_print(f"[Summarizer] Plot module unavailable ({e}), skipping chart generation")
             _plotter_available = False
 
         if _plotter_available:
             for stats in file_stats_map.values():
                 if stats.get("type") == "bam" and "error" not in stats:
                     try:
-                        ui_print("[Summarizer] 正在生成 BAM 图表...")
+                        ui_print("[Summarizer] Generating BAM plots...")
                         generated = generate_bam_plots(stats, run_dir)
                         plot_paths_in_run.extend(generated)
-                        ui_print(f"[Summarizer] 生成图表: {[os.path.basename(p) for p in generated]}")
+                        ui_print(f"[Summarizer] Generated plots: {[os.path.basename(p) for p in generated]}")
                     except Exception as e:
-                        ui_print(f"[Summarizer] 图表生成失败: {e}")
+                        ui_print(f"[Summarizer] Plot generation failed: {e}")
 
     # ── 步骤 7：保存分析结果 JSON，将整个 run_dir 归档到 session_dir 下 ─────
     session_dir   = get_session_dir()
@@ -283,7 +589,7 @@ Report requirements:
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(analysis_result, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            ui_print(f"[Summarizer] 分析结果 JSON 写入失败: {e}")
+            ui_print(f"[Summarizer] Failed to write analysis JSON: {e}")
 
         # 收集 run_dir 内的图片路径（移动后更新）
         for entry in os.scandir(run_dir):
@@ -292,13 +598,13 @@ Report requirements:
 
         # run_dir 本身已是 session_dir 的子目录（get_or_create_run_dir 创建在 session_dir 下）
         # 直接保留即可，无需额外移动；run_dir 不删除，作为本次运行的持久存档
-        ui_print(f"[Summarizer] 运行结果已归档至: {os.path.basename(run_dir)}")
+        ui_print(f"[Summarizer] Run results archived to: {os.path.basename(run_dir)}")
     elif run_dir:
-        ui_print("[Summarizer] 警告：run_dir 或 session_dir 无效，跳过文件归档")
+        ui_print("[Summarizer] Warning: run_dir or session_dir invalid, skipping archive")
 
     state["final_answer"]    = report
     state["analysis_images"] = archived_images
-    ui_print("[Summarizer] 报告生成完成")
+    ui_print("[Summarizer] Report generation complete")
     return state
 
 def handle_irrelevant_request_node(state: AgentState) -> AgentState:
@@ -314,6 +620,6 @@ def handle_irrelevant_request_node(state: AgentState) -> AgentState:
 
 
 def finish_session_node(state: AgentState) -> AgentState:
-    ui_print(f"\n[End] 本次会话结束")
+    ui_print(f"\n[End] Session complete")
     return state
 

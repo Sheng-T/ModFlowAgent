@@ -5,9 +5,10 @@ from utils.config_utils import load_tool_config
 
 TOOL_LIST = ['dorado', 'samtools', 'modkit', 'fastqc', 'workflow']
 
-TOOL_DESCIPTION = [
+TOOL_DESCRIPTION = [
     {
         "name": "dorado",
+        "short_description": "ONT basecalling & modification detection",
         "description": "Dorado is a high-performance, GPU-accelerated basecalling engine developed by Oxford Nanopore "
                        "Technologies that employs sophisticated deep learning architectures to transform raw ionic current "
                        "signals into high-fidelity nucleotide sequences while enabling the concurrent, real-time detection "
@@ -15,6 +16,7 @@ TOOL_DESCIPTION = [
     },
     {
         "name": "samtools",
+        "short_description": "SAM/BAM manipulation & statistics",
         "description": "Samtools serves as the definitive toolkit for the rapid manipulation and statistical analysis "
                        "of high-throughput sequencing data, offering a comprehensive array of subcommands for "
                        "coordinate-based sorting, indexing, format interconversion, and complex filtering of alignment "
@@ -22,37 +24,47 @@ TOOL_DESCIPTION = [
     },
     {
         "name": "modkit",
+        "short_description": "ONT base modification analysis (m6A/5mC)",
         "description": (
-            "modkit 是 ONT 官方的碱基修饰分析工具，用于处理 BAM 文件中的 m6A/5mC 等修饰信号。"
-            "主要子命令：pileup（汇总为 bedMethyl）、extract（提取每条 read 的修饰）、"
-            "summary（统计概览）、adjust-mods（调整修饰概率）。"
-            "适用场景：dorado basecaller 输出后做甲基化位点统计。"
+            "modkit is the official base modification analysis tool from Oxford Nanopore Technologies (ONT), "
+            "designed to process modification signals including m6A/5mC in BAM files. "
+            "Key subcommands: pileup (summarize into bedMethyl format), extract (extract modifications per read), "
+            "summary (generate statistical overview), adjust-mods (adjust modification probabilities). "
+            "Application scenario: methylation site statistics after dorado basecaller output."
         ),
     },
     {
         "name": "fastqc",
+        "short_description": "Sequencing data quality control",
         "description": (
-            "FastQC 是测序数据质量控制工具，支持 FASTQ/BAM/SAM 输入，"
-            "输出 HTML 报告，涵盖碱基质量、GC 含量、接头污染等多个质控模块。"
-            "适用于对原始测序数据或比对结果进行快速质量检查。"
+            "FastQC is a sequencing data quality control tool that supports FASTQ/BAM/SAM input formats. "
+            "It generates HTML reports covering multiple quality control modules including base quality, GC content, "
+            "adapter contamination, and more. "
+            "Suitable for rapid quality inspection of raw sequencing data or alignment results."
         ),
     },
     {
         "name": "workflow",
+        "short_description": "End-to-end Nextflow/nf-core pipelines",
         "description": (
-            "Nextflow/nf-core 端到端分析流水线，适合用户需要从原始数据到最终结果的完整分析，而不是单步操作。"
-            "可用 pipeline 及其适用场景：\n"
-            "- methylong：ONT 或 PacBio HiFi 数据的甲基化分析（输入 BAM/pod5 + 参考基因组）\n"
-            "- rnaseq：RNA-seq 差异表达分析（输入 fastq）\n"
-            "- methylseq：Bisulfite 甲基化测序分析（输入 fastq）\n"
-            "- sarek：肿瘤/正常样本变异检测（输入 fastq）\n"
-            "- ampliseq：扩增子测序/16S 分析（输入 fastq）\n"
-            "- mag：宏基因组拼装与分箱（输入 fastq）\n"
-            "- taxprofiler：宏基因组物种分类（输入 fastq/fasta）\n"
-            "当用户描述的任务需要多个分析步骤、或明确提到'分析流程/流水线/pipeline'时，优先选择 workflow。"
+            "End-to-end analysis pipelines based on Nextflow/nf-core, ideal for users requiring complete analysis "
+            "from raw data to final results instead of single-step operations. "
+            "Available pipelines and their application scenarios:\n"
+            "- methylong: Methylation analysis for ONT or PacBio HiFi data (input: BAM/pod5 + reference genome)\n"
+            "- rnaseq: Differential expression analysis for RNA-seq data (input: fastq)\n"
+            "- methylseq: Bisulfite sequencing methylation analysis (input: fastq)\n"
+            "- sarek: Variant detection for tumor/normal sample pairs (input: fastq)\n"
+            "- ampliseq: Amplicon sequencing/16S rRNA analysis (input: fastq)\n"
+            "- mag: Metagenome assembly and binning (input: fastq)\n"
+            "- taxprofiler: Metagenomic taxonomic profiling (input: fastq/fasta)\n"
+            "Workflow is the preferred choice when the user's task requires multiple analysis steps, "
+            "or explicitly mentions 'analysis pipeline/workflow'."
         ),
     },
 ]
+
+# backward-compat alias (old code uses the typo)
+TOOL_DESCIPTION = TOOL_DESCRIPTION
 
 TOOL_ARGS = {
     "dorado":   load_tool_config(os.path.join(PROJECT_ROOT, "static/dorado/dorado_args.json")),

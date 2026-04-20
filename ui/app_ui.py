@@ -17,6 +17,8 @@ from ui.sidebar import render_sidebar, switch_session
 from ui.chat    import (
     render_history, render_mode_selector,
     run_first_segment, render_review, run_second_segment,
+    render_prereq_reviewer, run_prereq_review_segment,
+    render_module_selector, run_module_select_segment,
 )
 
 # streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
@@ -42,7 +44,7 @@ if not st.session_state.get("current_session_id"):
     else:
         new_sess = store.create_session(
             user_id,
-            name=f"{_('会话')} {datetime.now().strftime('%m-%d %H:%M')}",
+            name=f"{_('Session')} {datetime.now().strftime('%m-%d %H:%M')}",
         )
         switch_session(store, new_sess["session_id"])
 
@@ -50,7 +52,7 @@ if not st.session_state.get("current_session_id"):
 render_sidebar(store, fm, user_id, user_uid)
 
 # ── 主区域 ────────────────────────────────────────────────────────────────────
-st.title(_("🧬 Bio-Agent 智能分析平台"))
+st.title(_("🧬 Bio-Agent Analytics Platform"))
 st.markdown("---")
 
 current_session_id = st.session_state.current_session_id
@@ -63,10 +65,11 @@ def load_agent():
     return create_agent_graph("BioAgent")
 
 
-with st.spinner(_("正在加载模型...")):
+with st.spinner(_("Loading model...")):
     app = load_agent()
 
 render_history(current_messages)
+
 
 # ── 初始化执行状态 ─────────────────────────────────────────────────────────────
 defaults = {
@@ -86,8 +89,9 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── 用户输入 ──────────────────────────────────────────────────────────────────
-if prompt := st.chat_input(_("请输入你的分析指令...")):
+# ── 用户输入（后台任务运行时禁用）────────────────────────────────────────────
+_task_running = bool(st.session_state.get("_agent_bg_result"))
+if prompt := st.chat_input(_("Enter your analysis instruction..."), disabled=_task_running):
     st.session_state.pending_prompt   = prompt
     st.session_state.ui_mode          = None
     st.session_state.waiting_for_mode = True
@@ -96,10 +100,16 @@ if prompt := st.chat_input(_("请输入你的分析指令...")):
     st.session_state.review_submitted   = False
     st.session_state.confirming_execute = False
     st.session_state.thinking_process   = []
+    st.session_state.pop("_agent_done_result", None)  # 新任务开始，清除上次结果
     st.rerun()
 
 # ── 执行流程 ──────────────────────────────────────────────────────────────────
 render_mode_selector()
 run_first_segment(app, store, fm, user_uid, current_session_id, current_session)
+render_prereq_reviewer(app)
+run_prereq_review_segment(app, store, fm, user_uid, current_session_id)
 render_review(app)
 run_second_segment(app, store, fm, user_uid, current_session_id)
+render_module_selector(app)
+run_module_select_segment(app, store, fm, user_uid, current_session_id)
+

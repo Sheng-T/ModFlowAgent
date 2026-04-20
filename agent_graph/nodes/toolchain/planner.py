@@ -18,16 +18,16 @@ from utils.ui_logger import ui_print
 def retrieve_tool_docs_node(state: AgentState) -> AgentState:
     identified_tools = state.get("identified_tools", [])
     if not identified_tools:
-        ui_print(f"\n[RAG] 未识别到工具，跳过检索流程。")
+        ui_print(f"\n[RAG] No tools identified, skipping retrieval.")
         state["rag_suggestion"] = {}
         return state
 
     user_query = state["input"]
     user_feedback = state.get("user_feedback", "")
     if user_feedback:
-        user_query = f"初始需求: {user_query}\n用户最新追加/修改指令: {user_feedback}"
+        user_query = f"Original request: {user_query}\nUser revision: {user_feedback}"
 
-    print(f"\n[RAG] 正在为工具链 {identified_tools} 检索背景知识...")
+    print(f"\n[RAG] Retrieving docs for toolchain {identified_tools}...")
     rag_llm = get_llm_instance(is_planner=False)
     rag_suggestion_dict = {}
     is_workflow = state.get("is_workflow", False)
@@ -38,24 +38,24 @@ def retrieve_tool_docs_node(state: AgentState) -> AgentState:
             try:
                 RAG_INSTANCES["workflows"] = EnhancedMDRAG(WORKFLOWS_DOC, llm=rag_llm, cache_dir=WORKFLOWS_CACHE_DIR)
             except ValueError as e:
-                print(f"[RAG] Workflow 文档为空或无效，跳过检索: {e}")
+                print(f"[RAG] Workflow docs empty or invalid, skipping: {e}")
         if "workflows" in RAG_INSTANCES:
             context = RAG_INSTANCES["workflows"].search(user_query)
         state["rag_suggestion"] = {"workflows": context}
-        print(f"[RAG] Workflow 模式，检索 pipeline 目录完成")
+        print(f"[RAG] Workflow mode — pipeline docs retrieved")
     else:
         for tool in identified_tools:
             doc_path = TOOLS_DOC.get(tool)
             if not doc_path:
-                print(f"[RAG] 警告: 未找到工具 {tool} 的文档路径映射，跳过。")
+                print(f"[RAG] Warning: no doc path mapping for tool {tool}, skipping.")
                 continue
 
             if tool not in RAG_INSTANCES:
-                print(f"[RAG] 正在初始化 {tool} 的检索索引...")
+                print(f"[RAG] Initializing retrieval index for {tool}...")
                 RAG_INSTANCES[tool] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=TOOL_CACHE_DIRS.get(tool))
 
             retriever = RAG_INSTANCES[tool]
-            print(f"[RAG] 正在检索 {tool} 相关参数...")
+            print(f"[RAG] Retrieving parameters for {tool}...")
             context = retriever.search(user_query)
             rag_suggestion_dict[tool.lower()] = context
 
@@ -75,7 +75,7 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
 
     if not is_workflow:
         # ── 普通工具：选子命令 ──
-        print(f"\n[Planner] 工具模式，选择子命令...")
+        print(f"\n[Planner] Tool mode — selecting subcommand...")
         tools_args = [TOOL_ARGS.get(t) for t in identified_tools]
         lang = get_lang()
         chain = ChatPromptTemplate.from_template(build_tool_planner_prompt(lang)) | planner_llm | JsonOutputParser()
@@ -83,14 +83,14 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
             response = chain.invoke({"input": user_input, "history": history_str, "tools_args": tools_args})
             subcmd = response.get("tool")  # 例如 "samtools sort"
             state["tool_sequence"] = [subcmd] if subcmd else []
-            print(f"[Planner] 子命令: {subcmd}")
+            print(f"[Planner] Subcommand: {subcmd}")
         except Exception as e:
             print(f"[Planner Error] {e}")
             state["tool_sequence"] = []
 
     else:
         # ── Workflow：选具体 pipeline ──
-        print(f"\n[Planner] Workflow 模式，选择具体 pipeline...")
+        print(f"\n[Planner] Workflow mode — selecting pipeline...")
         workflow_context = state.get("rag_suggestion", {}).get("workflows", "")
         lang = get_lang()
         chain = ChatPromptTemplate.from_template(build_workflow_planner_prompt(lang)) | planner_llm | JsonOutputParser()
@@ -100,12 +100,12 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
             pipeline = response.get("pipeline", "").strip().lower()
 
             if pipeline not in SUPPORTED_PIPELINES:
-                print(f"[Planner] LLM 返回了不支持的 pipeline: '{pipeline}'，回退到第一个支持的 pipeline")
+                print(f"[Planner] LLM returned unsupported pipeline '{pipeline}', falling back to first supported")
                 pipeline = SUPPORTED_PIPELINES[0]
 
             state["tool_sequence"] = [pipeline]
             state["selected_workflow"] = pipeline
-            print(f"[Planner] 选中 pipeline: {pipeline}，理由: {response.get('reason')}")
+            print(f"[Planner] Selected pipeline: {pipeline} — reason: {response.get('reason')}")
         except Exception as e:
             print(f"[Planner Error] {e}")
             state["tool_sequence"] = []

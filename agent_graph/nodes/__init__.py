@@ -3,7 +3,9 @@ from .execution import (
     execute_commands_node,
     finish_session_node,
     handle_irrelevant_request_node,
+    human_module_selector_node,
     review_execution_plan_node,
+    select_analysis_modules_node,
     summarize_execution_result_node,
 )
 from .router import classify_intent_route, reset_session_state_node
@@ -14,7 +16,8 @@ from .toolchain import (
     select_tools_node,
 )
 from .workflows import (
-    retrieve_pipeline_docs_node
+    retrieve_pipeline_docs_node,
+    human_prereq_reviewer_node,
 )
 
 
@@ -29,8 +32,11 @@ __all__ = [
     "review_execution_plan_node",
     "execute_commands_node",
     "answer_general_question_node",
+    "human_module_selector_node",
+    "select_analysis_modules_node",
     "summarize_execution_result_node",
     "handle_irrelevant_request_node",
     "finish_session_node",
-    "retrieve_pipeline_docs_node"
+    "retrieve_pipeline_docs_node",
+    "human_prereq_reviewer_node",
 ]

@@ -1,19 +1,91 @@
 # runtime/env_wrapper.py
+import atexit
 import os
+import shlex
+import stat
+import tempfile
 
-from configs import IMAGE_PATH, DATA_PATH
+from configs import IMAGE_PATH, DATA_PATH, TOOL_EXEC_ENV, USER_HOME
+from utils.runner_utils import _find_dorado_lib_path_in_image
+
+# Track temp scripts created this process so they can be cleaned up
+_TEMP_SCRIPTS: list[str] = []
+
+
+def cleanup_temp_scripts():
+    """Remove all temp script files created by _wrap_with_exec_env."""
+    for path in _TEMP_SCRIPTS:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    _TEMP_SCRIPTS.clear()
+
+
+atexit.register(cleanup_temp_scripts)
 
 
 class EnvWrapper:
     def __init__(self):
-        # 基础配置：这里你可以根据实际情况修改
-        self.image_store = IMAGE_PATH['image_store']  # 镜像存放路径
+        self.image_store = IMAGE_PATH['image_store']
+
+    def _wrap_with_exec_env(self, raw_cmd: str, cwd: str = "") -> str:
+        """
+        Wrap raw_cmd with the configured TOOL_EXEC_ENV when no Singularity image
+        is available.  Returns raw_cmd unchanged when TOOL_EXEC_ENV is None.
+        cwd: if provided, the script will cd into this directory before running.
+        """
+        if not TOOL_EXEC_ENV:
+            return raw_cmd
+
+        exec_type = TOOL_EXEC_ENV.get("type", "")
+
+        if exec_type == "conda":
+            env_name = TOOL_EXEC_ENV.get("env_name", "")
+            if not env_name:
+                print("[Wrapper] TOOL_EXEC_ENV type=conda but env_name is empty — running in current env")
+                return raw_cmd
+
+            # Write command to a temp script to avoid all shell quoting issues.
+            conda_base = os.popen("conda info --base").read().strip()
+            script_dir = USER_HOME
+            cd_line = f"cd {shlex.quote(cwd)}" if cwd else ""
+            tmp = tempfile.NamedTemporaryFile(
+                mode='w', suffix='.sh', delete=False, prefix='bioagent_',
+                dir=script_dir,
+            )
+            tmp.write(f"""#!/bin/bash
+source {conda_base}/etc/profile.d/conda.sh
+conda activate {env_name}
+{cd_line}
+{raw_cmd}
+""")
+            tmp.close()
+            os.chmod(tmp.name, stat.S_IRWXU)
+            _TEMP_SCRIPTS.append(tmp.name)
+            print(f"[Wrapper] conda env '{env_name}', cwd='{cwd}', script={tmp.name}")
+            return f"bash {tmp.name}"
+
+        if exec_type == "script":
+            script_path = TOOL_EXEC_ENV.get("script_path", "")
+            if not script_path or not os.path.isfile(script_path):
+                print(f"[Wrapper] TOOL_EXEC_ENV type=script but script_path '{script_path}' not found — running in current env")
+                return raw_cmd
+            # The script receives the full command string as its first argument ($1).
+            escaped = raw_cmd.replace("'", "'\\''")
+            wrapped = f"bash {shlex.quote(script_path)} '{escaped}'"
+            print(f"[Wrapper] script wrapper → {wrapped}")
+            return wrapped
+
+        print(f"[Wrapper] Unknown TOOL_EXEC_ENV type '{exec_type}' — running in current env")
+        return raw_cmd
 
 
-    def wrap_command(self, tool_name: str, raw_cmd: str, is_workflow: bool = False) -> str:
+    def wrap_command(self, tool_name: str, raw_cmd: str,
+                     is_workflow: bool = False, cwd: str = "") -> str:
         if is_workflow:
-            return self._wrap_workflow_command(raw_cmd)
-        return self._wrap_tool_chain_command(tool_name, raw_cmd)
+            return self._wrap_workflow_command(raw_cmd, cwd=cwd)
+        return self._wrap_tool_chain_command(tool_name, raw_cmd, cwd=cwd)
 
     def _resolve_image_path(self, tool_name: str) -> str | None:
         """
@@ -33,12 +105,18 @@ class EnvWrapper:
         img_files.sort(key=lambda f: (0 if f.endswith(".img") else 1, f))
         return os.path.join(tool_dir, img_files[0])
 
-    def _wrap_tool_chain_command(self, tool_name: str, raw_cmd: str):
-        """将原始命令封装进 Singularity"""
+    def _wrap_tool_chain_command(self, tool_name: str, raw_cmd: str, cwd: str = ""):
+        """Wrap command in Singularity if an image exists, otherwise use TOOL_EXEC_ENV or current env."""
         image_path = self._resolve_image_path(tool_name)
         if not image_path:
-            print(f'[Wrapper] 未找到镜像配置: {tool_name} → fallback 本地执行')
-            return raw_cmd
+            print(f'[Wrapper] No image found for {tool_name} — using configured exec env')
+            return self._wrap_with_exec_env(raw_cmd, cwd=cwd)
+
+
+        extra_lib = _find_dorado_lib_path_in_image(image_path) if tool_name == "dorado" else ""
+
+        ld_parts = [p for p in [extra_lib, "/usr/local/nvidia/lib64", "/usr/local/nvidia/lib"] if p]
+        ld_library_path = ":".join(ld_parts)
 
         # 收集所有需要 bind 的路径
         bind_paths = set()
@@ -91,27 +169,19 @@ class EnvWrapper:
         # 封装逻辑：
         # --nv: 开启 GPU 支持 (dorado 必备)
         # --bind: 挂载数据目录，确保容器内外路径一致
-        # wrapped = (
-        #         f"LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/nvidia/lib:$LD_LIBRARY_PATH "
-        #         f"singularity exec --nv "
-        #         f"--bind /usr/local/nvidia:/usr/local/nvidia "
-        #         + binds +
-        #         f"{image_path} /bin/bash -c \"{raw_cmd}\""
-        # )
         wrapped = (
                 f"singularity exec --nv "
                 f"--bind /usr/local/nvidia:/usr/local/nvidia "
                 + binds +
                 f"{image_path} /bin/bash -c \""
-                f"export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/nvidia/lib:\\$LD_LIBRARY_PATH && "
+                f"export LD_LIBRARY_PATH={ld_library_path}:\\$LD_LIBRARY_PATH && "
                 f"{raw_cmd}\""
         )
         return wrapped
 
-    def _wrap_workflow_command(self, raw_cmd: str):
+    def _wrap_workflow_command(self, raw_cmd: str, cwd: str = "") -> str:
         """
-        因为宿主机已安装 Nextflow，直接返回原始命令。
-        Nextflow 会通过 -profile singularity 内部处理容器逻辑。
+        Wrap a workflow (Nextflow) command with TOOL_EXEC_ENV if configured.
+        cwd is passed into the script as an explicit cd line.
         """
-        # 无需封装，直接返回
-        return raw_cmd
+        return self._wrap_with_exec_env(raw_cmd, cwd=cwd)
