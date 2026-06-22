@@ -1,6 +1,10 @@
 
+# Port for the background streaming file-download server (Streamlit port + 1 by default)
+FILE_SERVER_PORT = 50028
+
 llm_args = {
     'device': 'cuda:3',
+    'max_new_tokens': 4096,
 }
 
 embedding_args = {
@@ -24,4 +28,13 @@ embedding_args = {
 
 TOOL_EXEC_ENV = {"type": "conda", "env_name": "sin"}
 # TOOL_EXEC_ENV = None
+
+# Number of CPU threads for bioinformatics tools (samtools, modkit, etc.)
+TOOL_THREADS = 16
+
+# SearXNG instance URL for Q&A web search.
+# Leave as "" to skip SearXNG and fall back to DuckDuckGo snippets.
+# Self-host with one command: docker run -d -p 8080:8080 searxng/searxng
+# Then set: SEARXNG_URL = "http://localhost:8080"
+SEARXNG_URL = ""
 

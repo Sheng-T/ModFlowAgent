@@ -29,3 +29,12 @@ delete/
 
 tests/
 
+# Secret keys — never commit
+api_keys.py
+
+# Local config overrides — personal settings, not for repo
+config.local.yaml
+
+# Runtime logs
+*.log
+

@@ -18,8 +18,10 @@ from .toolchain import (
 from .workflows import (
     retrieve_pipeline_docs_node,
     human_prereq_reviewer_node,
+    generate_local_prereqs_node,
+    human_local_prereq_reviewer_node,
+    human_workflow_selector_node,
 )
-
 
 
 __all__ = [
@@ -33,10 +35,13 @@ __all__ = [
     "execute_commands_node",
     "answer_general_question_node",
     "human_module_selector_node",
+    "human_workflow_selector_node",
     "select_analysis_modules_node",
     "summarize_execution_result_node",
     "handle_irrelevant_request_node",
     "finish_session_node",
     "retrieve_pipeline_docs_node",
     "human_prereq_reviewer_node",
+    "generate_local_prereqs_node",
+    "human_local_prereq_reviewer_node",
 ]

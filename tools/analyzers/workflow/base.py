@@ -16,7 +16,7 @@ class WorkflowAnalyzer(ABC):
         Parameters
         ----------
         outdir       : absolute path to the nextflow --outdir (e.g. run_dir/results)
-        analysis_dir : absolute path to bio_agent_analysis/<workflow>/ inside run_dir
+        analysis_dir : absolute path to {app_snake}_analysis/<workflow>/ inside run_dir
                        Created before this call; write all generated PNGs here.
 
         Returns

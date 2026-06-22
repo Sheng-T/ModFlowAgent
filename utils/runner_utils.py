@@ -73,3 +73,57 @@ def _find_dorado_lib_path_in_image(image_path: str) -> str:
     with _cache_lock:
         _DORADO_LIB_CACHE[image_path] = fallback
     return fallback
+
+
+def _find_free_gpu(min_free_mb: int = 10000) -> str | None:
+    """
+    Return the first CUDA device with at least min_free_mb of free VRAM,
+    e.g. "cuda:0". Returns None if no qualifying GPU is found or nvidia-smi
+    is unavailable (caller should fall back to --device cpu).
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=index,memory.free",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.strip().splitlines():
+            parts = line.strip().split(",")
+            if len(parts) != 2:
+                continue
+            idx, free_mb = parts[0].strip(), parts[1].strip()
+            if int(free_mb) >= min_free_mb:
+                return f"cuda:{idx}"
+    except Exception as e:
+        print(f"[GPU] Detection failed: {e}")
+    return None
+
+def find_all_free_gpus(min_free_mb=10000, return_str=True):
+    import subprocess
+
+    result = subprocess.run(
+        ["nvidia-smi",
+         "--query-gpu=index,memory.free",
+         "--format=csv,noheader,nounits"],
+        capture_output=True, text=True, timeout=10
+    )
+
+    gpus = []
+
+    for line in result.stdout.strip().splitlines():
+        idx, free_mb = line.split(",")
+        if int(free_mb.strip()) >= min_free_mb:
+            gpus.append(idx.strip())
+
+    if not gpus:
+        return None if return_str else []
+
+    if return_str:
+        return "cuda:" + ",".join(gpus)
+
+    return [f"cuda:{i}" for i in gpus]
+

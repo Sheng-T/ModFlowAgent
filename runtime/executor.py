@@ -17,6 +17,7 @@ class ToolExecutor:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
+            start_new_session=True,  # isolate from Streamlit process group
         )
 
         stdout_lines = []

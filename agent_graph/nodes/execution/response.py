@@ -4,11 +4,71 @@
 需要依赖: pip install ddgs html2text beautifulsoup4
 """
 from agent_graph.state import AgentState
-from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context
+from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context, _load_workflow_qa_hints
 from utils.llm_utils import get_llm_instance
 from utils.search_utils import SearchAugmentedQA
 from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
+from configs.app_config import APP_SNAKE
+
+
+_SHOW_RESULTS_RE = None
+
+def _is_show_results_query(text: str) -> bool:
+    import re
+    global _SHOW_RESULTS_RE
+    if _SHOW_RESULTS_RE is None:
+        patterns = [
+            r"show\s+(me\s+)?(the\s+)?results?",
+            r"view\s+(the\s+)?results?",
+            r"(where|find)\s+(are\s+|is\s+)?my\s+(output|results?)",
+            r"(previous|last)\s+run",
+            r"pipeline\s+results?",
+            r"output\s+dir(ectory)?",
+            r"结果在哪",  r"查看结果",  r"显示结果",
+            r"看.{0,4}结果",  r"上次.{0,6}结果",
+            r"结果.{0,6}哪",  r"输出在哪",  r"找.{0,4}结果",
+            r"历史.{0,4}(运行|结果)",
+        ]
+        _SHOW_RESULTS_RE = re.compile("|".join(patterns), re.IGNORECASE)
+    return bool(_SHOW_RESULTS_RE.search(text))
+
+
+def _format_runs_context(runs: list, lang: str) -> str:
+    if not runs:
+        return ""
+    lines = []
+    status_zh = {"completed": "已完成", "running": "运行中",
+                 "failed": "失败", "pending": "等待中", "cancelled": "已取消"}
+    if lang == "en_US":
+        lines.append("## Previous pipeline runs in this session\n")
+        for r in runs[:8]:
+            wf      = r.get("workflow_name", "unknown")
+            status  = r.get("status", "unknown")
+            started = (r.get("started_at") or "")[:16].replace("T", " ")
+            q       = (r.get("question") or "").strip()
+            rdir    = r.get("run_dir", "")
+            lines.append(f"- **{wf}** — {status}" + (f"  ({started})" if started else ""))
+            if q:
+                lines.append(f'  - Request: "{q[:120]}"')
+            if rdir:
+                lines.append(f"  - Results directory: `{rdir}`")
+                lines.append(f"  - *(Also accessible from the sidebar → run directory)*")
+    else:
+        lines.append("## 本次会话的历史流水线运行记录\n")
+        for r in runs[:8]:
+            wf      = r.get("workflow_name", "未知")
+            status  = status_zh.get(r.get("status", ""), r.get("status", "未知"))
+            started = (r.get("started_at") or "")[:16].replace("T", " ")
+            q       = (r.get("question") or "").strip()
+            rdir    = r.get("run_dir", "")
+            lines.append(f"- **{wf}** — {status}" + (f"  （{started}）" if started else ""))
+            if q:
+                lines.append(f'  - 原始请求："{q[:120]}"')
+            if rdir:
+                lines.append(f"  - 结果目录：`{rdir}`")
+                lines.append(f"  - *（也可在侧边栏的运行目录中找到）*")
+    return "\n".join(lines)
 
 
 def answer_general_question_node(state: AgentState, use_search: bool = True, num_searches: int = 5) -> AgentState:
@@ -27,9 +87,94 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
         lang = "en_US"
 
     try:
-        # 1. decide whether search is worth it
-        needs_search = False
-        if use_search:
+        # 1. Determine which workflows are relevant to this question (needed before search decision)
+        selected_workflow = state.get("selected_workflow", "")
+        try:
+            from configs.rag_config import WORKFLOW_MANIFESTS
+            _all_wf_names = list(WORKFLOW_MANIFESTS.keys())
+        except ImportError:
+            WORKFLOW_MANIFESTS = {}
+            _all_wf_names = []
+
+        if selected_workflow:
+            _relevant_wfs = [selected_workflow]
+        else:
+            _ui_lower = user_input.lower()
+            _relevant_wfs = []
+            for wf in _all_wf_names:
+                if wf.replace("_", " ") in _ui_lower or wf in _ui_lower:
+                    _relevant_wfs.append(wf)
+                else:
+                    _kws = WORKFLOW_MANIFESTS.get(wf, {}).get("qa_keywords", [])
+                    if any(kw in _ui_lower for kw in _kws):
+                        _relevant_wfs.append(wf)
+
+        # 2. Determine augmented_context via one of three mutually exclusive paths:
+        #    a) "show results" → scan session run history
+        #    b) workflow-specific question → local RAG from workflow/tool docs (preferred over web)
+        #    c) general question → optional web search
+        if _is_show_results_query(user_input):
+            ui_print("[QA] 'Show results' query detected — scanning session run history")
+            try:
+                from utils.run_tracker import find_session_runs
+                from utils.user_context import get_session_dir
+                _runs = find_session_runs(get_session_dir() or "")
+                if _runs:
+                    augmented_context = _format_runs_context(_runs, lang)
+                    ui_print(f"[QA] Found {len(_runs)} run(s) in session")
+                else:
+                    ui_print("[QA] No runs found in session dir")
+            except Exception as _e:
+                ui_print(f"[QA] Run scan failed: {_e}")
+
+        elif _relevant_wfs:
+            # Workflow-specific question: use local docs (more accurate than web search for
+            # platform defaults, parameter details, and tool comparisons within a workflow).
+            ui_print(f"[QA] Workflow context detected: {_relevant_wfs} — using local RAG")
+            _rag_parts = []
+            for _wf in _relevant_wfs:
+                _manifest = WORKFLOW_MANIFESTS.get(_wf, {})
+                _wf_type = _manifest.get("type", "")
+                try:
+                    from configs.rag_config import RAG_INSTANCES, TOOLS_DOC, TOOL_CACHE_DIRS, WORKFLOW_PIPELINE_DOCS, WORKFLOW_CACHE_DIRS
+                    from storage.rag_retriever import EnhancedMDRAG
+                    _rag_llm = get_llm_instance(is_planner=False)
+
+                    if _wf_type == "nfcore" and _wf in WORKFLOW_PIPELINE_DOCS:
+                        _cache_key = f"workflow_{_wf}"
+                        if _cache_key not in RAG_INSTANCES:
+                            RAG_INSTANCES[_cache_key] = EnhancedMDRAG(
+                                WORKFLOW_PIPELINE_DOCS[_wf], llm=_rag_llm,
+                                cache_dir=WORKFLOW_CACHE_DIRS.get(_wf)
+                            )
+                        _ctx = RAG_INSTANCES[_cache_key].search(user_input)
+                        if _ctx:
+                            _rag_parts.append(f"[{_wf} docs]\n{_ctx}")
+
+                    elif _wf_type == "local":
+                        for _tool in _manifest.get("tools", []):
+                            _cache_key = f"tool_{_tool}"
+                            if _cache_key not in RAG_INSTANCES and _tool in TOOLS_DOC:
+                                RAG_INSTANCES[_cache_key] = EnhancedMDRAG(
+                                    TOOLS_DOC[_tool], llm=_rag_llm,
+                                    cache_dir=TOOL_CACHE_DIRS.get(_tool)
+                                )
+                            if _cache_key in RAG_INSTANCES:
+                                _ctx = RAG_INSTANCES[_cache_key].search(user_input)
+                                if _ctx:
+                                    _rag_parts.append(f"[{_tool} docs]\n{_ctx}")
+
+                except Exception as _e:
+                    ui_print(f"[QA] RAG lookup failed for {_wf}: {_e}")
+
+            if _rag_parts:
+                augmented_context = "\n\n---\n\n".join(_rag_parts)
+                ui_print(f"[QA] Local RAG retrieved {len(augmented_context)} chars")
+            else:
+                ui_print("[QA] Local RAG returned nothing — LLM will use its own knowledge")
+
+        elif use_search:
+            # General question with no workflow context: consider web search
             try:
                 decision_llm = get_llm_instance(is_planner=False)
                 decision_raw = decision_llm.invoke(build_search_decision_prompt(user_input))
@@ -37,27 +182,37 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
                     decision_raw if isinstance(decision_raw, str) else decision_raw.content
                 ).strip().upper()
                 needs_search = decision_text.startswith("YES")
-                ui_print(f"[Search] Decision: {decision_text} → {'searching' if needs_search else 'skipping search'}")
+                ui_print(f"[Search] Decision: {decision_text} → {'searching' if needs_search else 'skipping'}")
             except Exception as e:
                 ui_print(f"[Search] Decision call failed ({e}), skipping search")
+                needs_search = False
 
-        # 2. optional web search (only if LLM decided it's needed)
-        if needs_search:
-            ui_print(f"\n[Search] Fetching reference material...")
-            qa_tool = SearchAugmentedQA()
-            try:
-                augmented_context = qa_tool.augment_query(user_input, num_searches=num_searches)
-                if augmented_context:
-                    ui_print(f"[Search] Retrieved {len(augmented_context)} chars of context")
-                else:
-                    ui_print("[Search] No results — falling back to LLM knowledge")
-            except Exception as e:
-                ui_print(f"[Search] Error ({type(e).__name__}), falling back to LLM knowledge")
-                augmented_context = ""
+            if needs_search:
+                ui_print(f"\n[Search] Fetching reference material...")
+                qa_tool = SearchAugmentedQA()
+                try:
+                    augmented_context = qa_tool.augment_query(user_input, num_searches=num_searches)
+                    if augmented_context:
+                        ui_print(f"[Search] Retrieved {len(augmented_context)} chars of context")
+                    else:
+                        ui_print("[Search] No results — falling back to LLM knowledge")
+                except Exception as e:
+                    ui_print(f"[Search] Error ({type(e).__name__}), falling back to LLM knowledge")
+                    augmented_context = ""
 
-        # 2. build prompt
+        # 3. Load workflow-specific QA hints (hard constraints, injected regardless of RAG path)
+        _hint_parts = []
+        for _wf in _relevant_wfs:
+            _h = _load_workflow_qa_hints(_wf, lang)
+            if _h:
+                _hint_parts.append(f"[{_wf}]\n{_h}")
+        workflow_hints = "\n\n".join(_hint_parts)
+
+        router_hint = state.get("router_hint", "")
         final_prompt = build_qa_prompt(user_input, augmented_context, lang,
-                                       platform_context=build_platform_context())
+                                       platform_context=build_platform_context(),
+                                       workflow_hints=workflow_hints,
+                                       router_hint=router_hint)
 
         # 3. call LLM
         ui_print(f"\n[LLM Answer] Invoking LLM: {user_input[:40]}...")
@@ -205,10 +360,9 @@ def _summarize_workflow(state: AgentState) -> AgentState:
     import json
     import os
     import re
-    import zipfile
 
     from tools.analyzers.workflow.registry import get_workflow_analyzer
-    from tools.analyzers.workflow.multiqc_parser import (
+    from tools.analyzers.workflow.nf.multiqc_parser import (
         find_multiqc_data_json, find_multiqc_pngs, parse_multiqc_json,
     )
 
@@ -221,7 +375,7 @@ def _summarize_workflow(state: AgentState) -> AgentState:
         workflow_name = tool_calls[0].get("tool_name", "workflow")
 
     # outdir = run_dir/results  (set by build_workflow_command)
-    _NF_INTERNAL = {"work", "bio_agent_analysis"}
+    _NF_INTERNAL = {"work", f"{APP_SNAKE}_analysis"}
     outdir = os.path.join(run_dir, "results") if run_dir else ""
     if outdir and not os.path.isdir(outdir):
         # fallback: first child directory of run_dir that isn't a nextflow internal dir
@@ -236,7 +390,7 @@ def _summarize_workflow(state: AgentState) -> AgentState:
         else:
             outdir = ""
 
-    analysis_dir = os.path.join(run_dir, "bio_agent_analysis", workflow_name) if run_dir else ""
+    analysis_dir = os.path.join(run_dir, f"{APP_SNAKE}_analysis", workflow_name) if run_dir else ""
     if analysis_dir:
         os.makedirs(analysis_dir, exist_ok=True)
 
@@ -273,60 +427,9 @@ def _summarize_workflow(state: AgentState) -> AgentState:
     else:
         warnings.append(f"outdir not found or empty: {outdir}")
 
-    # ── zip key result files for download (exclude large binary files) ───────
-    # BAM/CRAM files can be several GB; users can access raw alignments on the server.
-    import shutil
-    from datetime import datetime
-    from utils.user_context import get_session_dir
-    
-    _SKIP_EXTS = {".bam", ".bai", ".cram", ".crai", ".sam"}
+    # 不打包 — 原始数据留在 run_dir，用户直接 scp/rsync 取文件（与本地流水线策略一致）
     zip_path = ""
-    if outdir and os.path.isdir(outdir) and run_dir:
-        temp_zip = os.path.join(run_dir, f"{workflow_name}_results.zip")
-        try:
-            ui_print("[WorkflowSummarizer] Creating results zip (excluding BAM/CRAM)...")
-            with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
-                for root, _, files in os.walk(outdir):
-                    for fname in files:
-                        if any(fname.endswith(ext) for ext in _SKIP_EXTS):
-                            continue
-                        full = os.path.join(root, fname)
-                        arcname = os.path.relpath(full, os.path.dirname(outdir))
-                        zf.write(full, arcname)
-            size_mb = os.path.getsize(temp_zip) / 1024 / 1024
-            ui_print(f"[WorkflowSummarizer] Zip ready: {temp_zip} ({size_mb:.1f} MB)")
-            
-            # 移动压缩包到 session_dir，使其能被 UI 检索到
-            session_dir = get_session_dir()
-            zip_moved = False
-            if session_dir and os.path.isdir(session_dir):
-                try:
-                    zip_path = os.path.join(session_dir, f"{workflow_name}_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
-                    shutil.move(temp_zip, zip_path)
-                    ui_print(f"[WorkflowSummarizer] Zip moved to session: {zip_path}")
-                    zip_moved = True
-                except Exception as move_err:
-                    ui_print(f"[WorkflowSummarizer] Move to session failed: {move_err}, keeping in run_dir")
-                    zip_path = temp_zip
-            else:
-                ui_print(f"[WorkflowSummarizer] Warning: session_dir unavailable (got {session_dir}), keeping zip in run_dir")
-                zip_path = temp_zip
-        except Exception as e:
-            ui_print(f"[WorkflowSummarizer] Zip failed: {e}")
-            zip_path = ""
-            zip_moved = False
-        
-        # 只有当压缩包成功移动到 session_dir 后，才删除运行目录
-        # 这样可以保证压缩包不会丢失
-        if zip_moved and os.path.isdir(run_dir):
-            try:
-                ui_print(f"[WorkflowSummarizer] Cleaning up run directory: {run_dir}")
-                shutil.rmtree(run_dir, ignore_errors=True)
-                ui_print("[WorkflowSummarizer] Run directory deleted")
-            except Exception as e:
-                ui_print(f"[WorkflowSummarizer] Cleanup warning: {e}")
-        elif not zip_moved:
-            ui_print("[WorkflowSummarizer] Skipping run directory cleanup (zip not safely moved)")
+    ui_print(f"[WorkflowSummarizer] Raw outputs in: {run_dir}")
 
     # ── LLM report ────────────────────────────────────────────────────────────
     raw_out   = "\n".join(tool_output).strip()[:800]
@@ -387,6 +490,197 @@ Requirements:
     return state
 
 
+def _summarize_local_workflow(state: AgentState) -> AgentState:
+    """
+    Summary branch for local (per-tool singularity) workflows.
+
+    Three code paths:
+    1. Worker still running/pending  → return a "background job started" message immediately.
+    2. Worker completed              → use data from run_status.json to generate LLM report.
+    3. No run_status.json (legacy)   → run analyzer + zip synchronously (old behaviour).
+    """
+    import json
+    import os
+    import re
+
+    from utils.run_tracker import read_status as _read_status
+    from utils.user_context import get_session_dir
+
+    lang          = get_lang()
+    run_dir       = state.get("run_dir", "") or get_session_dir() or ""
+    workflow_name = state.get("selected_workflow", "")
+    prereq_params = state.get("local_prereq_params", {})
+    has_reference = bool(prereq_params.get("reference", ""))
+    mod_type      = prereq_params.get("modification_type") or "m6A"
+
+    # Skip re-summarization if already done
+    existing_zip = state.get("workflow_result_zip", "")
+    if existing_zip and os.path.isfile(existing_zip):
+        ui_print(f"[LocalSummarizer] Already summarized, skipping (zip: {existing_zip})")
+        return state
+
+    # ── Check run_status.json ─────────────────────────────────────────────────
+    ws = _read_status(run_dir) if run_dir else None
+
+    if ws and ws.get("status") in ("pending", "running"):
+        # Worker is still running — return immediately; UI fragment will poll and deliver result
+        ui_print(f"[LocalSummarizer] Worker {ws['status']} — returning pending message")
+        _wf = workflow_name or ws.get("workflow_name", "")
+        total = ws.get("total_steps", "?")
+        if lang == "en_US":
+            msg = (
+                f"### ⏳ Pipeline running in background\n\n"
+                f"**Workflow:** {_wf}  \n"
+                f"**Steps:** {total}\n\n"
+                f"The pipeline is running independently and will complete even if you close the browser. "
+                f"Results will appear here automatically when ready. "
+                f"You can also check the run directory status in the sidebar."
+            )
+        else:
+            msg = (
+                f"### ⏳ 流水线正在后台运行\n\n"
+                f"**Workflow：** {_wf}  \n"
+                f"**步骤数：** {total}\n\n"
+                f"流水线已独立运行，关闭浏览器不影响进度。"
+                f"完成后结果将自动显示在此处。"
+                f"也可在侧边栏查看运行目录状态。"
+            )
+        state["final_answer"]        = msg
+        state["analysis_images"]     = []
+        state["workflow_result_zip"] = ""
+        return state
+
+    if ws and ws.get("status") == "failed":
+        ui_print(f"[LocalSummarizer] Worker reported failure")
+        err = ws.get("error", "unknown error")
+        state["final_answer"] = (
+            f"### ❌ Pipeline failed\n\n```\n{err}\n```"
+            if lang == "en_US" else
+            f"### ❌ 流水线执行失败\n\n```\n{err}\n```"
+        )
+        state["analysis_images"]     = []
+        state["workflow_result_zip"] = ""
+        return state
+
+    if ws and ws.get("status") == "completed":
+        # Worker finished — build LLM report from persisted data
+        ui_print(f"[LocalSummarizer] Worker completed — generating LLM report from run_status")
+        zip_path        = ws.get("zip_path") or ""
+        plot_paths      = ws.get("analysis_images") or []
+        text_summary    = ws.get("text_summary") or ""
+        warnings        = ws.get("warnings") or []
+        stats_txt       = text_summary[:3000] if text_summary else "{}"
+        warn_txt        = "\n".join(warnings) if warnings else "None"
+        # zip 已不再生成，改为展示 run_dir 路径
+        data_location   = run_dir
+
+    else:
+        # ── Legacy path: no run_status.json — run analyzer synchronously ─────
+        from tools.analyzers.workflow.registry import get_workflow_analyzer
+
+        ui_print("[LocalSummarizer] No run_status.json — running analyzer synchronously")
+        analysis_dir = os.path.join(run_dir, f"{APP_SNAKE}_analysis", workflow_name) if run_dir else ""
+        if analysis_dir:
+            os.makedirs(analysis_dir, exist_ok=True)
+
+        summary: dict = {}
+        plot_paths: list = []
+        warnings: list = []
+        text_summary_content = ""
+
+        if run_dir and os.path.isdir(run_dir):
+            analyzer = get_workflow_analyzer(workflow_name)
+            if analyzer:
+                try:
+                    result     = analyzer.analyze(run_dir, analysis_dir)
+                    summary    = result.get("summary", {})
+                    plot_paths = result.get("plot_paths", [])
+                    warnings   = result.get("warnings", [])
+                    ts_path    = result.get("text_summary_path", "")
+                    if ts_path and os.path.isfile(ts_path):
+                        with open(ts_path, encoding="utf-8") as _f:
+                            text_summary_content = _f.read()[:4000]
+                    ui_print(f"[LocalSummarizer] Analyzer done: {len(plot_paths)} plots")
+                except Exception as e:
+                    import traceback
+                    ui_print(f"[LocalSummarizer] Analyzer error: {e}\n{traceback.format_exc()}")
+                    warnings.append(f"Analyzer error: {e}")
+
+        zip_path      = ""   # 不再打包，用户直接访问 run_dir
+        data_location = run_dir
+        stats_txt     = text_summary_content or json.dumps(summary, ensure_ascii=False, indent=2)[:3000]
+        warn_txt      = "\n".join(warnings) if warnings else "None"
+
+    # ── Build LLM report ─────────────────────────────────────────────────────
+    if lang == "en_US":
+        mode_hint = (
+            "The pipeline ran WITH a reference sequence, so modkit pileup produced site-level bedMethyl output. "
+            "Highlight the total covered sites, high-confidence modification sites, and the top regions by mean modification fraction."
+            if has_reference else
+            "The pipeline ran WITHOUT a reference sequence; only modkit extract (read-level) output is available. "
+            "Report total read-level calls, how many were classified as modified, and the overall fraction."
+        )
+        prompt = f"""You are a bioinformatics expert summarizing a {workflow_name} RNA modification analysis.
+
+Modification type targeted: {mod_type}
+{mode_hint}
+
+[Analysis statistics]
+{stats_txt}
+
+[Warnings]
+{warn_txt}
+
+Write a concise markdown report (3–5 paragraphs):
+1. One-sentence overall result (success / partial / failed).
+2. Key quantitative findings from the stats above.
+3. Biological interpretation (what the modification pattern may indicate).
+4. Any warnings or caveats.
+5. Data location note: raw results are stored on the server at: `{data_location}`
+"""
+    else:
+        mode_hint = (
+            f"本次分析提供了参考序列，modkit pileup 生成了位点级 bedMethyl 输出。"
+            f"请重点报告覆盖位点总数、高置信修饰位点数和修饰比例最高的区域。"
+            if has_reference else
+            f"本次分析未提供参考序列，仅有 modkit extract 读段级输出。"
+            f"请报告总调用数、判定为修饰的数量及整体修饰比例。"
+        )
+        prompt = f"""你是一位生物信息学专家，请对以下 {workflow_name} RNA 修饰分析结果进行总结。
+
+目标修饰类型：{mod_type}
+{mode_hint}
+
+【分析统计】
+{stats_txt}
+
+【警告信息】
+{warn_txt}
+
+请撰写一份简明 Markdown 报告（3–5 段）：
+1. 一句话总体结论（成功 / 部分完成 / 失败）。
+2. 关键定量结果。
+3. 生物学解读（修饰模式的可能意义）。
+4. 注意事项或警告。
+5. 数据位置：原始结果保存在服务器路径 `{data_location}`，可直接 scp/rsync 获取。
+"""
+
+    ui_print("[LocalSummarizer] Calling LLM to generate report…")
+    try:
+        raw    = get_llm_instance(is_planner=False).invoke(prompt)
+        report = raw if isinstance(raw, str) else raw.content
+        report = re.sub(r"<think>.*?</think>", "", report, flags=re.DOTALL).strip()
+    except Exception as e:
+        report = (f"### RNA Modification Analysis Complete\n\nReport generation error: {e}"
+                  if lang == "en_US" else
+                  f"### RNA 修饰分析完成\n\n报告生成失败：{e}")
+
+    state["final_answer"]        = report
+    state["analysis_images"]     = [p for p in plot_paths if os.path.isfile(p)]
+    state["workflow_result_zip"] = zip_path
+    return state
+
+
 def summarize_execution_result_node(state: AgentState) -> AgentState:
     import json
     import os
@@ -403,8 +697,11 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     lang = get_lang()
 
     # ── workflow 走专用分支 ────────────────────────────────────────────────────
-    if state.get("is_workflow"):
+    if state.get("workflow_type") == "nfcore":
         return _summarize_workflow(state)
+
+    if state.get("workflow_type") == "local":
+        return _summarize_local_workflow(state)
 
     tool_calls        = state.get("tool_calls", [])
     tool_output       = state.get("tool_output", [])

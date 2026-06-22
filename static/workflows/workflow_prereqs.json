@@ -1,0 +1,125 @@
+{
+  "methylong": {
+    "needs_prereq": true,
+    "nfcore_pre_params": [
+      {
+        "key": "method",
+        "label": "测序平台",
+        "label_en": "Sequencing Platform",
+        "required": true,
+        "type": "select",
+        "options": ["ont", "pacbio"],
+        "hint": "Oxford Nanopore (ont) 或 PacBio HiFi (pacbio)",
+        "hint_en": "Oxford Nanopore (ont) or PacBio HiFi (pacbio)"
+      },
+      {
+        "key": "molecule",
+        "label": "分子类型",
+        "label_en": "Molecule Type",
+        "required": true,
+        "type": "select",
+        "options": ["DNA", "RNA"],
+        "hint": "DNA 甲基化分析 或 RNA 修饰分析",
+        "hint_en": "DNA methylation or RNA modification analysis"
+      }
+    ],
+    "prereqs": [
+      {
+        "type": "csv",
+        "filename": "samplesheet.csv",
+        "columns": ["group", "sample", "path", "ref", "method"],
+        "optional_columns": ["ref"],
+        "example_row": "group1,sample1,/data/uploads/abc123/sample1.bam,/data/uploads/abc123/genome.fa,ont",
+        "description": "methylong samplesheet — one row per sample.\n- group: sample group name. Auto-generate as 'group1', 'group2'... if not specified.\n- sample: sample name. Use input filename without extension if not specified (e.g. 'PAU05248_pass_ffa693eb').\n- path: FULL absolute path to the BAM or pod5 file.\n- ref: FULL absolute path to the reference genome FASTA (optional — leave empty if no reference available).\n- method: sequencing platform — 'pacbio' or 'ont'."
+      }
+    ]
+  },
+  "rnaseq": {
+    "needs_prereq": true,
+    "prereqs": [
+      {
+        "type": "csv",
+        "filename": "samplesheet.csv",
+        "columns": ["sample", "fastq_1", "fastq_2", "strandedness"],
+        "example_row": "sample1,sample1_R1.fastq.gz,sample1_R2.fastq.gz,auto",
+        "description": "Each row represents one sample.\n- sample: sample name.\n- fastq_1: path to Read1 FASTQ file.\n- fastq_2: path to Read2 FASTQ file (leave blank for single-end).\n- strandedness: auto / forward / reverse / unstranded."
+      }
+    ]
+  },
+  "ont_rna": {
+    "needs_prereq": true,
+    "prereqs": [
+      {
+        "type": "local_params",
+        "params": [
+          {
+            "key": "data_file",
+            "label": "Data file (pod5 or fast5)",
+            "required": true,
+            "hint": "ONT direct-RNA sequencing file. RNA004 kit required. Flowcell and kit will be auto-detected."
+          },
+          {
+            "key": "modification_type",
+            "label": "Modification type (optional, default: m6A)",
+            "required": false,
+            "default": "m6A",
+            "type": "select",
+            "options": [
+              "m6A",
+              "m6A_DRACH",
+              "inosine_m6A_2OmeA",
+              "pseU",
+              "m5C",
+              "2OmeG",
+              "none (basecall only)"
+            ],
+            "hint": "m6A: N6-methyladenosine, uses inosine_m6A model (recommended default). m6A_DRACH: DRACH-context m6A only. inosine_m6A_2OmeA: m6A + inosine + 2'-O-methyladenosine. pseU: pseudouridine. m5C: 5-methylcytosine. 2OmeG: 2'-O-methylguanosine. none: basecall only, no modification detection."
+          },
+          {
+            "key": "reference",
+            "label": "Reference FASTA (transcriptome or genome, optional)",
+            "required": false,
+            "hint": "If provided, modkit pileup will run to produce site-level modification statistics in bedMethyl format."
+          }
+        ]
+      }
+    ]
+  },
+  "ont_dna": {
+    "needs_prereq": true,
+    "prereqs": [
+      {
+        "type": "local_params",
+        "params": [
+          {
+            "key": "data_file",
+            "label": "Data file (pod5 or fast5)",
+            "required": true,
+            "hint": "ONT DNA sequencing file in pod5 or fast5 format."
+          },
+          {
+            "key": "modification_type",
+            "label": "Modification type (optional, default: 5mCG_5hmCG)",
+            "required": false,
+            "default": "5mCG_5hmCG",
+            "type": "select",
+            "options": [
+              "5mCG_5hmCG",
+              "5mC_5hmC",
+              "6mA",
+              "4mC_5mC",
+              "none (basecall only)"
+            ],
+            "hint": "5mCG_5hmCG: detects both 5mC and 5hmC at CpG context — standard human methylation (default). 5mC_5hmC: detects both 5mC and 5hmC at ALL cytosine contexts (non-CpG included). 6mA: N6-methyladenine. 4mC_5mC: bacterial methylation only. none: basecall only, no modification detection."
+          },
+          {
+            "key": "reference",
+            "label": "Reference genome FASTA (optional)",
+            "required": false,
+            "hint": "Providing a reference improves pileup accuracy and enables site-level modification statistics."
+          }
+        ]
+      }
+    ]
+  }
+}

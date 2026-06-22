@@ -1,0 +1,39 @@
+{
+  "name": "methylong",
+  "description": "nf-core/methylong 2.0.0 — DNA methylation analysis from long reads (ONT/PacBio). Preprocessing → alignment → methylation calling → SNV calling → haplotype phasing → DMR calling.",
+  "usage": "nextflow run nf-core/methylong -profile <singularity|docker|conda> --input samplesheet.csv --outdir <OUTDIR>",
+  "args": {
+    "kwargs": {
+      "input": "[REQUIRED] Path to samplesheet CSV. Columns: group,sample,path,ref,method (method: ont or pacbio)",
+      "outdir": "[REQUIRED] Output directory path (absolute path recommended). [default: results]",
+
+      "dorado_model": "ONT dorado basecall model. [default: sup]",
+      "dorado_modification": "ONT modification type for dorado. [default: 5mC_5hmC] For ONT Fiber-seq with 6mA analysis, use: 5mCG_5hmCG 6mA",
+
+      "pacbio_modcall": "[boolean] Enable modcalling in PacBio workflow (for unmodified BAM input).",
+      "pacbio_modcaller": "PacBio modcaller. (accepted: jasmine, ccsmeth) [default: jasmine]",
+
+      "no_trim": "[boolean] Skip trimming step in ONT workflow.",
+      "reset": "[boolean] Remove alignment info and reset flags before processing.",
+
+      "ont_aligner": "Aligner for ONT workflow. (accepted: dorado, minimap2) [default: dorado]",
+      "pacbio_aligner": "Aligner for PacBio workflow. (accepted: pbmm2, minimap2) [default: pbmm2]",
+
+      "pileup_method": "Pileup method for PacBio workflow. (accepted: pbcpgtools, modkit) [default: pbcpgtools]",
+      "pileup_count": "[boolean] Use count mode in pbcpgtools pileup instead of model mode.",
+      "denovo": "[boolean] Reference-free CpG identification with pb-CpG-tools.",
+      "bedgraph": "[boolean] Output bedgraph files.",
+      "all_contexts": "[boolean] Include all cytosine contexts in pileup.",
+      "m6a": "[boolean] Pileup m6A motif. Use ONLY for ONT Fiber-seq (method=ont + --fiberseq) when user explicitly says 'm6A'. NEVER use for standard DNA 5mC/5hmC methylation analysis — '5mC', '5mc', 'CpG methylation', 'DNA methylation' are NOT m6A and must NOT trigger this flag.",
+
+      "fiberseq": "[boolean] Enable Fiber-seq analysis (m6A calling, nucleosome/MSP annotations). For PacBio Fiber-seq: --fiberseq alone is sufficient. For ONT Fiber-seq: use --fiberseq together with --m6a and set --dorado_modification to '5mCG_5hmCG 6mA'.",
+
+      "skip_snvs": "[boolean] Skip SNV calling and haplotype phasing steps.",
+      "dmr_population_scale": "[boolean] Enable population-scale DMR analysis.",
+      "dmr_a": "Group name A for population-scale DMR comparison. REQUIRED whenever --dmr_population_scale is set — NEVER omit it. Value must be copied verbatim from the group name the user stated (e.g. user says 'group1 vs group2' → value is 'group1').",
+      "dmr_b": "Group name B for population-scale DMR comparison. REQUIRED whenever --dmr_population_scale is set — NEVER omit it. Value must be copied verbatim from the group name the user stated (e.g. user says 'group1 vs group2' → value is 'group2').",
+      "haplotype_dmrer": "DMR caller for haplotype-level analysis. (accepted: dss, modkit) [default: dss] OMIT this flag unless the user explicitly names the tool (e.g. 'use modkit dmr', 'not DSS'). DO NOT infer from speed or convenience — the absence of this flag means DSS is used.",
+      "population_dmrer": "DMR caller for population-scale analysis. (accepted: dss, modkit) [default: dss] OMIT this flag unless the user explicitly names the tool. DO NOT infer from speed or convenience."
+    }
+  }
+}

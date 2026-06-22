@@ -51,6 +51,9 @@ def modkit(subcommand, subcommand_str, args_dict, data_path):
             out_name = os.path.basename(pos_args[1])
             pos_args[1] = os.path.join(out_dir, out_name)
 
+        # --full produces per-read output required by RnaM6aAnalyzer
+        kwargs.setdefault("full", True)
+
         new_args = {"pos_args": pos_args, "kwargs": deduplicate_kwargs(kwargs)}
         arg_str  = build_shell_args(new_args)
 

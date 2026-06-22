@@ -1,9 +1,14 @@
 import importlib
+import json
 import logging
+import re
 import sys
 import threading
+from typing import Any, Iterator
 
-from configs.model_config import LLM_NAME, llm_model_path
+from langchain_core.runnables import Runnable, RunnableConfig
+
+from configs.model_config import LLM_NAME, LLM_SOURCE, llm_model_path
 from configs.runtime_config import llm_args
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -32,44 +37,88 @@ _model_init_lock = threading.Lock()
 _inference_lock = threading.Lock()
 
 
-class _ThreadSafeLLMWrapper:
+class _ThreadSafeLLMWrapper(Runnable):
     """
     将调用参数（temperature / enable_thinking）保存在 wrapper 实例上，
     invoke() 时原子地设置到底层模型并持锁推理，确保：
       1. 参数不会被其他线程覆盖
       2. GPU 不会被多线程同时占用
+    
+    继承自 LangChain Runnable 以支持管道操作（|）
     """
     def __init__(self, model, temperature: float, enable_thinking: bool):
+        super().__init__()
         self._model = model
         self.temperature = temperature
         self.enable_thinking = enable_thinking
 
-    def invoke(self, prompt: str):
-        with _inference_lock:
-            self._model.temperature = self.temperature
-            self._model.enable_thinking = self.enable_thinking
-            return self._model.invoke(prompt)
+    @property
+    def InputType(self):
+        """Return the input type for LangChain compatibility."""
+        return str
 
-    # 透传 stream / batch（当前未用，保留接口兼容）
-    def stream(self, prompt: str):
+    @property
+    def OutputType(self):
+        """Return the output type for LangChain compatibility."""
+        return str
+
+    def invoke(self, input: str, config: RunnableConfig = None) -> Any:
+        """Invoke the LLM with thread-safe parameter setting."""
         with _inference_lock:
             self._model.temperature = self.temperature
             self._model.enable_thinking = self.enable_thinking
-            yield from self._model.stream(prompt)
+            return self._model.invoke(input)
+
+    def batch(self, inputs: list, config: RunnableConfig = None, **kwargs) -> list:
+        """Batch invoke the LLM."""
+        return [self.invoke(input_item, config) for input_item in inputs]
+
+    def stream(self, input: str, config: RunnableConfig = None, **kwargs) -> Iterator:
+        """Stream output from the LLM with thread-safe parameter setting."""
+        with _inference_lock:
+            self._model.temperature = self.temperature
+            self._model.enable_thinking = self.enable_thinking
+            if hasattr(self._model, 'stream'):
+                yield from self._model.stream(input)
+            else:
+                # Fallback: if stream not supported, just invoke and yield once
+                yield self._model.invoke(input)
+
+
+def invoke_json(llm, prompt_str: str) -> dict:
+    """Invoke the LLM with a plain string prompt and parse the JSON response."""
+    raw = llm.invoke(prompt_str)
+    content = raw if isinstance(raw, str) else raw.content
+    clean = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    if "```json" in clean:
+        clean = clean.split("```json")[1].split("```")[0].strip()
+    elif "```" in clean:
+        clean = clean.split("```")[1].split("```")[0].strip()
+    return json.loads(clean)
 
 
 def get_llm_instance(is_planner: bool = False, temperature: float = 0.01):
     """
-    返回一个线程安全的 LLM wrapper。
-    每次调用返回新 wrapper 对象（携带独立的参数副本），底层模型全局共享。
-    所有 invoke() 调用通过 _inference_lock 串行化，防止 GPU 并发冲突。
+    返回一个可直接 .invoke() 的 LLM 对象。
+
+    - LLM_SOURCE == "api": 每次创建新的 API 客户端实例（无 GPU 锁，线程安全）
+    - LLM_SOURCE == "huggingface": 共享本地模型，通过 _ThreadSafeLLMWrapper 串行化 GPU 推理
     """
+    if LLM_SOURCE == "api":
+        t = temperature if is_planner else 0.7
+        from configs.model_config import openai_compat_config
+        _host = openai_compat_config.get("base_url", "").split("//")[-1].split("/")[0]
+        print(f"[API] {openai_compat_config.get('model', '?')} @ {_host}")
+        llm_func = import_llm_initializer(module_name=LLM_NAME)
+        return llm_func("", device="cpu", temperature=t)
+
     with _model_init_lock:
         if "llm" not in _MODEL_CACHE:
             print("[System] Initializing the model for the first time, please wait ..")
             llm_func = import_llm_initializer(module_name=LLM_NAME)
             llm_path = llm_model_path[LLM_NAME]
-            _MODEL_CACHE["llm"] = llm_func(llm_path, device=llm_args['device'])
+            _MODEL_CACHE["llm"] = llm_func(llm_path, device=llm_args['device'],
+                                           max_new_tokens=llm_args.get('max_new_tokens', 4096))
 
     model = _MODEL_CACHE["llm"]
     if is_planner:

@@ -6,6 +6,7 @@ import stat
 import tempfile
 
 from configs import IMAGE_PATH, DATA_PATH, TOOL_EXEC_ENV, USER_HOME
+from configs.app_config import APP_SNAKE
 from utils.runner_utils import _find_dorado_lib_path_in_image
 
 # Track temp scripts created this process so they can be cleaned up
@@ -51,7 +52,7 @@ class EnvWrapper:
             script_dir = USER_HOME
             cd_line = f"cd {shlex.quote(cwd)}" if cwd else ""
             tmp = tempfile.NamedTemporaryFile(
-                mode='w', suffix='.sh', delete=False, prefix='bioagent_',
+                mode='w', suffix='.sh', delete=False, prefix=f'{APP_SNAKE}_',
                 dir=script_dir,
             )
             tmp.write(f"""#!/bin/bash
@@ -121,8 +122,10 @@ conda activate {env_name}
         # 收集所有需要 bind 的路径
         bind_paths = set()
         
-        # 1. 添加 DATA_PATH 中配置的路径
+        # 1. 添加 DATA_PATH 中配置的路径（跳过非字符串值，如 sample_rate）
         for path in DATA_PATH.get(tool_name, {}).values():
+            if not isinstance(path, str):
+                continue
             abs_path = os.path.expanduser(path)
             if os.path.isdir(abs_path):
                 bind_paths.add(abs_path)
@@ -145,19 +148,34 @@ conda activate {env_name}
             if parent_dir and os.path.isdir(parent_dir):
                 bind_paths.add(parent_dir)
         
-        # 提取命令中所有的绝对路径（以 /home 开头的），为其所在目录添加 bind
-        all_paths = re.findall(r'/home/[^\s>|]+', raw_cmd)
-        for path in all_paths:
-            # 尝试找到有效的目录
+        # 提取命令中所有绝对路径（带引号或裸路径），跳过标准系统目录
+        _SKIP_PREFIXES = ('/usr', '/bin', '/lib', '/etc', '/proc', '/sys',
+                          '/dev', '/run', '/tmp', '/var')
+        _quoted  = re.findall(r'"(/[^"]+)"', raw_cmd)
+        _unquoted = re.findall(r'(?<!\w)(/[^\s>|"\'\\]+)', raw_cmd)
+        for path in _quoted + _unquoted:
+            path = path.rstrip('.,;)')
+            if any(path.startswith(p) for p in _SKIP_PREFIXES):
+                continue
             check_path = path
             while check_path and check_path != '/':
-                if os.path.isdir(check_path):
+                if os.path.islink(check_path):
+                    # 绑定软链接所在目录，并递归解析目标路径也一起绑定
+                    parent = os.path.dirname(check_path)
+                    if parent:
+                        bind_paths.add(parent)
+                    real = os.path.realpath(check_path)
+                    if not any(real.startswith(p) for p in _SKIP_PREFIXES):
+                        if os.path.isfile(real):
+                            bind_paths.add(os.path.dirname(real))
+                        elif os.path.isdir(real):
+                            bind_paths.add(real)
+                    break
+                elif os.path.isdir(check_path):
                     bind_paths.add(check_path)
                     break
                 elif os.path.isfile(check_path):
-                    parent_dir = os.path.dirname(check_path)
-                    if parent_dir:
-                        bind_paths.add(parent_dir)
+                    bind_paths.add(os.path.dirname(check_path))
                     break
                 check_path = os.path.dirname(check_path)
         
@@ -166,16 +184,27 @@ conda activate {env_name}
         for bind_path in sorted(bind_paths):
             binds += f"--bind {bind_path}:{bind_path} "
 
-        # 封装逻辑：
-        # --nv: 开启 GPU 支持 (dorado 必备)
-        # --bind: 挂载数据目录，确保容器内外路径一致
+        # Write the inner command to a temp script so no shell quoting is needed
+        # when embedding it into the singularity exec call.  This avoids the
+        # incomplete escaping problem (backticks, $(), etc.) that arises when
+        # splicing raw_cmd into a -c "..." string.
+        tmp = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.sh', delete=False, prefix=f'{APP_SNAKE}_sing_',
+            dir=USER_HOME,
+        )
+        tmp.write(f"""#!/bin/bash
+export LD_LIBRARY_PATH={ld_library_path}:$LD_LIBRARY_PATH
+{raw_cmd}
+""")
+        tmp.close()
+        os.chmod(tmp.name, stat.S_IRWXU)
+        _TEMP_SCRIPTS.append(tmp.name)
+
         wrapped = (
-                f"singularity exec --nv "
-                f"--bind /usr/local/nvidia:/usr/local/nvidia "
-                + binds +
-                f"{image_path} /bin/bash -c \""
-                f"export LD_LIBRARY_PATH={ld_library_path}:\\$LD_LIBRARY_PATH && "
-                f"{raw_cmd}\""
+            f"singularity exec --nv "
+            f"--bind /usr/local/nvidia:/usr/local/nvidia "
+            + binds
+            + f"{shlex.quote(image_path)} bash {shlex.quote(tmp.name)}"
         )
         return wrapped
 

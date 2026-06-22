@@ -1,19 +1,44 @@
 
-LLM_SOURCE = "huggingface"
-LLM_NAME = "qwen3_14B"
-# LLM_NAME = "gemini_model"
+# ── Read API settings from secrets.py (gitignored) ────────────────────────────
+def _secret(name: str, default=""):
+    try:
+        import api_keys as _s
+        return getattr(_s, name, default) or default
+    except ImportError:
+        return default
+
+_api_key = _secret("LLM_API_KEY")
+
+# Auto-switch: local GPU when no API key, API mode when key is set.
+# To force local model even with a key set, change LLM_SOURCE manually.
+LLM_SOURCE = "api"        if _api_key else "huggingface"
+LLM_NAME   = "openai_compatible" if _api_key else "qwen3_14B"
 
 gemini_api = ""
 
+# OpenAI-compatible endpoint config — all values read from secrets.py.
+# Configure base_url, model, etc. there; never put keys in this file.
+# base_url examples:
+#   OpenAI:        https://api.openai.com/v1
+#   DeepSeek:      https://api.deepseek.com/v1
+#   SiliconFlow:   https://api.siliconflow.cn/v1
+#   Ollama:        http://localhost:11434/v1
+openai_compat_config = {
+    "base_url":   _secret("LLM_API_BASE_URL", "https://api.deepseek.com/v1"),
+    "api_key":    _api_key,
+    "model":      _secret("LLM_API_MODEL",    "deepseek-chat"),
+    "max_tokens": _secret("LLM_API_MAX_TOKENS", 8192),
+}
+
 llm_model_path = {
-    "qwen3_0_6B": "/ni_data/users/shengtao/model/qwen3-0.6b/models--Qwen--Qwen3-0.6B/snapshots/6130ef31402718485ca4d80a6234f70d9a4cf362/",
-    "qwen3_1_7B": "/ni_data/users/shengtao/model/qwen3-1.7b-ab/models--huihui-ai--Huihui-Qwen3-1.7B-abliterated-v2/snapshots/4462327af009cd482a6b308b67ec9b3a6eeb006a/",
-    "qwen3_8B": "/ni_data/users/shengtao/model/qwen3-8b",
-    "qwen3_14B": "/ni_data/users/shengtao/model/qwen3-14b/models--Qwen--Qwen3-14B/snapshots/40c069824f4251a91eefaf281ebe4c544efd3e18/",
-    "qwen35_27B": "/ni_data/users/shengtao/model/qwen3.5-27B/models--Qwen--Qwen3.5-27B/snapshots/b7ca741b86de18df552fd2cc952861e04621a4bd/",
+    "qwen3_0_6B":  "/path/to/qwen3-0.6b",
+    "qwen3_1_7B":  "/path/to/qwen3-1.7b",
+    "qwen3_8B":    "/path/to/qwen3-8b",
+    "qwen3_14B":   "/path/to/qwen3-14b",
+    "qwen35_27B":  "/path/to/qwen3.5-27b",
     "gemini_model": gemini_api,
-    "embedding": "/ni_data/users/shengtao/model/all-MiniLM-L6-v2",
-    "reranker": "/ni_data/users/shengtao/model/bge-reranker-base/models--BAAI--bge-reranker-base/snapshots/2cfc18c9415c912f9d8155881c133215df768a70/",
+    "embedding":   "/path/to/embedding-model",
+    "reranker":    "/path/to/reranker-model",
 }
 
 

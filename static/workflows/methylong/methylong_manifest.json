@@ -1,0 +1,16 @@
+{
+  "type": "nfcore",
+  "short_description": "Long-read methylation calling pipeline, supports ONT / PacBio.",
+  "description": "Methylong is a bioinformatics pipeline tailored for long-read methylation calling. This pipeline supports ONT or PacBio HiFi sequencing data, accepts basecalled BAM files or raw Pod5 reads, performs optional modification calling, read preprocessing, genome alignment, and methylation detection. Methylation outputs are provided in BED/BEDGRAPH format for downstream analysis including SNV calling, phasing, and DMR analysis.",
+  "input": "BAM/pod5 + reference genome FASTA",
+  "tools": ["dorado", "modkit", "samtools"],
+  "qa_keywords": [
+    "jasmine", "ccsmeth", "modbam", "pod5",
+    "dss", "modkit dmr", "dmr",
+    "singularity", "docker", "hpc",
+    "coverage cutoff", "coverage",
+    "haplotype", "phasing", "pb-cpg", "pbcpg",
+    "pileup", "bedmethyl", "bedgraph",
+    "igv", "visualization"
+  ]
+}

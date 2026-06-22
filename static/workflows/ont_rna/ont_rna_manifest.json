@@ -1,0 +1,7 @@
+{
+  "type": "local",
+  "short_description": "ONT direct-RNA modification local workflow (Dorado + modkit).",
+  "description": "A lightweight local workflow for ONT direct-RNA base modification detection. Requires RNA004 kit data. Runs Dorado basecalling then modkit pileup or extract. Supports m6A, m6A_DRACH, inosine_m6A_2OmeA, pseU, m5C, 2OmeG modification types.",
+  "input": "POD5 or modBAM (+ optional reference FASTA)",
+  "tools": ["dorado", "modkit"]
+}

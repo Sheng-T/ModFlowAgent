@@ -1,6 +1,8 @@
 import os
 import streamlit as st
 from configs.i18n_config import DEFAULT_LANG
+from configs.app_config import APP_DISPLAY, APP_SUBTITLE
+from utils.auth_cookie import restore_from_cookie, save_login_cookie
 
 
 def _load_css(filename: str) -> str:
@@ -11,7 +13,7 @@ def _load_css(filename: str) -> str:
 
 def render_login(store):
     """Render login page if not authenticated, then st.stop()."""
-    if st.session_state.get("user_id"):
+    if restore_from_cookie(store):
         return
 
     if "lang" not in st.session_state:
@@ -26,10 +28,10 @@ def render_login(store):
     with col:
         # brand header (pure HTML — renders reliably inside the column)
         st.markdown(
-            """
+            f"""
             <div class="brand-icon">🧬</div>
-            <div class="brand-title">Bio-Agent</div>
-            <div class="brand-sub">Intelligent Nanopore Sequencing Analysis Platform</div>
+            <div class="brand-title">{APP_DISPLAY}</div>
+            <div class="brand-sub">{APP_SUBTITLE}</div>
             <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:.8rem 0 1.4rem"/>
             """,
             unsafe_allow_html=True,
@@ -38,7 +40,7 @@ def render_login(store):
         with st.form("login_form", clear_on_submit=False):
             uid = st.text_input("Username", placeholder="Enter your username")
             pwd = st.text_input("Password", type="password", placeholder="Enter your password")
-            submitted = st.form_submit_button("Sign In", use_container_width=True)
+            submitted = st.form_submit_button("Sign In", width="stretch")
 
             if submitted:
                 if not uid.strip() or not pwd:
@@ -50,6 +52,7 @@ def render_login(store):
                     st.session_state.user_uid           = store.get_user_uid(uid.strip())
                     st.session_state.lang               = store.get_user_lang(uid.strip())
                     st.session_state.current_session_id = None
+                    save_login_cookie(uid.strip())
                     st.rerun()
 
         st.markdown(

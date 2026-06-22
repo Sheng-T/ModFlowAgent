@@ -16,6 +16,10 @@ def format_history(history: List[Dict[str, str]]) -> str:
 
 # utils/nodes_utils.py
 def build_command_for_call(call: dict, is_workflow: bool = False) -> str:
+    # Pre-built commands from deterministic step builders — return directly.
+    if "_prebuilt_cmd" in call:
+        return call["_prebuilt_cmd"]
+
     tool_name = call["tool_name"]
     tool_args = call["tool_args"]
     tool_name_array = tool_name.split("_")

@@ -1,9 +1,10 @@
 import os
 from typing import List
 
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_community.retrievers import BM25Retriever
-from langchain_community.document_loaders import UnstructuredMarkdownLoader
+
+
 
 # from langchain.text_splitter import MarkdownHeaderTextSplitter
 # from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -113,10 +114,10 @@ class EnhancedMDRAG:
 
         final_docs = []
 
-        loader = UnstructuredMarkdownLoader(self.doc_path)
-        raw_data = loader.load()
+        with open(self.doc_path, encoding="utf-8") as _f:
+            raw_text = _f.read()
 
-        header_splits = header_splitter.split_text(raw_data[0].page_content)
+        header_splits = header_splitter.split_text(raw_text)
 
         for i, parent in enumerate(header_splits):
 

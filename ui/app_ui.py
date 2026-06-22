@@ -1,5 +1,12 @@
 import sys
 import os
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="The default value of `allowed_objects` will change",
+    category=DeprecationWarning,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -10,19 +17,26 @@ from agent_graph.graph import create_agent_graph
 from storage.session_store import get_session_store
 from storage.file_manager import get_file_manager
 from configs.auth_config import DEFAULT_USERS
+from configs.app_config import APP_DISPLAY, APP_PASCAL
 from utils.i18n import _
+from utils.file_server import start_file_server
+from configs.runtime_config import FILE_SERVER_PORT
 
 from ui.login   import render_login
 from ui.sidebar import render_sidebar, switch_session
 from ui.chat    import (
     render_history, render_mode_selector,
     run_first_segment, render_review, run_second_segment,
+    render_workflow_selector, run_workflow_select_segment,
+    render_local_prereq_reviewer, run_local_prereq_review_segment,
     render_prereq_reviewer, run_prereq_review_segment,
     render_module_selector, run_module_select_segment,
+    render_completed_if_disconnected,
+    render_worker_poller, render_worker_reconnect,
 )
 
 # streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
-st.set_page_config(page_title="Bio-Agent", page_icon="🧬", layout="wide")
+st.set_page_config(page_title=APP_DISPLAY, page_icon="🧬", layout="wide")
 
 store = get_session_store()
 if "default_users_seeded" not in st.session_state:
@@ -35,6 +49,7 @@ render_login(store)
 user_id  = st.session_state.user_id
 user_uid = st.session_state.get("user_uid") or store.get_user_uid(user_id)
 fm       = get_file_manager()
+start_file_server(fm.root, FILE_SERVER_PORT)
 
 # ── 初始化会话（首次进入或切换用户后）────────────────────────────────────────
 if not st.session_state.get("current_session_id"):
@@ -52,7 +67,7 @@ if not st.session_state.get("current_session_id"):
 render_sidebar(store, fm, user_id, user_uid)
 
 # ── 主区域 ────────────────────────────────────────────────────────────────────
-st.title(_("🧬 Bio-Agent Analytics Platform"))
+st.title(_(f"🧬 {APP_DISPLAY} Analytics Platform"))
 st.markdown("---")
 
 current_session_id = st.session_state.current_session_id
@@ -62,13 +77,19 @@ current_messages   = store.get_messages(current_session_id)
 
 @st.cache_resource
 def load_agent():
-    return create_agent_graph("BioAgent")
+    return create_agent_graph(APP_PASCAL)
 
 
 with st.spinner(_("Loading model...")):
     app = load_agent()
 
 render_history(current_messages)
+render_completed_if_disconnected(app, store, current_session_id, current_session)
+
+# ── 后台 worker 恢复 & 轮询 ───────────────────────────────────────────────────
+_session_dir = fm.session_dir(user_uid, current_session_id) if current_session_id else ""
+render_worker_reconnect(store, current_session_id, _session_dir)
+render_worker_poller(store, current_session_id)
 
 
 # ── 初始化执行状态 ─────────────────────────────────────────────────────────────
@@ -92,7 +113,7 @@ for k, v in defaults.items():
 # ── 用户输入（后台任务运行时禁用）────────────────────────────────────────────
 _task_running = bool(st.session_state.get("_agent_bg_result"))
 if prompt := st.chat_input(_("Enter your analysis instruction..."), disabled=_task_running):
-    st.session_state.pending_prompt   = prompt
+    st.session_state.pending_prompt   = prompt.strip()
     st.session_state.ui_mode          = None
     st.session_state.waiting_for_mode = True
     st.session_state.waiting_review     = False
@@ -106,6 +127,10 @@ if prompt := st.chat_input(_("Enter your analysis instruction..."), disabled=_ta
 # ── 执行流程 ──────────────────────────────────────────────────────────────────
 render_mode_selector()
 run_first_segment(app, store, fm, user_uid, current_session_id, current_session)
+render_workflow_selector(app)
+run_workflow_select_segment(app, store, fm, user_uid, current_session_id)
+render_local_prereq_reviewer(app)
+run_local_prereq_review_segment(app, store, fm, user_uid, current_session_id)
 render_prereq_reviewer(app)
 run_prereq_review_segment(app, store, fm, user_uid, current_session_id)
 render_review(app)

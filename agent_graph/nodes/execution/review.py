@@ -10,7 +10,7 @@ def review_execution_plan_node(state: AgentState) -> dict:
     tool_calls    = state.get("tool_calls", [])
     pre_files     = state.get("pre_files", [])
     user_feedback = state.get("user_feedback", "")
-    is_workflow   = state.get("is_workflow", False)
+    is_workflow   = state.get("workflow_type", "") == "nfcore"
     pending_commands = []
 
     if user_feedback:

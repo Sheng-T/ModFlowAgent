@@ -11,3 +11,4 @@ headless = true
 maxUploadSize = 10240
 address='0.0.0.0'
 port=50027
+sessionExpirationTimeout = 86400

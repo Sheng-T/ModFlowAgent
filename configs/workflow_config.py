@@ -1,6 +1,8 @@
+# Set true on air-gapped servers where Nextflow plugins must be pre-cached
+NEXTFLOW_OFFLINE = True
+
 DEFAULT_WORKFLOW_ARGS = {
     "profile": "singularity",
-    "extra_args": "-resume -with-report -with-trace -with-timeline",
 }
 
 # nf-core 资源上限，防止单个 process 申请超出机器实际可用量。
@@ -14,26 +16,37 @@ MAX_WORKFLOW_RESOURCES = {
 
 REQUIRED_FIELDS = ["pipeline", "input", "outdir"]
 
-SUPPORTED_PIPELINES = [
-    "methylong",
-]
+# Auto-generated from static/workflows/<name>/<name>_manifest.json
+def _build_pipeline_lists():
+    try:
+        from configs.rag_config import WORKFLOW_MANIFESTS
+    except ImportError:
+        return [], [], []
+    supported, nfcore_descs, local_descs = [], [], []
+    for name, m in WORKFLOW_MANIFESTS.items():
+        wf_type = m.get("type", "")
+        entry = {
+            "name": name,
+            "short_description": m.get("short_description", ""),
+            "description": m.get("description", ""),
+            "input": m.get("input", ""),
+        }
+        if wf_type == "nfcore":
+            supported.append(name)
+            nfcore_descs.append(entry)
+        elif wf_type == "local":
+            local_descs.append(entry)
+    return supported, nfcore_descs, local_descs
 
-# 流水线的用户可见描述，供 UI 展示
-PIPELINE_DESCRIPTIONS = [
-    {
-        "name": "methylong",
-        "short_description": "Long-read methylation calling pipeline, supports ONT / PacBio.",
-        "description": "Methylong is a bioinformatics pipeline tailored for long-read methylation calling. "
-            "This pipeline supports ONT or PacBio HiFi sequencing data, accepts basecalled BAM files or raw Pod5 reads, "
-            "performs optional modification calling, read preprocessing, genome alignment, and methylation detection. "
-            "Methylation outputs are provided in BED/BEDGRAPH format for downstream analysis including SNV calling, phasing, and DMR analysis.",
-        "input": "BAM/pod5 + reference genome FASTA"
-    }
-]
+SUPPORTED_PIPELINES, PIPELINE_DESCRIPTIONS, LOCAL_PIPELINE_DESCRIPTIONS = _build_pipeline_lists()
 
 
 def pipeline_exists(name: str) -> bool:
-    return str(name).lower() in SUPPORTED_PIPELINES
+    try:
+        from configs.rag_config import WORKFLOW_PIPELINE_DOCS
+        return str(name).lower() in WORKFLOW_PIPELINE_DOCS
+    except Exception:
+        return str(name).lower() in SUPPORTED_PIPELINES
 
 
 

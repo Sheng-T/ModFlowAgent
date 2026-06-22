@@ -67,13 +67,157 @@ def execute_commands_node(state: AgentState) -> dict:
     next_node = "summarizer"
     tool_output = []
 
-    is_workflow = state.get("is_workflow", False)
+    workflow_type = state.get("workflow_type", "")
+    is_local_workflow = workflow_type == "local"
+    is_workflow = workflow_type == "nfcore"
     pending_commands = state.get("pending_commands", [])
 
     def _msg(en: str, zh: str) -> str:
         return en if lang == "en_US" else zh
 
-    if is_workflow:
+    if is_local_workflow:
+        # ── 本地工作流：校验参数，写 job.json，派生独立 worker 进程后立即返回 ────
+        # Worker 进程与 Streamlit 会话解耦，浏览器断连不影响流水线运行。
+        import json as _json
+        import sys as _sys
+        import subprocess as _sp
+        from utils.run_tracker import write_status as _write_status
+
+        run_dir = state.get("run_dir") or get_session_dir() or ""
+        if run_dir:
+            os.makedirs(run_dir, exist_ok=True)
+
+        ui_print("[PROGRESS_INIT] total=" + str(len(tool_calls))
+                 + " steps=" + ",".join(c["tool_name"] for c in tool_calls))
+
+        job_steps: list[dict] = []
+        validation_failed = False
+
+        for i, call in enumerate(tool_calls):
+            tool_name = call["tool_name"]
+            base_name = call.get("_base_tool") or tool_name.split("_")[0]
+
+            step_dir = os.path.join(run_dir, f"step{i + 1:02d}_{tool_name}") if run_dir else run_dir
+            if step_dir:
+                os.makedirs(step_dir, exist_ok=True)
+
+            raw_cmd = (
+                pending_commands[i]
+                if i < len(pending_commands)
+                else build_command_for_call(call, is_workflow=False)
+            )
+
+            if "error" in raw_cmd.lower():
+                history.append({"role": "assistant", "content": _msg(
+                    f"Pre-validation failed for step {i+1} ({tool_name}): {raw_cmd}",
+                    f"步骤 {i+1} ({tool_name}) 预校验失败: {raw_cmd}",
+                )})
+                next_node = "param_generator"
+                validation_failed = True
+                break
+
+            # Wrap the command (Singularity / conda / plain) for this step
+            final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=False, cwd=step_dir or run_dir)
+
+            # Write a durable shell script inside step_dir so the worker can run
+            # it independently of any temp files created by wrap_command.
+            cmd_script = os.path.join(step_dir, "_run.sh")
+            with open(cmd_script, "w", encoding="utf-8") as _sf:
+                _sf.write("#!/bin/bash\n")
+                _sf.write(final_cmd + "\n")
+            os.chmod(cmd_script, 0o755)
+
+            job_steps.append({
+                "tool_name":  tool_name,
+                "cmd_script": cmd_script,
+                "step_dir":   step_dir,
+            })
+
+        if not validation_failed:
+            session_dir   = get_session_dir() or ""
+            workflow_name = (state.get("selected_workflow")
+                             or (tool_calls[0].get("tool_name", "workflow") if tool_calls else "workflow"))
+
+            # Write job descriptor
+            job_data = {
+                "run_dir":       run_dir,
+                "session_dir":   session_dir,
+                "workflow_name": workflow_name,
+                "workflow_type": "local",
+                "lang":          lang,
+                "prereq_params": state.get("local_prereq_params", {}),
+                "steps":         job_steps,
+            }
+            job_path = os.path.join(run_dir, "job.json")
+            with open(job_path, "w", encoding="utf-8") as _jf:
+                _json.dump(job_data, _jf, ensure_ascii=False)
+
+            # Write initial pending status (worker will overwrite to "running" immediately)
+            _write_status(run_dir, {
+                "status":             "pending",
+                "pid":                None,
+                "workflow_name":      workflow_name,
+                "question":           state.get("input", ""),
+                "started_at":         None,
+                "finished_at":        None,
+                "current_step":       None,
+                "current_step_index": 0,
+                "total_steps":        len(job_steps),
+                "zip_path":           None,
+                "analysis_images":    [],
+                "text_summary":       "",
+                "warnings":           [],
+                "error":              None,
+            })
+
+            # Spawn detached worker — survives Streamlit session death
+            # runner.py: agent_graph/nodes/execution/ → ../../.. → 项目根
+            _proj_root     = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            _worker_script = os.path.join(_proj_root, "worker", "pipeline_worker.py")
+            with (open(os.path.join(run_dir, "worker_stdout.log"), "w") as _stdout_log,
+                  open(os.path.join(run_dir, "worker_stderr.log"), "w") as _stderr_log):
+                _sp.Popen(
+                    [_sys.executable, _worker_script, run_dir],
+                    start_new_session=True,
+                    stdin=_sp.DEVNULL,
+                    stdout=_stdout_log,
+                    stderr=_stderr_log,
+                )
+                # Popen duplicates the fds; closing Python handles here is safe
+            ui_print(f"[Executor] Detached worker spawned → run_dir={run_dir}")
+            # Emit a special marker so the UI poller can start watching this run_dir
+            ui_print(f"[WORKER_STARTED] run_dir={run_dir}")
+
+            history.append({"role": "assistant", "content": _msg(
+                f"Pipeline submitted in background ({len(job_steps)} steps). "
+                "You can close the browser — results will be saved automatically when complete.",
+                f"流水线已在后台提交（共 {len(job_steps)} 步）。"
+                "可以关闭浏览器，运行完成后结果将自动保存。",
+            )})
+
+    elif is_workflow:
+        import datetime as _dt
+        from utils.run_tracker import write_status as _write_status
+
+        _nf_run_dir  = state.get("run_dir") or ""
+        _nf_workflow = (state.get("selected_workflow")
+                        or (tool_calls[0].get("tool_name", "workflow") if tool_calls else "workflow"))
+        _nf_started  = _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+        if _nf_run_dir:
+            _write_status(_nf_run_dir, {
+                "status":        "running",
+                "pid":           os.getpid(),
+                "workflow_name": _nf_workflow,
+                "question":      state.get("input", ""),
+                "started_at":    _nf_started,
+                "finished_at":   None,
+                "error":         None,
+            })
+
+        _nf_failed = False
+        _nf_error  = None
+
         for raw_cmd in pending_commands:
             if "error" in raw_cmd.lower():
                 history.append({"role": "assistant", "content": _msg(
@@ -81,10 +225,12 @@ def execute_commands_node(state: AgentState) -> dict:
                     f"系统拦截预校验失败: {raw_cmd}",
                 )})
                 next_node = "param_generator"
+                _nf_failed = True
+                _nf_error  = raw_cmd
                 break
 
             ui_print(f"\n[Executor] Running: {raw_cmd}")
-            run_dir = state.get("run_dir") or ""
+            run_dir = _nf_run_dir or ""
             final_cmd = wrapper.wrap_command("workflow", raw_cmd, is_workflow=True,
                                              cwd=run_dir)
             resp = executor.run(final_cmd)
@@ -99,6 +245,8 @@ def execute_commands_node(state: AgentState) -> dict:
             else:
                 next_node = "param_generator"
                 error_log = _format_error(resp)
+                _nf_failed = True
+                _nf_error  = error_log
                 ui_print(f"\n[Executor] Failed:\n{error_log}")
                 history.append({"role": "assistant", "content": _msg(
                     f"Execution failed:\n{error_log}\nI will correct the parameters.",
@@ -107,6 +255,17 @@ def execute_commands_node(state: AgentState) -> dict:
                 # [DEBUG] 注释掉清理逻辑，保留 work 目录用于调试
                 # _cleanup_run_dir(state.get("run_dir") or "")
                 break
+
+        if _nf_run_dir:
+            _write_status(_nf_run_dir, {
+                "status":        "failed" if _nf_failed else "completed",
+                "pid":           os.getpid(),
+                "workflow_name": _nf_workflow,
+                "question":      state.get("input", ""),
+                "started_at":    _nf_started,
+                "finished_at":   _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "error":         _nf_error,
+            })
     else:
         pre_files = state.get("pre_files", [])
         if pre_files:
@@ -166,10 +325,10 @@ def execute_commands_node(state: AgentState) -> dict:
             # _cleanup_run_dir(state.get("run_dir") or "")
             break
 
-    # 成功路径不在此处移动文件：summarize 节点完成分析后统一移动并清理 run_dir
-    # workflow 模式下 nextflow 进程是同步等待完成后才返回，脚本已用完可以清理
-    # 但 workflow 脚本在 Popen.wait() 返回时已执行完毕，安全清理
-    cleanup_temp_scripts()
+    # 本地工作流已派生独立 worker，临时脚本需保留直到 worker 使用完毕（atexit 负责最终清理）
+    # 其他路径可以立即清理
+    if not (is_local_workflow and next_node == "summarizer"):
+        cleanup_temp_scripts()
     return {
         "chat_history": history,
         "next_node": next_node,

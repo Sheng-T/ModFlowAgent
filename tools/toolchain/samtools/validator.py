@@ -23,6 +23,13 @@ def samtools(subcommand, subcommand_str, args_dict, data_path):
         }
 
         arg_str = build_shell_args(new_args)
+    elif subcommand == "index":
+        # samtools index <bam> — output .bai is written alongside the input bam
+        if pos_args:
+            bam_name = os.path.basename(pos_args[0])
+            pos_args[0] = os.path.join(data_dir, bam_name)
+        new_args = {"pos_args": pos_args, "kwargs": deduplicate_kwargs(kwargs)}
+        arg_str = build_shell_args(new_args)
     else:
         arg_str = build_shell_args(args_dict)
     return f"samtools {subcommand_str} {arg_str}"

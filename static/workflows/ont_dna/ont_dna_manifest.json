@@ -1,0 +1,7 @@
+{
+  "type": "local",
+  "short_description": "ONT DNA modification local workflow (Dorado + modkit).",
+  "description": "A lightweight local workflow for ONT DNA base modification detection. Runs Dorado basecalling (if POD5 input) then modkit pileup (site-level, requires reference) or modkit extract (read-level, no reference needed). Supports 5mCG_5hmCG (default), 5mC_5hmC, 6mA, 4mC_5mC modification types. Input: POD5 or modBAM. Does NOT support FASTQ. Unlike methylong, this workflow does not include SNV calling, phasing, or DMR analysis.",
+  "input": "POD5 or modBAM (+ optional reference FASTA)",
+  "tools": ["dorado", "modkit", "samtools"]
+}

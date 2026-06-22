@@ -1,9 +1,11 @@
 # Minimal runtime/development dependencies (adjust versions as needed)
+extra-streamlit-components>=0.1.60
 requests
 beautifulsoup4
 ddgs
 langchain-core
 langchain
+langchain-chroma
 langgraph
 langgraph-checkpoint-sqlite
 pydantic

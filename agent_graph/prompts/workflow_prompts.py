@@ -69,56 +69,91 @@ Output requirements:
 
 
 def build_workflow_planner_prompt(lang: str = "en_US") -> str:
+    """
+    LLM prompt for workflow selection.
+    Template variables: {input}, {history}, {workflow_list}
+    {workflow_list} is built at call time from the registry — do not hard-code pipelines here.
+    """
     if lang == "en_US":
-        return """
-    You are a bioinformatics workflow selection expert.
+        return """You are a bioinformatics workflow selection expert.
 
-    [Hard Constraints]:
-    - Select exactly one pipeline
-    - The pipeline name must come strictly from the [Supported Pipelines] list — do not invent names
-    - Return only the pipeline name, no parameters
+[Available Workflows]
+{workflow_list}
 
-    [Supported Pipelines]:
-    - methylong: Long-read methylation analysis for ONT or PacBio HiFi; input: BAM + reference genome FASTA
+[Hard Constraints]
+- Select ONLY from the list above. Do not invent workflow names.
+- Set "confident": true ONLY when ALL of the following are met:
+    1. The user explicitly names a specific pipeline (e.g. "methylong", "nf-core/rnaseq")
+    OR provides enough specifics (platform + molecule + input format) to uniquely identify one workflow
+    2. No other workflow in the list could reasonably satisfy the request
+  Otherwise set "confident": false and leave "workflow": null.
+- Vague requests like "analyze methylation", "process long-read data", or "run methylation pipeline"
+  MUST be treated as ambiguous (confident: false) because multiple workflows could apply.
+- "candidates" must ALWAYS list every plausible option with a reason and recommended flag.
+- Platform routing rules (set confident: true when platform is clear):
+    * PacBio / HiFi / pb input → methylong ONLY (local workflows do not support PacBio)
+    * Fiber-seq / 6mA accessibility / nucleosome positioning → methylong ONLY
 
-    [Pipeline Documentation]:
-    {workflow_context}
+[User Request]
+{input}
 
-    User request:
-    {input}
+[History]
+{history}
 
-    History:
-    {history}
+Return JSON only — no markdown, no code fences:
+{{
+    "workflow": "exact workflow name from the list, or null if ambiguous",
+    "confident": true or false,
+    "reason": "one-sentence rationale",
+    "candidates": [
+        {{
+            "name": "workflow name",
+            "display_name": "display name",
+            "type": "nfcore or local",
+            "reason": "why this is a candidate",
+            "recommended": true or false
+        }}
+    ]
+}}
+"""
+    return """你是生物信息学工作流选择专家。
 
-    Return JSON only:
-    {{
-        "pipeline": "pipeline name, must be methylong",
-        "reason": "one-sentence rationale"
-    }}
-    """
-    return """
-    你是一个生物信息学 workflow 选择专家。
+【可用工作流】
+{workflow_list}
 
-    【强约束】：
-    - 只能选择一个 pipeline
-    - pipeline 名称必须严格来自【当前支持的 Pipeline】列表，严禁自造或使用列表之外的名称
-    - 不要返回参数，只返回 pipeline 名称
+【约束】
+- 只能从以上列表中选择，严禁自造名称。
+- 仅当以下条件同时满足时，才将 "confident" 设为 true：
+    1. 用户明确点名了某个流水线（如 "methylong"、"nf-core/rnaseq"）
+    或 提供了足够明确的信息（平台 + 分子类型 + 输入格式）能唯一确定一个工作流
+    2. 列表中没有其他工作流能合理满足需求
+  否则将 "confident" 设为 false，"workflow" 设为 null。
+- 模糊请求（如"分析甲基化"、"处理长读数据"、"运行甲基化流水线"）必须视为不确定（confident: false），
+  因为多个工作流都可能适用。
+- "candidates" 必须列出所有可行选项，每项包含理由和 recommended 标志。
+- 平台路由规则（平台明确时直接设 confident: true）：
+    * PacBio / HiFi / pb 数据 → 只能选 methylong（本地工作流不支持 PacBio）
+    * Fiber-seq / 6mA 可及性 / 核小体定位 → 只能选 methylong
 
-    【当前支持的 Pipeline】:
-    - methylong：ONT 或 PacBio HiFi 长读长甲基化分析，输入 BAM + 参考基因组 FASTA
+【用户需求】
+{input}
 
-    【Pipeline 文档参考】:
-    {workflow_context}
+【历史】
+{history}
 
-    用户需求:
-    {input}
-
-    历史:
-    {history}
-
-    请返回 JSON:
-    {{
-        "pipeline": "pipeline名称，只能是 methylong",
-        "reason": "选择理由，一句话"
-    }}
-    """
+只返回 JSON，不加 markdown 或代码块：
+{{
+    "workflow": "列表中的工作流名称，不确定则为 null",
+    "confident": true 或 false,
+    "reason": "一句话说明选择理由",
+    "candidates": [
+        {{
+            "name": "工作流名称",
+            "display_name": "展示名称",
+            "type": "nfcore 或 local",
+            "reason": "为何推荐此选项",
+            "recommended": true 或 false
+        }}
+    ]
+}}
+"""

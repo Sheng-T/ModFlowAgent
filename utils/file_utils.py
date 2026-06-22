@@ -180,7 +180,7 @@ if __name__ == "__main__":
     # crawl_docs(target_url, target_dir)
 
     html2md(
-        input_dir="/home/buguai/project/agent/static/fastqc/html",
-        output_file="/home/buguai/project/agent/static/fastqc/fastqc_doc.md",
+        input_dir="/home/buguai/project/agent/static/modkit/html",
+        output_file="/home/buguai/project/agent/static/modkit/modkit_doc.md",
         title="Fastqc Document"
     )

@@ -3,10 +3,13 @@ Workflow analyzer registry — maps workflow name → WorkflowAnalyzer instance.
 Add a new entry here when adding a new workflow-specific analyzer.
 Workflows not listed fall back to the generic MultiQC-only summary.
 """
-from tools.analyzers.workflow.methylong import MethylongAnalyzer
+from tools.analyzers.workflow.local import OntRnaAnalyzer, OntDnaAnalyzer
+from tools.analyzers.workflow.nf import MethylongAnalyzer
 
 WORKFLOW_ANALYZER_REGISTRY: dict = {
     "methylong": MethylongAnalyzer(),
+    "ont_rna":   OntRnaAnalyzer(),
+    "ont_dna":   OntDnaAnalyzer(),
 }
 
 

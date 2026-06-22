@@ -5,7 +5,7 @@ from tools.toolchain.dorado.validator   import dorado
 from tools.toolchain.samtools.validator import samtools
 from tools.toolchain.modkit.validator   import modkit
 from tools.toolchain.fastqc.validator   import fastqc
-from tools.workflow.methylong.validator import methylong
+from tools.workflow.nf.methylong.validator import methylong
 from tools.toolchain.command_builder    import build_shell_args
 from tools.workflow.command_builder     import build_workflow_command
 

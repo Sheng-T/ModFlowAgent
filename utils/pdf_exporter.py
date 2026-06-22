@@ -3,6 +3,7 @@ Generate a PDF report from a Markdown string and optional image files.
 Requires: pip install fpdf2
 """
 import os
+from configs.app_config import APP_DISPLAY
 import re
 from datetime import datetime
 from fpdf import FPDF
@@ -29,6 +30,36 @@ def _has_cjk(text: str) -> bool:
     return any("\u4e00" <= c <= "\u9fff" for c in text)
 
 
+# Characters not in Latin-1 (ISO 8859-1) that commonly appear in LLM output
+_LATIN1_SUBS: dict[str, str] = {
+    "\u2018": "'",  # left single quotation mark
+    "\u2019": "'",  # right single quotation mark
+    "\u201c": '"',  # left double quotation mark
+    "\u201d": '"',  # right double quotation mark
+    "\u2013": "-",  # en dash
+    "\u2014": "--", # em dash
+    "\u2026": "...",# horizontal ellipsis
+    "\u00b7": ".",  # middle dot
+    "\u2022": "*",  # bullet point \u2022
+    "\u2023": ">",  # triangular bullet
+    "\u25cf": "*",  # black circle
+    "\u25e6": "*",  # white bullet
+    "\u2010": "-",  # hyphen
+    "\u2212": "-",  # minus sign
+    "\u00d7": "x",  # multiplication sign
+    "\u00b0": "deg",# degree sign
+    "\u03b1": "alpha", "\u03b2": "beta", "\u03b3": "gamma",
+}
+
+
+def _sanitize_latin1(text: str) -> str:
+    """Replace common non-Latin-1 characters so Helvetica can render them."""
+    for src, dst in _LATIN1_SUBS.items():
+        text = text.replace(src, dst)
+    # Drop any remaining non-Latin-1 characters
+    return text.encode("latin-1", errors="ignore").decode("latin-1")
+
+
 def _strip_emoji(text: str) -> str:
     """Remove emoji characters that standard PDF fonts cannot render."""
     return re.sub(
@@ -46,11 +77,16 @@ class _ReportPDF(FPDF):
     def __init__(self, lang: str = "en_US"):
         super().__init__()
         self._lang = lang
+        self._body_font = "Helvetica"  # updated after font setup in generate_report_pdf
 
     def header(self):
-        self.set_font("Helvetica", "B", 9)
+        font = self._body_font
+        self.set_font(font, "B", 9)
         self.set_text_color(76, 139, 245)
-        label = "Bio-Agent Analysis Report" if self._lang == "en_US" else "Bio-Agent 分析报告"
+        if self._lang == "en_US":
+            label = f"{APP_DISPLAY} Analysis Report"
+        else:
+            label = _sanitize_latin1(f"{APP_DISPLAY} Analysis Report") if font == "Helvetica" else f"{APP_DISPLAY} 分析报告"
         self.cell(0, 7, label, align="R")
         self.ln(2)
         self.set_draw_color(76, 139, 245)
@@ -88,6 +124,8 @@ def _render_markdown(pdf: _ReportPDF, text: str, font: str) -> None:
             continue
 
         stripped = _strip_emoji(line)
+        if font == "Helvetica":
+            stripped = _sanitize_latin1(stripped)
 
         if line.startswith("### "):
             pdf.set_font(font, "B", 11)
@@ -183,12 +221,16 @@ def generate_report_pdf(
                 font = "CJK"
             except Exception:
                 pass
+    pdf._body_font = font  # make available to header()
 
     # ── title block ───────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_font(font, "B", 18)
     pdf.set_text_color(30, 30, 30)
     title = "Analysis Report" if lang == "en_US" else "分析报告"
-    pdf.cell(0, 12, f"Bio-Agent  {title}", ln=True)
+    title_text = f"{APP_DISPLAY}  {title}"
+    if font == "Helvetica":
+        title_text = _sanitize_latin1(title_text)
+    pdf.cell(0, 12, title_text, ln=True)
 
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(130, 130, 130)
@@ -207,7 +249,7 @@ def generate_report_pdf(
     valid_imgs = [p for p in (image_paths or []) if os.path.isfile(p)]
     if valid_imgs:
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_font(font, "B", 13)
         pdf.set_text_color(30, 30, 30)
         section = "Analysis Charts" if lang == "en_US" else "分析图表"
         pdf.cell(0, 10, section, ln=True)

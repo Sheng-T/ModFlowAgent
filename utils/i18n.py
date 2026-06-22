@@ -12,6 +12,7 @@ Strategy:
 """
 
 from configs.i18n_config import DEFAULT_LANG
+from configs.app_config import APP_DISPLAY
 
 # ── Translation table ─────────────────────────────────────────────────────────
 # key = English source string, value = translated string
@@ -41,9 +42,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "🗑 Clear session files":            "🗑 清空当前会话文件",
         "Storage by session":                "各会话占用",
         "current":                           "当前",
+        "Uploads":                           "上传文件",
+        "Run products":                      "运行产物",
+        "🗑 Clean run products":             "🗑 清理运行产物",
+        "🗑 Clean all run products":         "🗑 清理全部运行产物",
+        "Local Workflows":                   "本地流水线",
 
         # ── Main area ──────────────────────────────────────────────────────
-        "🧬 Bio-Agent Analytics Platform":   "🧬 Bio-Agent 智能分析平台",
+        f"🧬 {APP_DISPLAY} Analytics Platform":   f"🧬 {APP_DISPLAY} 智能分析平台",
         "Loading model...":                  "正在加载模型...",
         "Enter your analysis instruction...": "请输入你的分析指令...",
 

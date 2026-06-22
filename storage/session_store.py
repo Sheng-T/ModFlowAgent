@@ -17,6 +17,7 @@ import hmac
 import os
 import secrets
 import sqlite3
+import threading
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -46,7 +47,7 @@ class SessionStore:
     def __init__(self, db_path: str):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._db_path = db_path
-        self._conn = self._new_conn()
+        self._local = threading.local()  # per-thread connection storage
         self._init_tables()
 
     def _new_conn(self) -> sqlite3.Connection:
@@ -56,10 +57,19 @@ class SessionStore:
         conn.execute("PRAGMA busy_timeout=5000")  # 锁等待最多 5s，减少并发冲突
         return conn
 
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """Return this thread's connection, creating one on first access."""
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = self._new_conn()
+        return self._local.conn
+
     def close(self):
-        """显式关闭数据库连接。"""
+        """关闭当前线程的数据库连接。"""
         try:
-            self._conn.close()
+            if hasattr(self._local, "conn") and self._local.conn is not None:
+                self._local.conn.close()
+                self._local.conn = None
         except Exception:
             pass
 
@@ -67,12 +77,13 @@ class SessionStore:
         self.close()
 
     def _reconnect(self):
-        """连接失效时重建。"""
+        """当前线程连接失效时重建。"""
         try:
-            self._conn.close()
+            if hasattr(self._local, "conn") and self._local.conn is not None:
+                self._local.conn.close()
         except Exception:
             pass
-        self._conn = self._new_conn()
+        self._local.conn = self._new_conn()
 
     def _init_tables(self):
         """创建表 + 安全迁移 uid 列"""
@@ -122,11 +133,17 @@ class SessionStore:
 
         # 保险起见：再次确保所有用户都有 uid
         self._conn.execute("""
-            UPDATE users 
-            SET uid = rowid 
+            UPDATE users
+            SET uid = rowid
             WHERE uid IS NULL OR uid = 0
         """)
         self._conn.commit()
+
+        try:
+            self._conn.execute("SELECT metadata FROM messages LIMIT 1")
+        except sqlite3.OperationalError:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN metadata TEXT DEFAULT ''")
+            self._conn.commit()
 
     # ── User ──────────────────────────────────────────────────────────────────
 
@@ -206,10 +223,11 @@ class SessionStore:
         self._conn.commit()
 
     def get_user_lang(self, user_name: str) -> str:
+        from configs.i18n_config import DEFAULT_LANG
         row = self._conn.execute(
             "SELECT lang FROM users WHERE user_name=?", (user_name,)
         ).fetchone()
-        return row["lang"] if row and row["lang"] else "zh_CN"
+        return row["lang"] if row and row["lang"] else DEFAULT_LANG
 
     def set_user_lang(self, user_name: str, lang: str):
         self._conn.execute(
@@ -267,12 +285,15 @@ class SessionStore:
 
     # ── Messages ──────────────────────────────────────────────────────────────
 
-    def append_message(self, session_id: str, role: str, content: str, thinking: str = ""):
+    def append_message(self, session_id: str, role: str, content: str,
+                       thinking: str = "", metadata: dict = None):
+        import json
+        meta_str = json.dumps(metadata, ensure_ascii=False) if metadata else ""
         for attempt in range(2):
             try:
                 self._conn.execute(
-                    "INSERT INTO messages (session_id, role, content, thinking) VALUES (?,?,?,?)",
-                    (session_id, role, content, thinking),
+                    "INSERT INTO messages (session_id, role, content, thinking, metadata) VALUES (?,?,?,?,?)",
+                    (session_id, role, content, thinking, meta_str),
                 )
                 self._conn.commit()
                 return
@@ -284,12 +305,18 @@ class SessionStore:
                     raise
 
     def get_messages(self, session_id: str) -> List[Dict]:
+        import json
         rows = self._conn.execute(
-            "SELECT role, content, thinking FROM messages "
+            "SELECT role, content, thinking, metadata FROM messages "
             "WHERE session_id=? ORDER BY id",
             (session_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["metadata"] = json.loads(d["metadata"]) if d.get("metadata") else {}
+            result.append(d)
+        return result
 
     def message_count(self, session_id: str) -> int:
         row = self._conn.execute(

@@ -84,7 +84,10 @@ class FileManager:
     def _save_file_locked(self, uid: int, session_id: str, filename: str, data) -> str:
         """save_file 的实际实现，调用前须持有用户锁。"""
         usage = self.get_usage(uid)
-        dest = os.path.join(self.session_dir(uid, session_id), filename)
+        safe_name = os.path.basename(filename)
+        if not safe_name:
+            raise ValueError(f"Invalid filename: {filename!r}")
+        dest = os.path.join(self.session_dir(uid, session_id), safe_name)
 
         if isinstance(data, (bytes, bytearray)):
             if usage["total_bytes"] + len(data) > self.quota:
@@ -150,7 +153,7 @@ class FileManager:
     # ── 删除 ──────────────────────────────────────────────────────────────────
 
     def delete_file(self, uid: int, session_id: str, filename: str) -> bool:
-        fp = os.path.join(self.user_dir(uid), session_id, filename)
+        fp = os.path.join(self.user_dir(uid), session_id, os.path.basename(filename))
         if os.path.isfile(fp):
             os.remove(fp)
             return True
@@ -170,6 +173,34 @@ class FileManager:
         for entry in os.scandir(sdir):
             if entry.is_dir() and entry.name.startswith("run_"):
                 shutil.rmtree(entry.path, ignore_errors=True)
+
+    def get_session_breakdown(self, uid: int, session_id: str) -> Dict:
+        """
+        返回会话存储分类统计：
+        {
+          "upload_bytes": int,   # 直接在 session_dir 下的文件（用户上传）
+          "run_bytes":    int,   # run_* 子目录（流水线产物）
+          "run_dirs":     [{"name": str, "size": int}],
+        }
+        """
+        sdir = os.path.join(self.user_dir(uid), session_id)
+        if not os.path.isdir(sdir):
+            return {"upload_bytes": 0, "run_bytes": 0, "run_dirs": []}
+
+        upload_bytes = 0
+        run_bytes    = 0
+        run_dirs: list = []
+
+        for entry in os.scandir(sdir):
+            if entry.is_file(follow_symlinks=False):
+                upload_bytes += entry.stat().st_size
+            elif entry.is_dir() and entry.name.startswith("run_"):
+                sz = _dir_size(entry.path)
+                run_bytes += sz
+                run_dirs.append({"name": entry.name, "size": sz})
+
+        run_dirs.sort(key=lambda x: x["name"])
+        return {"upload_bytes": upload_bytes, "run_bytes": run_bytes, "run_dirs": run_dirs}
 
 
 # ── 模块级单例 ────────────────────────────────────────────────────────────────

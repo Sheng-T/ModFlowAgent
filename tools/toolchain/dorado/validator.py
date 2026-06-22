@@ -100,6 +100,16 @@ def dorado(subcommand, subcommand_str, args_dict, data_path):
         arg_str = build_shell_args(new_args)
 
         final_raw_cmd = f"dorado {subcommand_str} {arg_str} > {out_file}"
+    elif subcommand == "download":
+        # dorado download --model <model_name> [--directory <dir>]
+        # Force output directory to model_dir so basecaller can find models.
+        model_dir = data_path['dorado_models']
+        if "directory" not in kwargs:
+            kwargs["directory"] = model_dir
+        new_args = {"pos_args": pos_args, "kwargs": deduplicate_kwargs(kwargs)}
+        arg_str = build_shell_args(new_args)
+        final_raw_cmd = f"dorado {subcommand_str} {arg_str}"
+
     elif subcommand == "summary":
         if not pos_args:
             return "Error: pos_args is empty!"

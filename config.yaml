@@ -1,7 +1,11 @@
 # ============================================================
-#  BioAgent 用户配置文件
-#  修改后重启应用即可生效
-#  BioAgent user config — restart the app after editing
+#  EpiAgent 用户配置文件（公共模板）
+#  EpiAgent user config — public template
+#
+#  个人/服务器私有配置请写在 config.local.yaml（已在 .gitignore 中）
+#  Personal / server-specific overrides go in config.local.yaml (gitignored)
+#  config.local.yaml 中的值会覆盖此文件中的同名键。
+#  Values in config.local.yaml override matching keys in this file.
 #
 #  启动命令 | Start command:
 #    streamlit run ui/app_ui.py
@@ -10,23 +14,34 @@
 # ── LLM 模型 ──────────────────────────────────────────────────────────────────
 llm:
   # 使用的模型名称，必须在 model_paths 中有对应路径
-  # Which model to use — must have a matching entry in model_paths
+  # Which model to use — must have a matching entry in model_paths below
   # 可选 / Options: qwen3_14B | qwen35_27B | qwen3_8B | qwen3_1_7B | qwen3_0_6B
   model_name: qwen3_14B
 
   # 推理设备 | Inference device
-  # Examples: cuda:0  cuda:1  cuda:2  cuda:3  auto  cpu
-  device: cuda:3
+  # Examples: cuda:0  cuda:1  auto  cpu
+  device: auto
+
+  # 本地模型最大输出 token 数 | Max output tokens for local models
+  max_new_tokens: 4096
+
+  # API 模式最大输出 token 数 | Max output tokens for API models
+  max_tokens: 8192
+
+  # Embedding 模型推理设备 | Embedding model device
+  embedding_device: cpu
 
   # 本地模型路径（绝对路径）| Local model paths (absolute paths)
+  # 在 config.local.yaml 中覆盖为实际路径
+  # Override with actual paths in config.local.yaml
   model_paths:
-    qwen3_14B:  /ni_data/users/shengtao/model/qwen3-14b/models--Qwen--Qwen3-14B/snapshots/40c069824f4251a91eefaf281ebe4c544efd3e18/
-    qwen35_27B: /ni_data/users/shengtao/model/qwen3.5-27B/models--Qwen--Qwen3.5-27B/snapshots/b7ca741b86de18df552fd2cc952861e04621a4bd/
-    qwen3_8B:   /ni_data/users/shengtao/model/qwen3-8b
-    qwen3_1_7B: /ni_data/users/shengtao/model/qwen3-1.7b-ab/models--huihui-ai--Huihui-Qwen3-1.7B-abliterated-v2/snapshots/4462327af009cd482a6b308b67ec9b3a6eeb006a/
-    qwen3_0_6B: /ni_data/users/shengtao/model/qwen3-0.6b/models--Qwen--Qwen3-0.6B/snapshots/6130ef31402718485ca4d80a6234f70d9a4cf362/
-    embedding:  /ni_data/users/shengtao/model/all-MiniLM-L6-v2
-    reranker:   /ni_data/users/shengtao/model/bge-reranker-base/models--BAAI--bge-reranker-base/snapshots/2cfc18c9415c912f9d8155881c133215df768a70/
+    qwen3_14B:  /path/to/Qwen3-14B
+    qwen35_27B: /path/to/Qwen3.5-27B
+    qwen3_8B:   /path/to/Qwen3-8B
+    qwen3_1_7B: /path/to/Qwen3-1.7B
+    qwen3_0_6B: /path/to/Qwen3-0.6B
+    embedding:  /path/to/all-MiniLM-L6-v2
+    reranker:   /path/to/bge-reranker-base
 
 # ── 工具执行环境 ───────────────────────────────────────────────────────────────
 tools:
@@ -39,6 +54,13 @@ tools:
   exec_env:
     type: conda
     env_name: sin
+
+  # CPU threads for bioinformatics tools (samtools, modkit, etc.)
+  threads: 8
+
+  # SearXNG instance URL for web search. Leave empty to fall back to DuckDuckGo.
+  # Self-host: docker run -d -p 8080:8080 searxng/searxng
+  searxng_url: ""
 
 # ── 数据与模型目录 ─────────────────────────────────────────────────────────────
 data:
@@ -56,7 +78,6 @@ data:
   dorado_sample_rate: 4000
 
   # Singularity 镜像存放目录 | Singularity image directory
-  # workflow 和工具的容器镜像从此目录读取
   singularity_image_dir: ~/singularity_image
 
   # 自定义本地 Nextflow pipeline 目录（每个子目录视为一条 pipeline）
@@ -64,17 +85,27 @@ data:
   # 留空则使用项目内的 agent_workflow/ 目录
   pipeline_dir: ~/agent_workflow/
 
+  # Nextflow 插件 / 缓存目录（NXF_HOME 环境变量）
+  # Nextflow plugin and cache directory (sets NXF_HOME env var)
+  # 默认放在 agent_data/.nextflow，离线部署时可改为预先缓存好的目录
+  # Defaults to {agent_data}/.nextflow; change to a pre-populated dir for air-gapped servers
+  nfcore_home: ~/.nextflow
+
+  # 离网模式：true 表示 Nextflow 不访问网络（适用于无公网的 HPC）
+  # Offline mode: set true on air-gapped HPC nodes where internet is unavailable
+  nextflow_offline: true
+
   # 单用户最大存储配额（GB）| Per-user storage quota in GB
-  user_quota_gb: 10
+  user_quota_gb: 100
 
 # ── 用户账号 ───────────────────────────────────────────────────────────────────
 # 仅首次启动时写入数据库，之后以数据库为准（密码修改请通过页面或管理接口）
 # Only written to DB on first start — later changes go through the UI or admin API
 # 格式 / format:  username: password
+# 建议在 config.local.yaml 中设置真实密码
+# Set real passwords in config.local.yaml
 users:
-  admin: admin2026
-  alice: alice2026
-  bob:   bob2026
+  admin: "CHANGE_ME"   # set real password in config.local.yaml
 
 # ── Nextflow Workflow ──────────────────────────────────────────────────────────
 workflow:
@@ -83,8 +114,6 @@ workflow:
   profile: singularity
 
   # 附加 Nextflow 参数 | Extra Nextflow CLI arguments
-  extra_args: "-resume -with-report -with-trace -with-timeline"
-
   # 资源上限（防止单个 process 超出机器实际可用量）
   # Resource limits (prevent individual processes from exceeding available capacity)
   max_memory: "30.GB"
@@ -92,13 +121,12 @@ workflow:
   max_cpus:   null   # null = 自动检测 CPU 数 / auto-detect CPU count
 
 # ── Web 服务 ───────────────────────────────────────────────────────────────────
-# 通过 start.sh 启动时自动读取这里的配置
-# These values are picked up by start.sh automatically
 server:
-  port:          50027
-  address:       "0.0.0.0"
-  max_upload_mb: 10240   # 单文件最大上传大小（MB）| Max upload size per file in MB
+  port:             8501
+  address:          "0.0.0.0"
+  max_upload_mb:    102400
+  file_server_port: 8502
 
 # ── 界面语言 ───────────────────────────────────────────────────────────────────
 # UI language: zh_CN | en_US
-language: zh_CN
+language: en_US
