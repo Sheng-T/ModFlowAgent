@@ -26,8 +26,7 @@ from utils.runner_utils import find_all_free_gpus
 
 def _skip_if_exists(output_path: str, cmd: str) -> str:
     """Wrap cmd so it is skipped when output_path already exists."""
-    name = os.path.basename(output_path).replace(" ", "_")
-    return f'[ -f "{output_path}" ] && echo [Resume]{name} || ( {cmd} )'
+    return f'[ -f "{output_path}" ] && echo "[Resume] {os.path.basename(output_path)} exists, skipping" || ( {cmd} )'
 
 
 def build_step_command(
@@ -44,6 +43,20 @@ def build_step_command(
 
     basecall_model, mod_model = resolve_models("DNA", mod_type)
     basecall_path = os.path.join(model_dir, basecall_model)
+
+    if step == "dorado_download":
+        dl_base = (
+            f'([ -d "{basecall_path}" ] || '
+            f'dorado download --model {basecall_model} --directory "{model_dir}")'
+        )
+        if mod_model:
+            mod_model_path = os.path.join(model_dir, mod_model)
+            dl_mod = (
+                f'([ -d "{mod_model_path}" ] || '
+                f'dorado download --model {mod_model} --directory "{model_dir}")'
+            )
+            return ("dorado", f"{dl_base} && {dl_mod}")
+        return ("dorado", dl_base)
 
     if step == "dorado_basecaller":
         out_bam = os.path.join(step_dir, "calls.bam")
@@ -96,7 +109,11 @@ def build_step_command(
         extra      = flags["pileup_extra"]
         faidx_dir  = all_step_dirs.get("samtools_faidx", "")
         local_ref  = os.path.join(faidx_dir, os.path.basename(reference)) if faidx_dir else reference
-        parts = (f'modkit pileup "{sorted_bam}" "{out_bed}" --ref "{local_ref}"'
+        # Bind hint: commands are wrapped before steps run, so the symlink in local_ref
+        # doesn't exist yet when env_wrapper scans for bind paths.  The no-op colon
+        # command ensures the original reference directory is included in Singularity binds.
+        bind_hint  = f': "{reference}"; ' if local_ref != reference else ""
+        parts = (f'{bind_hint}modkit pileup "{sorted_bam}" "{out_bed}" --ref "{local_ref}"'
                  f' -t {TOOL_THREADS} --no-filtering')
         if extra:
             parts += f" {extra}"
@@ -109,8 +126,9 @@ def build_step_command(
         extra      = flags["extract_extra"]
         faidx_dir  = all_step_dirs.get("samtools_faidx", "")
         local_ref  = os.path.join(faidx_dir, os.path.basename(reference)) if (reference and faidx_dir) else reference
+        bind_hint  = f': "{reference}"; ' if (local_ref and local_ref != reference) else ""
         ref_arg    = f' --ref "{local_ref}"' if local_ref else ""
-        parts = f'modkit extract full "{sorted_bam}" "{out_tsv}"{ref_arg} -t {TOOL_THREADS}'
+        parts = f'{bind_hint}modkit extract full "{sorted_bam}" "{out_tsv}"{ref_arg} -t {TOOL_THREADS}'
         if extra:
             parts += f" {extra}"
         return ("modkit", _skip_if_exists(out_tsv, parts))

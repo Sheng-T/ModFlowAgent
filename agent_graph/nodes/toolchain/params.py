@@ -7,7 +7,7 @@ from agent_graph.state import AgentState
 from agent_graph.prompts.toolchain_prompts import build_parameter_generator_prompt
 from configs import TOOL_LIST, TOOL_ARGS, DATA_PATH
 from configs.rag_config import WORKFLOW_PIPELINE_ARGS
-from tools.workflow.steps import get_step_builder
+from tools.workflow.local import get_step_builder
 from utils.llm_utils import get_llm_instance
 from utils.nodes_utils import format_history
 from utils.user_context import get_or_create_run_dir, get_session_dir

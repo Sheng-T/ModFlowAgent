@@ -37,7 +37,7 @@
 | `ont_rna` | local (Singularity) | RNA | m6A / m6A_DRACH / inosine / pseU / m5C / 2OmeG / all |
 | `ont_dna` | local (Singularity) | DNA | 5mCG / 5hmCG / 5mC / 5hmC / 6mA / 4mC / all |
 
-新增流水线需要：(1) 在 `static/workflows/<name>/` 创建 `<name>_manifest.json`，(2) 在 `tools/workflow/registry.py` 注册 `WorkflowSpec`，(3) 在 `tools/workflow/steps/<name>.py` 实现步骤构建器。不需要修改图定义。
+新增流水线需要：(1) 在 `static/workflows/<name>/` 创建 `<name>_manifest.json`，(2) 在 `tools/workflow/registry.py` 注册 `WorkflowSpec`，(3) 在 `tools/workflow/local/<name>.py` 实现步骤构建器。不需要修改图定义。
 
 ---
 
@@ -198,7 +198,7 @@ streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
 - **`workflow_type: str`** — 取值 `"nfcore"` / `"local"` / `""`，是 workflow 分支路由的唯一信号
 - **Manifest 自动发现** — `rag_config.py` 启动时扫描 `static/tools/` 和 `static/workflows/`。每个流水线有 `<name>_manifest.json`，声明类型、描述、输入格式和使用的工具列表。新增流水线文档无需改代码
 - **`WorkflowSpec` 注册表** — `tools/workflow/registry.py` 是步骤定义、显示名称、推荐理由的唯一来源，侧边栏和 planner 都从这里读
-- **确定性步骤构建器** — `tools/workflow/steps/{name}.py` 按步骤生成精确的 shell 命令，不依赖 LLM，保证可复现。modkit flags 和线程数在这里注入
+- **确定性步骤构建器** — `tools/workflow/local/{name}.py` 按步骤生成精确的 shell 命令，不依赖 LLM，保证可复现。modkit flags 和线程数在这里注入
 - **`model_map.py`** — `(molecule, modification_type)` → dorado 模型对 + modkit flags 的完整映射，新增修饰类型只需编辑这一个文件
 - **per-workflow 提示词模块** — `agent_graph/prompts/workflows/{name}/` 可以放 `prereq_prompt.py`、`params_prompt.py`、`qa_rules.py`，节点通过 `importlib` 动态发现，缺失时无声回退到通用模板
 - **领域感知 samplesheet 校验** — LLM 生成后依次执行：路径修正 → 文件存在检查 → BAM MM/ML 标签检查 → DMR 分组校验，命令执行前把问题全部暴露出来
@@ -286,7 +286,7 @@ register(WorkflowSpec(
 
 **第 3 步：** 在 `static/workflows/workflow_prereqs.json` 添加前置参数表单定义
 
-**第 4 步：** 创建 `tools/workflow/steps/my_workflow.py`，实现 `build_step_command(step, prereq, data_path, step_dir, all_step_dirs)`
+**第 4 步：** 创建 `tools/workflow/local/my_workflow.py`，实现 `build_step_command(step, prereq, data_path, step_dir, all_step_dirs)`
 
 **第 5 步：**（可选）在 `agent_graph/prompts/workflows/my_workflow/` 下添加 `prereq_prompt.py`、`params_prompt.py`、`qa_rules.py`
 

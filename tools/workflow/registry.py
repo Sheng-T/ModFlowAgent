@@ -6,7 +6,7 @@ Adding a new workflow:
   2. For nfcore: ensure the pipeline is listed in configs/workflow_config.py SUPPORTED_PIPELINES.
   3. For local:  add per-tool Singularity images to the appropriate image directory.
   4. (Optional) add a prereq form to static/workflow/workflow_prereqs.json.
-  5. (Optional) add a deterministic step builder to tools/workflow/steps/{name}.py.
+  5. (Optional) add a deterministic step builder to tools/workflow/local/{name}.py.
   6. (Optional) add a result analyzer to tools/analyzers/workflow/{name}.py and register it.
 """
 from __future__ import annotations

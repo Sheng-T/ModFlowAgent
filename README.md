@@ -37,7 +37,7 @@ Human review happens at three points: workflow selection (when intent is ambiguo
 | `ont_rna` | local (Singularity) | RNA | m6A / m6A_DRACH / inosine / pseU / m5C / 2OmeG / all |
 | `ont_dna` | local (Singularity) | DNA | 5mCG / 5hmCG / 5mC / 5hmC / 6mA / 4mC / all |
 
-Adding a new workflow requires: (1) a `<name>_manifest.json` in `static/workflows/<name>/`, (2) a `WorkflowSpec` in `tools/workflow/registry.py`, and (3) step builders in `tools/workflow/steps/<name>.py`. No graph changes needed.
+Adding a new workflow requires: (1) a `<name>_manifest.json` in `static/workflows/<name>/`, (2) a `WorkflowSpec` in `tools/workflow/registry.py`, and (3) step builders in `tools/workflow/local/<name>.py`. No graph changes needed.
 
 ---
 
@@ -198,7 +198,7 @@ User Input
 - **`workflow_type: str`** — `"nfcore"` / `"local"` / `""`. The only routing signal for the workflow branch.
 - **Manifest-based auto-discovery** — `rag_config.py` scans `static/tools/` and `static/workflows/` at startup. Each workflow has a `<name>_manifest.json` declaring its type, description, input format, and which tools it uses. Adding a workflow or tool doc requires no code change.
 - **`WorkflowSpec` registry** — `tools/workflow/registry.py` is the single source of truth for steps, display names, and recommended-for text. Sidebar and planner both read from here.
-- **Deterministic step builders** — `tools/workflow/steps/{name}.py` builds exact shell commands per step. modkit flags and thread counts are resolved here, not by the LLM.
+- **Deterministic step builders** — `tools/workflow/local/{name}.py` builds exact shell commands per step. modkit flags and thread counts are resolved here, not by the LLM.
 - **`model_map.py`** — `(molecule, modification_type)` → dorado model pair + modkit flags. Adding a new modification type only requires editing this file.
 - **Per-workflow prompt modules** — `agent_graph/prompts/workflows/{name}/` can provide `prereq_prompt.py`, `params_prompt.py`, and `qa_rules.py`. Missing modules fall back to generic prompts silently.
 - **Domain-aware samplesheet validation** — path fixing → file existence check → BAM MM/ML tag check → DMR group validation. All issues are shown in the UI before anything runs.
@@ -286,7 +286,7 @@ register(WorkflowSpec(
 
 **3.** Add a prereq form entry in `static/workflows/workflow_prereqs.json`
 
-**4.** Create `tools/workflow/steps/my_workflow.py` with `build_step_command(step, prereq, data_path, step_dir, all_step_dirs)`
+**4.** Create `tools/workflow/local/my_workflow.py` with `build_step_command(step, prereq, data_path, step_dir, all_step_dirs)`
 
 **5.** (Optional) Add `agent_graph/prompts/workflows/my_workflow/prereq_prompt.py`, `params_prompt.py`, `qa_rules.py` for custom prompts
 
