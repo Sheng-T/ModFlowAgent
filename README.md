@@ -1,6 +1,6 @@
 <div align="center">
 
-# EpiAgent
+# ModFlowAgent
 
 A conversational agent for long-read epigenomics analysis on HPC clusters, built on LangGraph + Streamlit. You describe what you want in plain text; the agent figures out which tool or pipeline to run, generates the parameters, shows you the full command for review, and executes it inside Singularity containers.
 
@@ -129,6 +129,21 @@ LLM_API_MAX_TOKENS = 4096
 | SiliconFlow | `https://api.siliconflow.cn/v1` | `Qwen/Qwen3-235B-A22B` |
 | Ollama (local) | `http://localhost:11434/v1` | `qwen3:14b` |
 | Google Gemini | *(set `GEMINI_API_KEY` in `api_keys.py`)* | `gemini-2.5-flash` |
+
+
+
+### Ablation modes
+
+Three environment variables independently disable specific EpiAgent components for ablation analysis:
+
+```bash
+ABLATION_NO_CONTROLLER=1  bash start.sh   # bypass staged workflow controller
+ABLATION_NO_VALIDATION=1 bash start.sh   # disable validation gates
+ABLATION_NO_RAG=1         bash start.sh   # disable RAG grounding
+```
+
+Set multiple at once: `ABLATION_NO_CONTROLLER=1 ABLATION_NO_RAG=1 bash start.sh`
+
 
 ### Launch
 

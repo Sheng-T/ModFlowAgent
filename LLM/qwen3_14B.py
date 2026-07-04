@@ -4,10 +4,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from langchain_core.language_models.llms import LLM
 
 class Qwen3LLM(LLM):
-    """
-    自定义 LangChain LLM（正确姿势）
-    """
-
     model: Any
     tokenizer: Any
     max_new_tokens: int = 1024

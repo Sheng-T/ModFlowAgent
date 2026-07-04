@@ -175,7 +175,7 @@ def _main(run_dir: str):
         try:
             from configs.app_config import APP_SNAKE
         except Exception:
-            APP_SNAKE = "bioagent"
+            APP_SNAKE = "mod_flow_agent"
 
         analysis_dir = os.path.join(run_dir, f"{APP_SNAKE}_analysis", workflow_name)
         os.makedirs(analysis_dir, exist_ok=True)

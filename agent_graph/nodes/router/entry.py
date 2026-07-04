@@ -35,6 +35,8 @@ def reset_session_state_node(state: AgentState) -> AgentState:
     print(f"\n[Router] Analyzing user input: '{user_input[:30]}...'")
 
     history = state.get("chat_history", [])
+    # Strip old DNA/RNA mismatch warnings from preserved history (regenerated fresh if triggered)
+    history = [m for m in history if not (isinstance(m, dict) and "DNA/RNA" in m.get("content", ""))]
     # user_choice 必须保留，否则 classify_intent_route 和 select_tools_node 里的模式判断会失效
     user_choice = state.get("user_choice")
     # Preserve local_prereq_params tagged with workflow name so re-running the
@@ -132,20 +134,7 @@ def classify_intent_route(state: AgentState) -> str:
         print("[Router] FASTQ input detected — routing to answer (not supported)")
         return "route_to_answer"
 
-    _pacbio_kw = ["pacbio", "hifi", " pb ", "pb-"]
-    _dorado_kw = ["dorado"]
-    if any(k in user_input for k in _pacbio_kw) and any(k in user_input for k in _dorado_kw):
-        print("[Router] PacBio + Dorado detected — routing to answer")
-        return "route_to_answer"
-
-    # PacBio + RNA: no supported pipeline exists for this combination.
-    # Intercept early to avoid an infinite workflow-selection loop.
-    _rna_word = " rna " in f" {user_input} "   # word-boundary match for "rna"
-    if any(k in user_input for k in _pacbio_kw) and _rna_word:
-        print("[Router] PacBio + RNA detected — not supported, routing to answer")
-        return "route_to_answer"
-
-    # 检查是否有来自UI的显式路由选择
+    # 1) Direct keyword routing for deterministic behavior
     if "user_choice" in state and state["user_choice"]:
         choice = state["user_choice"]
         print(f"[Router] User selected mode: {choice}")
@@ -157,14 +146,36 @@ def classify_intent_route(state: AgentState) -> str:
             return "route_to_tools"   # workflow 也走 tools 路由，planner 负责解析具体类型
         # auto: 继续走下方 LLM 判断
 
-    # 1) Direct keyword routing for deterministic behavior
     _workflow_kw = ["nextflow", "nf-core", "workflow", "pipeline", "流水线", "流程",
                     "methylong", "rnaseq", "methylseq", "sarek", "ampliseq", "mag", "taxprofiler",
                     "fiber-seq", "fiberseq", "fiber seq", "nucleosome", "核小体"]
     if any(k in user_input for k in _workflow_kw):
         return "route_to_tools"  # workflow 也走 tools 路由
+
     if any(k in user_input for k in ["dorado", "samtools", "basecall", "sort", "index"]):
         return "route_to_tools"
+
+    _pacbio_kw = ["pacbio", "hifi", " pb ", "pb-"]
+    import re as _re
+    _dorado_pat = _re.compile(r"\bdorado\b")
+    if any(k in user_input for k in _pacbio_kw) and _dorado_pat.search(user_input):
+        print("[Router] PacBio + Dorado detected — routing to answer")
+        return "route_to_answer"
+
+    # PacBio + RNA: no supported pipeline exists for this combination.
+    # Intercept early to avoid an infinite workflow-selection loop.
+    _rna_word = " rna " in f" {user_input} "   # word-boundary match for "rna"
+    if any(k in user_input for k in _pacbio_kw) and _rna_word:
+        print("[Router] PacBio + RNA detected — not supported, routing to answer")
+        return "route_to_answer"
+
+    # 1.5) Keyword pre-filter for clearly irrelevant queries
+    _irrelevant_kw = ["restaurant", "recipe", "movie", "joke", "weather", "sports",
+                      "shopping", "cooking", "travel", "hotel", "music", "game",
+                      "tell me a joke", "what is the best", "near my", "near me"]
+    if any(k in user_input for k in _irrelevant_kw):
+        print("[Router] Irrelevant keyword detected -- routing to irrelevant")
+        return "route_to_irrelevant"
 
     # 2) 如果没有显式选择，使用LLM判断
     print("[Router] Calling LLM for intent classification...")
@@ -174,7 +185,7 @@ def classify_intent_route(state: AgentState) -> str:
         f"You are a bioinformatics assistant. Classify the user's intent into one of three categories:\n"
         f"- 'tools': user wants to run an analysis, execute a tool or pipeline, or process sequencing data.\n"
         f"- 'answer': user is asking about a biological concept, bioinformatics method, or technical principle.\n"
-        f"- 'irrelevant': user is chatting, off-topic, or saying something completely unrelated to science.\n"
+        f"- 'irrelevant': user is chatting, off-topic, or saying something completely unrelated to science or bioinformatics. Examples: 'what is the best restaurant', 'tell me a joke', 'how is the weather', 'recommend a movie'.\n"
         f"Reply with exactly one word (no punctuation): tools / answer / irrelevant\n"
         f"User input: {user_input}"
     )
@@ -191,7 +202,7 @@ def classify_intent_route(state: AgentState) -> str:
         "answer": "answer",
         "irrelevant": "irrelevant",
     }
-    final_intent = mapping.get(clean_intent, "answer")
+    final_intent = mapping.get(clean_intent, "irrelevant")
     return f"route_to_{final_intent}"
 
 

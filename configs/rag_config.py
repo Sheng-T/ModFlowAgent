@@ -11,8 +11,8 @@ VECTOR_DB_DIR = os.path.join(STATIC_DIR, "vector_db_cache")
 # 普通工具：自动发现 static/tools/ 子目录
 TOOLS_DIR = os.path.join(STATIC_DIR, "tools")
 
-def _autodiscover_tools(tools_dir: str) -> tuple[dict, dict, dict]:
-    docs, args, caches = {}, {}, {}
+def _autodiscover_tools(tools_dir: str) -> tuple[dict, dict, dict, dict]:
+    docs, args, caches, rules = {}, {}, {}, {}
     if not os.path.isdir(tools_dir):
         return docs, args, caches
     for name in os.listdir(tools_dir):
@@ -24,10 +24,12 @@ def _autodiscover_tools(tools_dir: str) -> tuple[dict, dict, dict]:
                 docs[name] = os.path.join(path, fname)
             if fname.endswith("_args.json"):
                 args[name] = load_tool_config(os.path.join(path, fname))
+            if fname.endswith("_rules.md"):
+                rules[name] = os.path.join(path, fname)
         caches[name] = os.path.join(VECTOR_DB_DIR, "tools", name)
-    return docs, args, caches
+    return docs, args, caches, rules
 
-TOOLS_DOC, _, TOOL_CACHE_DIRS = _autodiscover_tools(TOOLS_DIR)
+TOOLS_DOC, TOOLS_ARGS, TOOL_CACHE_DIRS, TOOLS_RULES = _autodiscover_tools(TOOLS_DIR)
 
 # workflows 单独管理
 WORKFLOWS_DIR = os.path.join(STATIC_DIR, "workflows")

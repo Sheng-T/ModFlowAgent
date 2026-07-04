@@ -1,6 +1,6 @@
 # ============================================================
-#  EpiAgent 用户配置文件（公共模板）
-#  EpiAgent user config — public template
+#  ModFlowAgent 用户配置文件（公共模板）
+#  ModFlowAgent user config — public template
 #
 #  个人/服务器私有配置请写在 config.local.yaml（已在 .gitignore 中）
 #  Personal / server-specific overrides go in config.local.yaml (gitignored)

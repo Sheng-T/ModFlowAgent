@@ -50,7 +50,8 @@ def run_interactive_mode(app):
 
 if __name__ == "__main__":
     # 你的图初始化
-    app = create_agent_graph(APP_PASCAL, is_save_graph_image=True, graph_image_filename=OTHER_PATH['graph_image'])
+    _ablation = os.environ.get("ABLATION_NO_CONTROLLER", "0") == "1"
+    app = create_agent_graph(APP_PASCAL, is_save_graph_image=True, graph_image_filename=OTHER_PATH['graph_image'], ablation_no_controller=_ablation)
 
     # 启动交互
     run_interactive_mode(app)

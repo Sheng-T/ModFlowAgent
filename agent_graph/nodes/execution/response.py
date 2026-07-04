@@ -3,6 +3,7 @@
 问答节点 - 支持Web搜索增强
 需要依赖: pip install ddgs html2text beautifulsoup4
 """
+import os
 from agent_graph.state import AgentState
 from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context, _load_workflow_qa_hints
 from utils.llm_utils import get_llm_instance
@@ -133,6 +134,8 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
             ui_print(f"[QA] Workflow context detected: {_relevant_wfs} — using local RAG")
             _rag_parts = []
             for _wf in _relevant_wfs:
+                if os.environ.get("ABLATION_NO_RAG", "0") == "1":
+                    break
                 _manifest = WORKFLOW_MANIFESTS.get(_wf, {})
                 _wf_type = _manifest.get("type", "")
                 try:
@@ -167,11 +170,64 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
                 except Exception as _e:
                     ui_print(f"[QA] RAG lookup failed for {_wf}: {_e}")
 
+            # Also check for standalone tool questions (no workflow context)
+            if not _rag_parts and os.environ.get("ABLATION_NO_RAG", "0") != "1":
+                try:
+                    from configs.rag_config import RAG_INSTANCES, TOOLS_DOC, TOOL_CACHE_DIRS
+                    from storage.rag_retriever import EnhancedMDRAG
+                    _rag_llm = get_llm_instance(is_planner=False)
+                    _lower_input = user_input.lower()
+                    for _tool_name, _doc_path in TOOLS_DOC.items():
+                        if _tool_name.lower() in _lower_input:
+                            _cache_key = f"qa_tool_{_tool_name}"
+                            if _cache_key not in RAG_INSTANCES:
+                                RAG_INSTANCES[_cache_key] = EnhancedMDRAG(
+                                    _doc_path, llm=_rag_llm,
+                                    cache_dir=TOOL_CACHE_DIRS.get(_tool_name)
+                                )
+                            _ctx = RAG_INSTANCES[_cache_key].search(user_input)
+                            if _ctx:
+                                _rag_parts.append(f"[{_tool_name} docs]\n{_ctx}")
+                except Exception as _e:
+                    ui_print(f"[QA] Tool RAG lookup failed: {_e}")
+
+            # Also prepend tool-specific rules from static/tools/<tool>/<tool>_rules.md
+            if _rag_parts:
+                try:
+                    from configs.rag_config import TOOLS_RULES
+                    _lower_input = user_input.lower()
+                    for _tool_name, _rules_path in TOOLS_RULES.items():
+                        if _tool_name.lower() in _lower_input:
+                            with open(_rules_path, "r", encoding="utf-8") as _rf:
+                                _rules_text = _rf.read()
+                            _rag_parts.insert(0, f"[Tool Rules: {_tool_name}]\n{_rules_text}")
+                            ui_print(f"[QA] Loaded rules for {_tool_name}")
+                except Exception:
+                    pass
+
             if _rag_parts:
                 augmented_context = "\n\n---\n\n".join(_rag_parts)
                 ui_print(f"[QA] Local RAG retrieved {len(augmented_context)} chars")
             else:
                 ui_print("[QA] Local RAG returned nothing — LLM will use its own knowledge")
+
+            # Standalone tool rules injection (guarded by ABLATION_NO_RAG)
+            if os.environ.get("ABLATION_NO_RAG", "0") != "1":
+                try:
+                    from configs.rag_config import TOOLS_RULES
+                    _lower_input = user_input.lower()
+                    for _tt_name, _rr_path in TOOLS_RULES.items():
+                        if _tt_name.lower() in _lower_input:
+                            with open(_rr_path, "r", encoding="utf-8") as _rf:
+                                _rr_text = _rf.read()
+                            ui_print(f"[QA] Loaded tool rules: {_tt_name}")
+                            if _rag_parts:
+                                _rag_parts.insert(0, f"[Tool Rules: {_tt_name}]\n{_rr_text}")
+                            else:
+                                _rag_parts = [f"[Tool Rules: {_tt_name}]\n{_rr_text}"]
+                            break
+                except Exception as _rules_e:
+                    ui_print(f"[QA] Rules injection failed: {_rules_e}")
 
         elif use_search:
             # General question with no workflow context: consider web search

@@ -7,6 +7,7 @@ from .execution import (
     review_execution_plan_node,
     select_analysis_modules_node,
     summarize_execution_result_node,
+    direct_generate_node,
 )
 from .router import classify_intent_route, reset_session_state_node
 from .toolchain import (
@@ -44,4 +45,5 @@ __all__ = [
     "human_prereq_reviewer_node",
     "generate_local_prereqs_node",
     "human_local_prereq_reviewer_node",
+    "direct_generate_node",
 ]

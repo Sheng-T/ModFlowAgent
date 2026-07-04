@@ -30,6 +30,7 @@ EMPTY_STATE = {
     "module_candidates": [],
     "module_confident": True,
     "forced_modules": [],
+    "user_confirmed_workflow": False,
 }
 
 
@@ -71,3 +72,4 @@ class AgentState(TypedDict):
     module_candidates: List[str]
     module_confident: bool
     forced_modules: List[str]
+    user_confirmed_workflow: bool

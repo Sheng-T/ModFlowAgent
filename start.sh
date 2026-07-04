@@ -1,6 +1,6 @@
 #!/bin/bash
-# EpiAgent 启动脚本 — 自动从 config.yaml 读取服务配置
-# EpiAgent start script — reads server config from config.yaml automatically
+# ModFlowAgent 启动脚本 — 自动从 config.yaml 读取服务配置
+# ModFlowAgent start script — reads server config from config.yaml automatically
 #
 # 用法 / Usage:
 #   bash start.sh
@@ -33,8 +33,17 @@ PORT=$(_read_cfg port 50027)
 ADDRESS=$(_read_cfg address 0.0.0.0)
 MAX_UPLOAD=$(_read_cfg max_upload_mb 10240)
 
-echo "[EpiAgent] Starting on ${ADDRESS}:${PORT}  (max upload ${MAX_UPLOAD} MB)"
-echo "[EpiAgent] Project root: $(pwd)"
+echo "[ModFlowAgent] Starting on ${ADDRESS}:${PORT}  (max upload ${MAX_UPLOAD} MB)"
+if [ "$ABLATION_NO_CONTROLLER" = "1" ]; then
+    echo "[ModFlowAgent] Ablation mode: ABLATION_NO_CONTROLLER=1  (controller disabled)"
+fi
+if [ "$ABLATION_NO_VALIDATION" = "1" ]; then
+    echo "[ModFlowAgent] Ablation mode: ABLATION_NO_VALIDATION=1  (validation disabled)"
+fi
+if [ "$ABLATION_NO_RAG" = "1" ]; then
+    echo "[ModFlowAgent] Ablation mode: ABLATION_NO_RAG=1  (RAG disabled)"
+fi
+echo "[ModFlowAgent] Project root: $(pwd)"
 
 exec streamlit run ui/app_ui.py \
     --server.address   "$ADDRESS" \

@@ -27,4 +27,5 @@ def human_workflow_selector_node(state: AgentState) -> dict:
     return {
         "workflow_type": spec.type,
         "workflow_candidates": [],
+        "user_confirmed_workflow": True,
     }

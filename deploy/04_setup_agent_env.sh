@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/04_setup_agent_env.sh — create epi_agent conda env and install dependencies
+# deploy/04_setup_agent_env.sh — create mod_flow_agent conda env and install dependencies
 # Runs in parallel with 03_pull_images.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

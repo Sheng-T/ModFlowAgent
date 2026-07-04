@@ -106,7 +106,7 @@ register(WorkflowSpec(
     ),
     molecule="RNA",
     modification="m6A / pseU / inosine / all",
-    input_formats=["pod5", "fast5"],
+    input_formats=["pod5"],
     steps=["dorado_download", "dorado_basecaller", "samtools_sort",
            "samtools_index", "samtools_faidx", "modkit_pileup", "modkit_extract"],
     step_tools=["dorado", "dorado", "samtools", "samtools", "samtools", "modkit", "modkit"],
@@ -118,7 +118,7 @@ register(WorkflowSpec(
     type="local",
     description=(
         "Generic ONT DNA modification detection via per-tool Singularity images. "
-        "Supports 5mCG, 5hmCG, 6mA, and other DNA modifications from ONT pod5/BAM input. "
+        "Supports 5mCG, 5hmCG, 6mA, and other DNA modifications from ONT pod5 input. "
         "Steps: dorado basecall → samtools sort/index → modkit pileup + extract."
     ),
     recommended_for=(
@@ -130,7 +130,7 @@ register(WorkflowSpec(
     ),
     molecule="DNA",
     modification="5mCpG / 5hmCpG / 6mA / all",
-    input_formats=["pod5", "bam"],
+    input_formats=["pod5"],
     steps=["dorado_download", "dorado_basecaller", "samtools_sort", "samtools_index",
            "samtools_faidx", "modkit_pileup", "modkit_extract"],
     step_tools=["dorado", "dorado", "samtools", "samtools", "samtools", "modkit", "modkit"],

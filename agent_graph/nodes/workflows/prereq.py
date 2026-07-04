@@ -7,6 +7,11 @@
 import importlib
 import os
 
+
+def _skip_validation() -> bool:
+    return os.environ.get("ABLATION_NO_VALIDATION", "0") == "1"
+
+
 from agent_graph.state import AgentState
 from agent_graph.prompts.workflow_prompts import build_prereq_prompt
 from utils.workflow_prerequisites import get_prereqs
@@ -138,6 +143,8 @@ def generate_prereqs_node(state: AgentState) -> dict:
                 if ok:
                     print(f"[PrereqGenerator] {filename} validated (attempt {attempt})")
                     break
+                if _skip_validation():
+                    break  # ablation: skip retry, accept LLM output as-is
                 print(f"[PrereqGenerator] {filename} validation failed (attempt {attempt}): {fail_reason}, retrying...")
                 content = ""
             except Exception as e:
@@ -149,14 +156,14 @@ def generate_prereqs_node(state: AgentState) -> dict:
             continue
 
         # Workflow-specific post-processing: path fixing
-        if wf_validator and hasattr(wf_validator, "fix_paths"):
+        if wf_validator and hasattr(wf_validator, "fix_paths") and not _skip_validation():
             content = wf_validator.fix_paths(content, uploaded_files)
 
         pre_files.append({"filename": filename, "content": content})
 
     # Workflow-specific validation (e.g. MM/ML tag check, DMR groups)
     samplesheet_issues: list[dict] = []
-    if wf_validator and hasattr(wf_validator, "validate_samplesheet") and pre_files:
+    if wf_validator and hasattr(wf_validator, "validate_samplesheet") and pre_files and not _skip_validation():
         for pf in pre_files:
             issues = wf_validator.validate_samplesheet(pf["content"], user_input)
             samplesheet_issues.extend(issues)
@@ -426,12 +433,12 @@ def human_local_prereq_reviewer_node(state: AgentState) -> dict:
         p["key"] for p in param_defs
         if p.get("required") and not params.get(p["key"])
     ]
-    if missing:
+    if missing and not _skip_validation():
         ui_print(f"[LocalPrereq] WARNING — required params still missing: {missing}. "
                  "Please fill them in before proceeding.")
 
     kit_warning = params.get("_kit_warning", "")
-    if kit_warning:
+    if kit_warning and not _skip_validation():
         ui_print(f"[LocalPrereq] ⚠ {kit_warning}")
 
     return {}

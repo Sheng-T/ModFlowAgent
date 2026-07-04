@@ -20,7 +20,8 @@ with a [ -f output ] || ... guard so the step is skipped automatically.
 import os
 
 from configs.runtime_config import TOOL_THREADS
-from tools.workflow.model_map import get_modkit_flags, resolve_models
+from tools.toolchain.dorado.validator import resolve_models
+from tools.toolchain.modkit.validator import get_modkit_flags
 from utils.runner_utils import find_all_free_gpus
 
 

@@ -17,6 +17,7 @@ from agent_graph.nodes import (
     select_analysis_modules_node,
     select_tools_node,
     summarize_execution_result_node,
+    direct_generate_node,
 )
 from agent_graph.nodes.workflows.planner import retrieve_pipeline_docs_node
 from agent_graph.nodes.workflows.prereq import generate_prereqs_node, human_prereq_reviewer_node
@@ -38,7 +39,7 @@ def save_graph_image(app_instance, filename=None):
         print(f"\n[System] 保存失败: {e}")
 
 
-def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph_image_filename: str = "") -> StateGraph:
+def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph_image_filename: str = "", ablation_no_controller: bool = False) -> StateGraph:
     workflow = StateGraph(AgentState)
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_node("executor",                     execute_commands_node)
     workflow.add_node("module_selector",              select_analysis_modules_node)
     workflow.add_node("human_module_selector",        human_module_selector_node)
+    workflow.add_node("direct_generator",          direct_generate_node)
     workflow.add_node("summarizer",                   summarize_execution_result_node)
     workflow.add_node("llm_answer",                   answer_general_question_node)
     workflow.add_node("irrelevant",                   handle_irrelevant_request_node)
@@ -69,17 +71,22 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.set_entry_point("router")
 
     # ── Router ─────────────────────────────────────────────────────────────────
-    workflow.add_conditional_edges(
-        "router",
-        lambda state: classify_intent_route(state),
-        {
-            "route_to_tools":      "tools_selector",
-            "route_to_answer":     "llm_answer",
-            "route_to_irrelevant": "irrelevant",
-        }
-    )
-
-    # ── Core pipeline ──────────────────────────────────────────────────────────
+    if ablation_no_controller:
+        workflow.add_conditional_edges(
+            "router",
+            lambda _: "route_to_direct",
+            {"route_to_direct": "direct_generator"},
+        )
+    else:
+        workflow.add_conditional_edges(
+            "router",
+            lambda state: classify_intent_route(state),
+            {
+                "route_to_tools":      "tools_selector",
+                "route_to_answer":     "llm_answer",
+                "route_to_irrelevant": "irrelevant",
+            }
+        )
     workflow.add_edge("tools_selector", "rag")
     workflow.add_edge("rag",            "planner")
 
@@ -175,6 +182,7 @@ def create_agent_graph(agent_name: str, is_save_graph_image: bool = False, graph
     workflow.add_edge("llm_answer",  END)
     workflow.add_edge("summarizer",  END)
     workflow.add_edge("irrelevant",  END)
+    workflow.add_edge("direct_generator",  END)
     workflow.add_edge("end_node",    END)
 
     # ── Compile ────────────────────────────────────────────────────────────────

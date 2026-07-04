@@ -1,6 +1,6 @@
 <div align="center">
 
-# EpiAgent
+# ModFlowAgent
 
 面向 HPC 集群的长读长表观基因组学分析 AI 智能体，基于 LangGraph + Streamlit 构建。用自然语言描述需求，系统自动决定调用哪个工具或流水线、生成参数、展示完整命令供审查，然后在 Singularity 容器内执行。
 

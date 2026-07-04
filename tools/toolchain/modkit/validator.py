@@ -80,3 +80,51 @@ def modkit(subcommand, subcommand_str, args_dict, data_path):
         arg_str = build_shell_args(args_dict)
 
     return f"modkit {subcommand_str} {arg_str}".strip()
+
+
+def get_modkit_flags(molecule: str, modification_type: str) -> dict[str, str]:
+    """Return modkit pileup / extract flag strings for the given modification.
+    Keys: pileup_extra, extract_extra (flags appended to the subcommand).
+    """
+    mol = molecule.strip().upper()
+    mod_key = (modification_type or "").strip().lower()
+    mod_key = mod_key.replace("-", "").replace("_", "").replace(" ", "")
+
+    if mol == "DNA":
+        if mod_key in ("cpg", "5mcg", "5mcpg", "5hmcg", "5mcg5hmcg", ""):
+            return {"pileup_extra": "--cpg", "extract_extra": "--cpg"}
+        if mod_key in ("5mc", "5hmc", "5mc5hmc", "4mc5mc", "4mc"):
+            return {"pileup_extra": "--motif C 0", "extract_extra": "--motif C 0"}
+        if mod_key == "chh":
+            return {"pileup_extra": "--motif CHH 0", "extract_extra": "--motif CHH 0"}
+        if mod_key == "6ma":
+            return {"pileup_extra": "--motif A 0", "extract_extra": "--motif A 0"}
+        return {"pileup_extra": "", "extract_extra": ""}
+
+    if mod_key in ("drach", "m6adrach"):
+        return {"pileup_extra": "--motif DRACH 2 --mod-code a",
+                "extract_extra": "--motif DRACH 2 --mod-code a"}
+    if mod_key == "m6a":
+        return {"pileup_extra": "--mod-code a", "extract_extra": "--mod-code a"}
+    if mod_key == "inosine":
+        return {"pileup_extra": "--mod-code 17596", "extract_extra": "--mod-code 17596"}
+    if mod_key == "inosinem6a":
+        return {"pileup_extra": "", "extract_extra": ""}
+    if mod_key == "2omea":
+        return {"pileup_extra": "--mod-code 69426", "extract_extra": "--mod-code 69426"}
+    if mod_key == "inosinem6a2omea":
+        return {"pileup_extra": "", "extract_extra": ""}
+    if mod_key in ("pseu", "pseudouridine"):
+        return {"pileup_extra": "--motif T 0 --mod-code 17802",
+                "extract_extra": "--motif T 0 --mod-code 17802"}
+    if mod_key == "pseu2omeu":
+        return {"pileup_extra": "--motif T 0", "extract_extra": "--motif T 0"}
+    if mod_key == "m5c":
+        return {"pileup_extra": "--motif C 0 --mod-code m",
+                "extract_extra": "--motif C 0 --mod-code m"}
+    if mod_key == "m5c2omec":
+        return {"pileup_extra": "--motif C 0", "extract_extra": "--motif C 0"}
+    if mod_key == "2omeg":
+        return {"pileup_extra": "--motif G 0 --mod-code 19229",
+                "extract_extra": "--motif G 0 --mod-code 19229"}
+    return {"pileup_extra": "", "extract_extra": ""}

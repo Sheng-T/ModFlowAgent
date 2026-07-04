@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/03_pull_images.sh — pull Singularity images for EpiAgent
+# deploy/03_pull_images.sh — pull Singularity images for ModFlowAgent
 #
 # Layout after this step:
 #   singularity_image/

@@ -5,7 +5,7 @@ import re
 import torch
 from agent_graph.state import AgentState
 from agent_graph.prompts.toolchain_prompts import build_parameter_generator_prompt
-from configs import TOOL_LIST, TOOL_ARGS, DATA_PATH
+from configs import TOOL_LIST, TOOL_ARGS, DATA_PATH, TOOLS_RULES
 from configs.rag_config import WORKFLOW_PIPELINE_ARGS
 from tools.workflow.local import get_step_builder
 from utils.llm_utils import get_llm_instance
@@ -296,6 +296,15 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
 
         current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
         current_rag = rag_suggestion.get(tool_real_name, "No relevant documentation found.")
+        # Prepend tool-specific command generation rules if available
+        _rules_path = TOOLS_RULES.get(tool_real_name)
+        if _rules_path and os.environ.get("ABLATION_NO_RAG", "0") != "1":
+            try:
+                with open(_rules_path, "r", encoding="utf-8") as _rf:
+                    _rules_text = _rf.read()
+                current_rag = f"[Tool Rules]\n{_rules_text}\n\n[Documentation]\n{current_rag}"
+            except Exception:
+                pass
 
         print(f"  > Configuring step {i + 1}: {tool_name} (base: {tool_real_name})")
 

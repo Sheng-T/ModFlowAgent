@@ -76,12 +76,13 @@ current_messages   = store.get_messages(current_session_id)
 
 
 @st.cache_resource
-def load_agent():
-    return create_agent_graph(APP_PASCAL)
+def load_agent(ablation_flag: bool):
+    return create_agent_graph(APP_PASCAL, ablation_no_controller=ablation_flag)
 
 
 with st.spinner(_("Loading model...")):
-    app = load_agent()
+    _ablation = os.environ.get("ABLATION_NO_CONTROLLER", "0") == "1"
+    app = load_agent(_ablation)
 
 render_history(current_messages)
 render_completed_if_disconnected(app, store, current_session_id, current_session)

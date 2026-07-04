@@ -17,6 +17,9 @@ from tools.workflow.command_builder import build_workflow_command
 # ── Runtime command builder validator ─────────────────────────────────────────
 
 def validate_nfcore_kwargs(kwargs: dict) -> str | None:
+    import os
+    if os.environ.get("ABLATION_NO_VALIDATION", "0") == "1":
+        return None
     pipeline = kwargs.get("pipeline", "")
     if not pipeline:
         return "Error: nextflow nf-core requires kwargs['pipeline']."

@@ -1,4 +1,5 @@
 
+import os
 from agent_graph.state import AgentState
 from configs import WORKFLOW_PIPELINE_DOCS, RAG_INSTANCES, WORKFLOW_CACHE_DIRS
 from storage.rag_retriever import EnhancedMDRAG
@@ -8,6 +9,8 @@ def retrieve_pipeline_docs_node(state: AgentState) -> AgentState:
     pipeline = state.get("selected_workflow")
     if not pipeline:
         print("[RAG Pipeline] No selected_workflow found, skipping")
+        return state
+    if os.environ.get("ABLATION_NO_RAG", "0") == "1":
         return state
 
     user_query = state["input"]

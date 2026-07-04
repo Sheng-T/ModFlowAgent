@@ -86,7 +86,7 @@ resolve_paths() {
            METHYLONG_IMAGE_DIR DORADO_MODEL_DIR PIPELINE_DIR AGENT_DATA_DIR
 
     SIN_ENV="${SIN_ENV:-sin}"
-    AGENT_ENV="${AGENT_ENV:-epi_agent}"
+    AGENT_ENV="${AGENT_ENV:-mod_flow_agent}"
     PYTHON_VERSION="${PYTHON_VERSION:-3.10}"
     LLM_MODE="${LLM_MODE:-local}"
     DORADO_SAMPLE_RATE="${DORADO_SAMPLE_RATE:-5000}"

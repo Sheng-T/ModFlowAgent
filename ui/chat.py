@@ -430,10 +430,11 @@ def render_prereq_reviewer(app):
                 try:
                     _validator = importlib.import_module(f"tools.workflow.nf.{wf_for_valid}.validator")
                     if hasattr(_validator, "validate_samplesheet"):
-                        for pf in edited_files:
-                            new_issues.extend(
-                                _validator.validate_samplesheet(pf["content"], user_input_v)
-                            )
+                        if os.environ.get("ABLATION_NO_VALIDATION", "0") != "1":
+                            for pf in edited_files:
+                                new_issues.extend(
+                                    _validator.validate_samplesheet(pf["content"], user_input_v)
+                                )
                 except (ModuleNotFoundError, Exception):
                     pass
 
@@ -529,7 +530,7 @@ def run_workflow_select_segment(app, store, fm, user_uid, current_session_id):
         return
 
     config = {"configurable": {"thread_id": st.session_state.thread_id}}
-    app.update_state(config, {"selected_workflow": selected_name, "workflow_candidates": []},
+    app.update_state(config, {"selected_workflow": selected_name, "workflow_candidates": [], "user_confirmed_workflow": True},
                      as_node="human_workflow_selector")
 
     with st.chat_message("assistant"):

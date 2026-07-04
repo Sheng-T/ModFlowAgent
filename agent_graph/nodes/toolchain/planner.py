@@ -1,5 +1,6 @@
 import re as _re
 
+import os
 from agent_graph.prompts.workflow_prompts import build_workflow_planner_prompt
 from agent_graph.state import AgentState
 from agent_graph.prompts.toolchain_prompts import build_tool_planner_prompt
@@ -41,7 +42,8 @@ def _format_workflow_list(specs: list, lang: str) -> str:
 
 
 def _fetch_local_tool_docs(state: AgentState, spec) -> None:
-    """Fetch per-tool RAG docs for a local workflow's step tools into state['rag_suggestion']."""
+    if os.environ.get("ABLATION_NO_RAG", "0") == "1":
+        return
     user_query = state.get("input", "")
     rag_llm = get_llm_instance(is_planner=False)
     rag_dict = state.get("rag_suggestion", {})
@@ -67,6 +69,9 @@ def retrieve_tool_docs_node(state: AgentState) -> AgentState:
     identified_tools = state.get("identified_tools", [])
     if not identified_tools:
         ui_print(f"\n[RAG] No tools identified, skipping retrieval.")
+        state["rag_suggestion"] = {}
+        return state
+    if os.environ.get("ABLATION_NO_RAG", "0") == "1":
         state["rag_suggestion"] = {}
         return state
 
@@ -151,6 +156,26 @@ def plan_tool_steps_node(state: AgentState) -> AgentState:
 
         # Case A: already resolved (auto-selected or user picked via human_workflow_selector)
         if selected_workflow and not state.get("workflow_candidates"):
+            # User confirmed via UI - skip switch detection, trust selection
+            if state.pop("user_confirmed_workflow", False):
+                _spec = wf_registry.get(selected_workflow)
+                if _spec:
+                    _prev = (state.get("local_prereq_params") or {}).get("_workflow", "")
+                    if _prev and _prev != _spec.name:
+                        state["local_prereq_params"] = {}
+                        state["nfcore_prereq_params"] = {}
+                    state["workflow_type"] = _spec.type
+                    state["tool_sequence"] = ([_spec.name] if _spec.type == "nfcore"
+                                              else list(_spec.steps))
+                    if _spec.type == "local":
+                        _fetch_local_tool_docs(state, _spec)
+                    state["workflow_candidates"] = []
+                    ui_print(f"[Planner] User-confirmed '{_spec.display_name}' - skipping switch detection")
+                else:
+                    state["tool_sequence"] = []
+                    state["workflow_type"] = ""
+                return state
+
             # Switch-detection: collect distinguishing signals from OTHER workflows
             # (name, display-name words, molecule type) and check against user input.
             user_lower = user_input.lower()
