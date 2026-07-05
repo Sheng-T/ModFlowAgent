@@ -1,0 +1,50 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets (gitignored too, but double-safe)
+api_keys.py
+config.local.yaml
+
+# Old code
+delete/
+
+# Tests
+tests/
+
+# RAG cache (rebuilt at runtime)
+static/vector_db_cache/
+
+# Runtime data
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Large sequencing files
+*.fast5
+*.pod5
+*.fastq
+*.fq
+*.bam
+*.sam
+*.vcf
+*.fasta
+*.fa
+
+# Model weights (too large, use API mode in Docker)
+*.bin
+*.pth
+*.safetensors
+*.gguf
+*.onnx
+
+# macOS
+.DS_Store

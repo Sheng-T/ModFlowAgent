@@ -55,8 +55,8 @@
 **一键部署（推荐用于 HPC 服务器）**
 
 ```bash
-git clone https://github.com/yourname/bio-agent.git
-cd bio-agent
+git clone https://github.com/Sheng-T/ModFlowAgent.git
+cd ModFlowAgent
 bash deploy.sh
 ```
 
@@ -71,8 +71,8 @@ bash deploy.sh --from 5     # 从第 5 步续跑
 **手动安装**
 
 ```bash
-git clone https://github.com/yourname/bio-agent.git
-cd bio-agent
+git clone https://github.com/Sheng-T/ModFlowAgent.git
+cd ModFlowAgent
 pip install -r requirements.txt
 ```
 

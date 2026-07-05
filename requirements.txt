@@ -1,12 +1,51 @@
-# Minimal runtime/development dependencies (adjust versions as needed)
+# Core dependencies for ModFlowAgent
+# Install: pip install -r requirements.txt
+# For CPU-only torch (Docker): pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+# === UI ===
+streamlit
 extra-streamlit-components>=0.1.60
-requests
-beautifulsoup4
-ddgs
-langchain-core
-langchain
-langchain-chroma
+
+# === LangGraph ===
 langgraph
 langgraph-checkpoint-sqlite
-pydantic
+langchain-core
+langchain
+
+# === LangChain integrations ===
+langchain-chroma
+langchain-huggingface
+langchain-text-splitters
+langchain-openai
+langchain-community
+
+# === RAG / Vector DB ===
+chromadb
+sentence-transformers
+transformers
+huggingface_hub
+
+# === ML ===
 torch
+
+# === Web search ===
+ddgs
+duckduckgo_search
+requests
+beautifulsoup4
+html2text
+
+# === Config & data ===
+pyyaml
+pandas
+numpy
+pydantic
+
+# === File I/O (optional features) ===
+fpdf2          # PDF report export
+pysam          # BAM MM/ML tag validation
+pod5           # POD5 kit detection (ont_rna workflow)
+
+# === Visualization (optional) ===
+matplotlib
+logomaker      # Sequence logo plots

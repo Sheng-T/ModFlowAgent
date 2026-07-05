@@ -1,6 +1,10 @@
 
 # ── Read API settings from secrets.py (gitignored) ────────────────────────────
 def _secret(name: str, default=""):
+    import os
+    env_value = os.getenv(name)
+    if env_value:
+        return env_value
     try:
         import api_keys as _s
         return getattr(_s, name, default) or default
