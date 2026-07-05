@@ -7,7 +7,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-[English](README.md) | [??](README_CN.md)
+[English](README.md) | [中文](README_CN.md)
 
 </div>
 
