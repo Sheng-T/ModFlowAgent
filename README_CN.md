@@ -62,11 +62,13 @@ bash deploy.sh --skip-llm
 
 ## 使用示例
 
-```bash
-What can you do?
-对 ONT RNA POD5 进行 m6A 分析。
-检查 BAM 是否有 MM/ML 标签。
-用 methylong 进行单倍型 DMR 分析。
+```
+你能做什么？
+我实验室附近最好的餐厅是哪家？
+ont_dna 和 methylong 有什么区别？
+对我的 ONT RNA POD5 数据进行 DRACH-context m6A 分析。
+分析 ONT DNA 数据的 CpG 甲基化情况。
+对 ONT modBAM 数据进行 methylong 分析，并跳过 SNV 检测。
 ```
 
 ## 文档

@@ -72,12 +72,25 @@ class EnhancedMDRAG:
         # print(f'use device {device}')
 
         # embedding
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=llm_model_path['embedding'],
-            model_kwargs={
-                'device': device
-            }
-        )
+        print("[RAG] Loading embedding model...")
+        try:
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=llm_model_path['embedding'],
+                model_kwargs={
+                    'device': device
+                }
+            )
+        except Exception as _emb_e:
+            print(f"[RAG] HuggingFace download failed: {_emb_e}")
+            print("[RAG] Retrying with HuggingFace mirror (hf-mirror.com)...")
+            import os as _os
+            _os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=llm_model_path['embedding'],
+                model_kwargs={
+                    'device': device
+                }
+            )
 
         # reranker (optional, skip if unavailable)
         try:

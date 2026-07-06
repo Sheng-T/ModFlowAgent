@@ -118,9 +118,11 @@ bash deploy.sh --skip-llm  # API mode, skip downloading local LLM weights
 
 ```
 What can you do?
+What is the best restaurant near my lab?
+What is the difference between ont_dna and methylong?
 Run DRACH-context m6A analysis on my ONT RNA POD5 data.
-Check if this BAM has MM/ML modification tags.
-Run methylong with haplotype-level DMR analysis.
+Profile CpG methylation from ONT DNA data.
+Run methylong on ONT modBAM and skip SNV calling.
 ```
 
 ## Documentation
