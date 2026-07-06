@@ -1,8 +1,6 @@
 import os
 
-# 获取当前文件（rag_retriever.py）的绝对路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# 假设 static 目录在 rag_retriever.py 的上一级目录
 PROJECT_ROOT = os.path.dirname(current_dir)
 
 USER_HOME = os.environ.get("HOME") or os.path.expanduser("~")
@@ -35,18 +33,15 @@ DATA_PATH = {
 }
 
 IMAGE_PATH = {
-    'image_store': f"{USER_HOME}/singularity_image",  # 镜像存放路径
+    'image_store': f"{USER_HOME}/singularity_image", 
 }
 
 OTHER_PATH = {
     "db_dir": os.path.join(PROJECT_ROOT, "static/vector_db_cache"),
     "graph_image": os.path.join(PROJECT_ROOT, "static/langgraph_flow.txt"),
-    # 持久化存储
     "checkpoint_db": os.path.join(PROJECT_ROOT, "static/checkpoints/agent.db"),
     "session_db": os.path.join(PROJECT_ROOT, "static/sessions/sessions.db"),
-    # 用户上传文件根目录（子目录按 uid/session_id 隔离）
     "user_data_root": os.path.join(PROJECT_ROOT, "static/user_data"),
 }
 
-# 单用户最大存储配额（字节），默认 10 GB
 USER_QUOTA_BYTES = 10 * 1024 * 1024 * 1024

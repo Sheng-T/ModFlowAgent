@@ -1,18 +1,17 @@
 """
-BED / bedMethyl 文件统计分析器（纯 Python，支持 .gz 压缩）。
 
-标准 bedMethyl 列（0-indexed，来自 modkit pileup）：
+bedMethyl
   0  chrom
   1  start (0-based)
   2  end
-  3  name  (修饰类型，如 "m" / "a")
+  3  name  ( "m" / "a")
   4  score (0-1000)
   5  strand
   6  thickStart
   7  thickEnd
   8  color
-  9  N_valid_cov      ← 覆盖度
-  10 fraction_modified ← 甲基化率 (0-100)
+  9  N_valid_cov 
+  10 fraction_modified  (0-100)
 """
 import gzip
 import os
@@ -20,7 +19,7 @@ import statistics
 
 from tools.analyzers.file.base import FileAnalyzer
 
-_MIN_COVERAGE = 1   # 统计时过滤低覆盖位点的阈值
+_MIN_COVERAGE = 1   
 
 
 def _open(path: str):
@@ -48,7 +47,6 @@ class BedAnalyzer(FileAnalyzer):
 
                     cols = line.split("\t")
                     if len(cols) < 11:
-                        # 宽松处理：至少需要 coverage 列（col 9）
                         if len(cols) < 10:
                             continue
                     total_sites += 1
@@ -82,7 +80,6 @@ class BedAnalyzer(FileAnalyzer):
             "chrom_count": len(chroms),
         }
 
-        # ── 覆盖度分布 ──────────────────────────────────────────────────────────
         if coverages:
             cov_sorted = sorted(coverages)
             n = len(cov_sorted)
@@ -96,7 +93,6 @@ class BedAnalyzer(FileAnalyzer):
             result["sites_cov_ge5"]    = sum(1 for c in coverages if c >= 5)
             result["sites_cov_ge10"]   = sum(1 for c in coverages if c >= 10)
 
-        # ── 甲基化率分布 ────────────────────────────────────────────────────────
         if meth_rates:
             mr_sorted = sorted(meth_rates)
             n = len(mr_sorted)

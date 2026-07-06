@@ -57,7 +57,11 @@ def _fetch_local_tool_docs(state: AgentState, spec) -> None:
             ui_print(f"[Planner] No doc path for '{tool}', skipping RAG.")
             continue
         if tool not in RAG_INSTANCES:
-            RAG_INSTANCES[tool] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=TOOL_CACHE_DIRS.get(tool))
+            try:
+                RAG_INSTANCES[tool] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=TOOL_CACHE_DIRS.get(tool))
+            except Exception as _e:
+                ui_print(f"[RAG] {tool}: {msg}")
+                continue
         rag_dict[tool] = RAG_INSTANCES[tool].search(user_query)
 
     state["rag_suggestion"] = rag_dict
@@ -127,7 +131,11 @@ def retrieve_tool_docs_node(state: AgentState) -> AgentState:
                 continue
             if tool not in RAG_INSTANCES:
                 ui_print(f"[RAG] Initializing retrieval index for {tool}...")
-                RAG_INSTANCES[tool] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=TOOL_CACHE_DIRS.get(tool))
+                try:
+                    RAG_INSTANCES[tool] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=TOOL_CACHE_DIRS.get(tool))
+                except Exception as _e:
+                    ui_print(f"[RAG] {tool}: {msg}")
+                    continue
             ui_print(f"[RAG] Retrieving parameters for {tool}...")
             rag_suggestion_dict[tool.lower()] = RAG_INSTANCES[tool].search(user_query)
         state["rag_suggestion"] = rag_suggestion_dict

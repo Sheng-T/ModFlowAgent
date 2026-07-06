@@ -1,13 +1,4 @@
-"""
-LangGraph 持久化 Checkpointer（SqliteSaver 单例）。
 
-使用方:
-    from storage.checkpointer import get_checkpointer
-    checkpointer = get_checkpointer()
-
-依赖: pip install langgraph-checkpoint-sqlite
-退路: 若包未安装则自动降级为 MemorySaver（仅内存，重启丢失）。
-"""
 import os
 import sqlite3
 
@@ -34,8 +25,8 @@ def get_checkpointer():
         from langgraph.checkpoint.memory import MemorySaver
         _checkpointer = MemorySaver()
         print(
-            "[Checkpointer] 警告: langgraph-checkpoint-sqlite 未安装，使用 MemorySaver（重启后历史丢失）。\n"
-            "  安装命令: pip install langgraph-checkpoint-sqlite"
+            "[Checkpointer] Warning: Langgraph checkpoint sqlite is not installed, using CacheSaver (history lost after restart). \n"
+            "Installation command: pip install langgraph checkpoint sqlite"
         )
 
     return _checkpointer

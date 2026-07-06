@@ -1,6 +1,4 @@
-"""
-聊天主区域：消息展示 / 模式选择 / 执行 / 审查。
-"""
+
 import os
 import threading
 import time as _time
@@ -19,7 +17,7 @@ except ImportError:
     def clear_logs(): pass
 
 
-# ── 内部工具 ───────────────────────────────────────────────────────────────────
+# ──  ───────────────────────────────────────────────────────────────────
 
 
 def _fmt_elapsed(secs: float) -> str:
@@ -30,7 +28,6 @@ def _fmt_elapsed(secs: float) -> str:
 
 
 def _parse_progress_log(log: str) -> None:
-    """解析 runner 发出的结构化进度标记，更新 session_state._step_progress。"""
     if log.startswith("[PROGRESS_INIT]"):
         rest = log[len("[PROGRESS_INIT]"):].strip()
         pdict = {}
@@ -91,7 +88,6 @@ def _parse_progress_log(log: str) -> None:
 
 
 def _render_step_progress() -> bool:
-    """渲染步骤进度卡片，返回是否有进度数据。"""
     prog = st.session_state.get("_step_progress")
     if not prog or not prog.get("steps"):
         return False
@@ -132,7 +128,6 @@ def _render_step_progress() -> bool:
 
 
 def _remove_run_dir(run_dir: str | None) -> None:
-    """删除未进入执行阶段的 run_dir（用户在 review 阶段取消时调用）。"""
     if not run_dir or not os.path.isdir(run_dir):
         return
     try:
@@ -142,7 +137,7 @@ def _remove_run_dir(run_dir: str | None) -> None:
         pass
 
 
-# ── 渲染工具 ──────────────────────────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────────────────────────
 
 _LOG_INTERNAL_PREFIXES = (
     "[ToolExecutor]",
@@ -157,13 +152,12 @@ _LOG_INTERNAL_PREFIXES = (
 )
 
 def render_log(log: str):
-    """渲染单条日志。内部调试前缀的行静默丢弃，只显示关键状态。"""
     stripped = log.strip()
     if not stripped:
         return
     for prefix in _LOG_INTERNAL_PREFIXES:
         if stripped.startswith(prefix):
-            return   # 内部日志不显示到 UI
+            return   
 
     lower = stripped.lower()
     if "✓" in stripped or "成功" in stripped or "succeeded" in lower or "success" in lower:
@@ -177,14 +171,11 @@ def render_log(log: str):
 
 
 def stream_events(event_iter, thinking_process: list) -> str:
-    """
-    消费 LangGraph 事件流，同时把 ui_print 日志实时渲染到 Streamlit。
-    每个事件到来前先刷一次日志队列（非阻塞），事件处理完再刷一次。
-    """
+
     full_response = ""
 
     def _flush():
-        flush_logs()  # 只清空队列，不渲染到 UI
+        flush_logs()  
 
     for event in event_iter:
         _flush()
@@ -207,7 +198,6 @@ def stream_events(event_iter, thinking_process: list) -> str:
 
 
 def _render_image_carousel(imgs: list[str], key_suffix: str = "") -> None:
-    """渲染图片轮播：≤2 张用双列网格，>2 张用 prev/next 导航。"""
     if not imgs:
         return
 
@@ -229,7 +219,6 @@ def _render_image_carousel(imgs: list[str], key_suffix: str = "") -> None:
                     )
         return
 
-    # 超过 2 张：轮播
     key = f"_img_idx_{_sfx}"
     if key not in st.session_state:
         st.session_state[key] = 0
@@ -268,7 +257,6 @@ def _render_image_carousel(imgs: list[str], key_suffix: str = "") -> None:
             width="stretch",
         )
 
-    # 缩略图导航条（点击跳转）
     with st.expander("🖼 " + ("All charts" if lang == "en_US" else "所有图表"), expanded=False):
         thumb_cols = st.columns(min(len(imgs), 4))
         for ti, p in enumerate(imgs):
@@ -297,7 +285,7 @@ def render_final(full_response: str, thinking_process: list,
             st.markdown(title)
             _render_image_carousel(show_imgs, key_suffix=f"final_{id(analysis_images)}")
 
-    # ── 下载 / 复制区 ──────────────────────────────────────────────────────────
+    # ── ──────────────────────────────────────────────────────────
     if full_response or analysis_images or workflow_result_zip:
         lang = get_lang()
         report_text = full_response or ""
@@ -306,11 +294,9 @@ def render_final(full_response: str, thinking_process: list,
         st.markdown("---")
 
         if not show_pdf:
-            # Q&A 模式：只显示复制按钮，不生成 PDF
             copy_label = "📋 Copy" if lang == "en_US" else "📋 复制"
             _render_copy_button(report_text, copy_label, key=f"copy_{_key_suffix}")
         else:
-            # 结果总结模式：ZIP + MD + PDF
             if workflow_result_zip and os.path.isfile(workflow_result_zip):
                 zip_label = "⬇ Download Results (.zip)" if lang == "en_US" else "⬇ 下载结果压缩包 (.zip)"
                 _render_zip_download(workflow_result_zip, zip_label)
@@ -709,7 +695,7 @@ def render_local_prereq_reviewer(app):
                     help=help_text
                 )
 
-        # ── 续跑目录（可选）──────────────────────────────────────────────────
+        # ── ──────────────────────────────────────────────────
         _resume_label = ("续跑目录 (可选，留空则新建运行目录)"
                          if lang != "en_US"
                          else "Resume from run dir (optional, leave empty to create new)")
@@ -898,7 +884,7 @@ def _render_copy_button(text: str, label: str, key: str) -> None:
     )
 
 
-# ── 历史消息 ──────────────────────────────────────────────────────────────────
+# ── history ──────────────────────────────────────────────────────────────────
 
 def _render_history_downloads(meta: dict, content: str):
     """根据已保存的 metadata 恢复历史消息的下载按钮。"""
@@ -958,10 +944,9 @@ def render_history(messages: list):
                 _render_history_downloads(meta, message["content"])
 
 
-# ── 模式选择按钮 ──────────────────────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────────────────────
 
 def render_mode_selector():
-    """渲染 4 个模式按钮，返回选中的 mode 字符串或 None。"""
     button_slot = st.empty()
     if not (st.session_state.waiting_for_mode and st.session_state.pending_prompt):
         return
@@ -982,11 +967,10 @@ def render_mode_selector():
             st.stop()
 
 
-# ── 第一段执行 ────────────────────────────────────────────────────────────────
+# ──  ────────────────────────────────────────────────────────────────
 
 def run_first_segment(app, store, fm, user_uid,
                       current_session_id, current_session):
-    """运行到 executor 前暂停，返回是否进入 waiting_review。"""
     if not (st.session_state.pending_prompt and st.session_state.ui_mode
             and not st.session_state.waiting_review):
         return
@@ -1078,14 +1062,13 @@ def run_first_segment(app, store, fm, user_uid,
         st.rerun()
 
 
-# ── 审查确认框 ────────────────────────────────────────────────────────────────
+# ── ────────────────────────────────────────────────────────────────
 
 def render_review(app):
     if not st.session_state.waiting_review:
         return
 
     with st.chat_message("assistant"):
-        # 上次执行失败时的错误提示
         last_error = st.session_state.pop("last_exec_error", None)
         if last_error:
             st.error(f"### ❌ {_('Last run failed — commands have been auto-corrected')}")
@@ -1095,7 +1078,6 @@ def render_review(app):
         else:
             st.markdown(f"### 📋 {_('Pending commands — please confirm')}")
 
-        # 前置文件预览（samplesheet 等）
         pre_files = app.get_state(
             {"configurable": {"thread_id": st.session_state.get("thread_id", "")}}
         ).values.get("pre_files", [])
@@ -1117,7 +1099,6 @@ def render_review(app):
         submitted  = st.session_state.review_submitted
         confirming = st.session_state.get("confirming_execute", False)
 
-        # ── 状态提示（submitted 后显示，按钮仍渲染但全部 disabled）────────────
         if submitted:
             decision = st.session_state.get("resume_decision")
             if decision == "cancel":
@@ -1127,7 +1108,6 @@ def render_review(app):
             else:
                 st.info(_("⏳ Submitted — task is running, please wait..."))
 
-        # ── 操作区（submitted 后全部 disabled，防止重复点击）────────────────
         st.text_input(_("🔧 Revision notes (fill in before submitting)"),
                       key="review_feedback", disabled=submitted)
         col1, col2, col3 = st.columns(3)
@@ -1172,7 +1152,6 @@ def render_review(app):
                     st.warning(_("Please fill in revision notes first"))
 
 
-# ── 本地参数审查恢复段 ───────────────────────────────────────────────────────
 
 def run_local_prereq_review_segment(app, store, fm, user_uid, current_session_id):
     """Resume after user confirms/edits the local workflow parameters."""
@@ -1253,7 +1232,6 @@ def run_local_prereq_review_segment(app, store, fm, user_uid, current_session_id
             st.session_state.thinking_process = []
 
 
-# ── prereq 确认恢复段 ─────────────────────────────────────────────────────────
 
 def run_prereq_review_segment(app, store, fm, user_uid, current_session_id):
     """Resume after user confirms/edits the samplesheet."""
@@ -1311,7 +1289,6 @@ def run_prereq_review_segment(app, store, fm, user_uid, current_session_id):
             st.session_state.thinking_process = []
 
 
-# ── 模块选择恢复段 ────────────────────────────────────────────────────────────
 
 def run_module_select_segment(app, store, fm, user_uid, current_session_id):
     """Resume after user has confirmed module selection."""
@@ -1354,7 +1331,6 @@ def run_module_select_segment(app, store, fm, user_uid, current_session_id):
         st.session_state.thinking_process = []
 
 
-# ── 后台 agent 线程辅助 ───────────────────────────────────────────────────────
 
 class _AgentResult:
     """线程间传递 app.stream() 结果的容器。"""
@@ -1367,7 +1343,6 @@ class _AgentResult:
 def _run_agent_in_background(app, config, result: _AgentResult,
                              user_uid: int, current_session_id: str,
                              session_dir: str, lang: str = ""):
-    """在后台线程里消费 app.stream() 并把事件存入 result.events。"""
     try:
         set_session_context(user_uid, current_session_id, session_dir, lang=lang)
         for event in app.stream(None, config=config):
@@ -1383,10 +1358,8 @@ def _run_agent_in_background(app, config, result: _AgentResult,
         result.done = True
 
 
-# ── 第二段执行（断点恢复）────────────────────────────────────────────────────
 
 def run_second_segment(app, store, fm, user_uid, current_session_id):
-    # ── 阶段 A：用户刚提交决定，启动后台线程 ─────────────────────────────────
     _rd  = st.session_state.get("resume_decision")
     _tid = st.session_state.get("thread_id")
     if _rd and _tid:
@@ -1429,7 +1402,6 @@ def run_second_segment(app, store, fm, user_uid, current_session_id):
         st.session_state._agent_session_id   = current_session_id
         st.rerun()
 
-    # ── 阶段 B：后台线程运行中或已完成，用 fragment 局部轮询 ──────────────────
     result: _AgentResult = st.session_state.get("_agent_bg_result")
     if result is None:
         return
@@ -1443,7 +1415,6 @@ def run_second_segment(app, store, fm, user_uid, current_session_id):
         thinking_process = st.session_state.get("_agent_thinking", [])
         config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
-        # 把新到的事件和日志追加到累积列表
         while result.events:
             event = result.events.pop(0)
             node_name = list(event.keys())[0]
@@ -1453,10 +1424,8 @@ def run_second_segment(app, store, fm, user_uid, current_session_id):
             _parse_progress_log(log)
         st.session_state._agent_thinking = thinking_process
 
-        # 步骤进度（本地工作流专用）
         has_progress = _render_step_progress()
 
-        # 日志折叠框：有进度时默认收起，避免遮挡进度
         log_buf = st.session_state.get("_agent_log_buf", [])
         if log_buf:
             with st.expander(_("📋 Execution log"), expanded=not has_progress):
@@ -1478,7 +1447,6 @@ def run_second_segment(app, store, fm, user_uid, current_session_id):
                 st.info(_("⏳ Running workflow, please wait..."))
             return
 
-        # 线程已完成，flush 剩余日志
         for log in flush_logs():
             st.session_state.setdefault("_agent_log_buf", []).append(log)
             _parse_progress_log(log)
@@ -1574,10 +1542,7 @@ def _cleanup_agent_bg_state():
 
 
 def render_worker_poller(store, current_session_id: str):
-    """
-    若会话中有正在运行的独立 worker（_watching_worker_run_dir 已设置），
-    每 10 秒轮询一次 run_status.json。完成后自动生成报告并存入历史。
-    """
+
     watch_dir = st.session_state.get("_watching_worker_run_dir", "")
     if not watch_dir:
         return
@@ -1639,7 +1604,6 @@ def render_worker_poller(store, current_session_id: str):
                     })
                     st.session_state.pop("_watching_worker_run_dir", None)
                     st.rerun()
-            # 展示运行日志（worker.log = 步骤进度 + 分析器输出）
             _wlog = os.path.join(watch_dir, "worker.log")
             try:
                 if os.path.isfile(_wlog):
@@ -1650,7 +1614,6 @@ def render_worker_poller(store, current_session_id: str):
                             st.code(_log_txt[-4000:], language=None)
             except Exception:
                 pass
-            # stderr 有内容说明 Python 启动崩溃
             _slog = os.path.join(watch_dir, "worker_stderr.log")
             try:
                 if os.path.isfile(_slog):
@@ -1740,12 +1703,7 @@ def render_worker_poller(store, current_session_id: str):
 
 
 def render_worker_reconnect(store, current_session_id: str, session_dir: str):
-    """
-    重连检测（后台 worker）：
-    - running/pending + PID 存活  → 恢复轮询
-    - running/pending + PID 已死  → 标为 failed，显示 stderr 日志
-    - completed                   → 自动展示结果（如聊天记录里还没有的话）
-    """
+
     if not session_dir or not os.path.isdir(session_dir):
         return
     if st.session_state.get("_worker_reconnect_checked"):
@@ -1769,17 +1727,13 @@ def render_worker_reconnect(store, current_session_id: str, session_dir: str):
         if not run_dir:
             continue
 
-        # ── 仍在运行 / 等待 ──────────────────────────────────────────────────
         if status in ("pending", "running"):
             pid   = run.get("pid")
             alive = is_pid_alive(pid)
 
             if alive:
-                # Worker 进程还活着 — 重启轮询
                 st.session_state["_watching_worker_run_dir"] = run_dir
-                return  # poller 会接管后续展示
-
-            # Worker 已死但状态未更新 — 读 stderr 日志，标为 failed
+                return  
             _stderr_path = os.path.join(run_dir, "worker_stderr.log")
             _stderr_txt  = ""
             try:
@@ -1810,7 +1764,6 @@ def render_worker_reconnect(store, current_session_id: str, session_dir: str):
                         st.code(_stderr_txt[-3000:], language="python")
             return
 
-        # ── 失败 ─────────────────────────────────────────────────────────────
         if status == "failed":
             already_shown = any(
                 (m.get("metadata") or {}).get("worker_run_dir") == run_dir
@@ -1841,7 +1794,6 @@ def render_worker_reconnect(store, current_session_id: str, session_dir: str):
                         st.code(_wlog_txt[-4000:], language=None)
             continue
 
-        # ── 已完成 ────────────────────────────────────────────────────────────
         if status != "completed":
             continue
 
@@ -1858,7 +1810,6 @@ def render_worker_reconnect(store, current_session_id: str, session_dir: str):
         warnings     = run.get("warnings") or []
         data_location = run_dir
 
-        # ── 生成 LLM 报告（与 poller 路径保持一致）────────────────────────────
         import re as _re
         from utils.llm_utils import get_llm_instance
 
@@ -1911,20 +1862,10 @@ def render_worker_reconnect(store, current_session_id: str, session_dir: str):
 
 def render_completed_if_disconnected(app, store, current_session_id: str,
                                      current_session: dict):
-    """
-    重连检测：若后台任务在断连期间已完成但 session_state 已丢失，
-    从 LangGraph checkpoint 恢复最终结果并渲染。
 
-    触发条件：
-    - 没有活跃后台任务（_agent_bg_result 为 None）
-    - 当前 session 有 thread_id
-    - 最后一条消息来自用户（说明 assistant 回复尚未保存）
-    - LangGraph 图已执行完毕（next 为空）且有最终结果
-    """
     if st.session_state.get("_agent_bg_result"):
         return
 
-    # 优先从 session_state 取，其次从 DB 记录取（重连后 session_state 为空）
     thread_id = (st.session_state.get("thread_id") or
                  (current_session or {}).get("thread_id"))
     if not thread_id:
@@ -1934,7 +1875,6 @@ def render_completed_if_disconnected(app, store, current_session_id: str,
     if not messages or messages[-1]["role"] == "assistant":
         return
 
-    # 防止对同一个 thread 重复检测（已经在本次页面渲染中处理过）
     if st.session_state.get("_disconnected_checked_tid") == thread_id:
         return
     st.session_state["_disconnected_checked_tid"] = thread_id
@@ -1945,11 +1885,9 @@ def render_completed_if_disconnected(app, store, current_session_id: str,
     except Exception:
         return
 
-    # 仍有待执行节点 → 任务还在运行或停在中断点，不处理
     if current_state.next:
         return
 
-    # 图已完成但无内容（全新 thread 或被取消）
     full_response = get_final_from_state(current_state)
     if not full_response:
         return

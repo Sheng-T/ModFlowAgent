@@ -1,18 +1,6 @@
-"""
-BAM 分析可视化模块。
-根据 BamAnalyzer 返回的 stats dict 生成 PNG 图表，保存到指定目录。
 
-生成图表：
-  1. mapping_stats.png  — 比对情况饼图（mapped / unmapped / secondary / supplementary）
-  2. read_length.png    — read 长度分布直方图（来自 samtools stats RL 行）
-  3. quality_dist.png   — 碱基质量分布柱状图（来自 samtools stats QUAL 行）
-  4. bam_summary.png    — 以上三图合并的总览图（同时返回）
-
-返回已生成的文件路径列表。
-"""
 import os
 
-# matplotlib 在无显示器环境下必须使用非交互后端
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -20,7 +8,6 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 
-# ── 调色板 ────────────────────────────────────────────────────────────────────
 _PALETTE = {
     "mapped":        "#4C9BE8",
     "unmapped":      "#E87B4C",
@@ -45,7 +32,6 @@ plt.rcParams.update({
 })
 
 
-# ── 工具函数 ──────────────────────────────────────────────────────────────────
 
 def _save(fig: plt.Figure, path: str) -> str:
     fig.savefig(path, dpi=150, bbox_inches="tight")
@@ -62,7 +48,6 @@ def _fmt_num(n: int) -> str:
     return str(n)
 
 
-# ── 图1：比对情况饼图 ─────────────────────────────────────────────────────────
 
 def plot_mapping_stats(stats: dict, output_dir: str) -> str:
     total      = stats.get("total_reads", 0)
@@ -77,7 +62,6 @@ def plot_mapping_stats(stats: dict, output_dir: str) -> str:
     colors  = [_PALETTE["mapped"], _PALETTE["unmapped"],
                _PALETTE["secondary"], _PALETTE["supplementary"]]
 
-    # 过滤掉 0 值
     data = [(l, v, c) for l, v, c in zip(labels, values, colors) if v > 0]
     if not data:
         return ""
@@ -98,7 +82,6 @@ def plot_mapping_stats(stats: dict, output_dir: str) -> str:
         at.set_color("white")
         at.set_fontweight("bold")
 
-    # 图例
     legend_labels = [f"{l}  ({_fmt_num(v)})" for l, v in zip(labels_f, values_f)]
     ax.legend(wedges, legend_labels, loc="lower center",
               bbox_to_anchor=(0.5, -0.18), ncol=2, fontsize=9)
@@ -113,7 +96,6 @@ def plot_mapping_stats(stats: dict, output_dir: str) -> str:
     return _save(fig, path)
 
 
-# ── 图2：Read 长度分布 ────────────────────────────────────────────────────────
 
 def plot_read_length(stats: dict, output_dir: str) -> str:
     rl_dist: dict = stats.get("read_length_dist", {})
@@ -124,7 +106,6 @@ def plot_read_length(stats: dict, output_dir: str) -> str:
     counts  = [rl_dist[l] for l in lengths]
     avg_len = stats.get("avg_read_length", 0)
 
-    # 若数据点过多则分桶（>200 个不同长度时合并）
     if len(lengths) > 200:
         arr  = np.array(lengths)
         wt   = np.array(counts)
@@ -156,7 +137,6 @@ def plot_read_length(stats: dict, output_dir: str) -> str:
     return _save(fig, path)
 
 
-# ── 图3：碱基质量分布 ─────────────────────────────────────────────────────────
 
 def plot_quality_dist(stats: dict, output_dir: str) -> str:
     qual_dist: dict = stats.get("quality_dist", {})
@@ -168,7 +148,6 @@ def plot_quality_dist(stats: dict, output_dir: str) -> str:
     avg_q  = stats.get("avg_quality", None)
     total  = sum(counts) or 1
 
-    # 颜色按 Q 值分段
     def _color(q: int) -> str:
         if q >= 20: return _PALETTE["mapped"]
         if q >= 10: return "#F5A623"
@@ -203,13 +182,9 @@ def plot_quality_dist(stats: dict, output_dir: str) -> str:
     return _save(fig, path)
 
 
-# ── 汇总图（3合1）────────────────────────────────────────────────────────────
 
 def plot_bam_summary(stats: dict, output_dir: str) -> str:
-    """
-    将三张图合并为一张 3-panel 总览图。
-    若某个子图数据缺失则跳过该 panel。
-    """
+
     has_mapping = stats.get("total_reads", 0) > 0
     has_rl      = bool(stats.get("read_length_dist"))
     has_qual    = bool(stats.get("quality_dist"))
@@ -322,13 +297,9 @@ def plot_bam_summary(stats: dict, output_dir: str) -> str:
     return _save(fig, path)
 
 
-# ── 主入口 ────────────────────────────────────────────────────────────────────
 
 def generate_bam_plots(stats: dict, output_dir: str) -> list[str]:
-    """
-    生成所有 BAM 图表，返回已成功写入的文件路径列表。
-    单张图 + 合并总览图都会生成。
-    """
+
     os.makedirs(output_dir, exist_ok=True)
     paths = []
 

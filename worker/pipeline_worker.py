@@ -60,7 +60,6 @@ def _run_step(cmd_script: str, step_dir: str,
 
 
 def main():
-    # 顶层兜底：任何未捕获的异常都写入 run_status.json，让 UI 能看到错误
     run_dir = sys.argv[1] if len(sys.argv) > 1 else ""
     try:
         _main(run_dir)
@@ -204,17 +203,15 @@ def _main(run_dir: str):
             warnings.append(f"Analyzer error: {exc}")
             _log(f"[worker] Analyzer error:\n{tb}")
 
-        # ── 不打 zip：原始数据留在 run_dir，用户直接 scp/rsync 取文件 ──────────
-        # BAM 文件动辄数 GB，打包只是浪费时间；run_dir 路径会写入 run_status.json
-        # UI 展示时会把路径显示出来，供用户自行下载。
+
         _log(f"[worker] Skipping zip — raw outputs in: {run_dir}")
 
         # ── Final status ──────────────────────────────────────────────────────
         status["status"]          = "completed"
         status["finished_at"]     = _now_iso()
         status["current_step"]    = None
-        status["zip_path"]        = ""        # 不再提供 zip 下载
-        status["run_dir"]         = run_dir   # 明确记录 run_dir 供 UI 展示路径
+        status["zip_path"]        = ""        
+        status["run_dir"]         = run_dir  
         status["analysis_images"] = [p for p in plot_paths if os.path.isfile(p)]
         status["text_summary"]    = text_summary
         status["warnings"]        = warnings

@@ -18,7 +18,6 @@ def review_execution_plan_node(state: AgentState) -> dict:
 
     run_dir = get_or_create_run_dir() or ""
 
-    # ── workflow 前置文件：直接用 Python 写入，不生成 shell heredoc 命令 ────────
     if is_workflow and pre_files and run_dir:
         os.makedirs(run_dir, exist_ok=True)
         for pf in pre_files:
@@ -27,7 +26,6 @@ def review_execution_plan_node(state: AgentState) -> dict:
                 _f.write(pf["content"])
             ui_print(f"[Review] Pre-file written: {pf['filename']} → {dest}")
 
-    # ── 正式执行命令 ───────────────────────────────────────────────────────────
     for i, call in enumerate(tool_calls):
         raw_cmd = build_command_for_call(call, is_workflow=is_workflow)
         pending_commands.append(raw_cmd)

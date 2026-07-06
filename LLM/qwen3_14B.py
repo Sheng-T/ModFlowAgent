@@ -56,7 +56,6 @@ class Qwen3LLM(LLM):
         gen_ids = outputs[0][inputs.input_ids.shape[-1]:]
         text = self.tokenizer.decode(gen_ids, skip_special_tokens=True)
 
-        # 可选 stop 处理
         if stop:
             for s in stop:
                 if s in text:
@@ -116,13 +115,11 @@ def get_llm(
     )
 
 
-# =======================
-# 示例
-# =======================
+
 if __name__ == "__main__":
     llm = get_llm("/ni_data/users/shengtao/model/qwen3-14b/models--Qwen--Qwen3-14B/snapshots/40c069824f4251a91eefaf281ebe4c544efd3e18/")
     # llm = get_llm(
     #     "/ni_data/users/shengtao/model/qwen3-1.7b-ab/models--huihui-ai--Huihui-Qwen3-1.7B-abliterated-v2/snapshots/4462327af009cd482a6b308b67ec9b3a6eeb006a/",
     # )
-    prompt = "你好，agent"
+    prompt = "hello, agent"
     print(llm.invoke(prompt))

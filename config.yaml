@@ -1,56 +1,49 @@
 # ============================================================
-#  ModFlowAgent 用户配置文件（公共模板）
+#  ModFlowAgent user config
 #  ModFlowAgent user config — public template
 #
-#  个人/服务器私有配置请写在 config.local.yaml（已在 .gitignore 中）
+#  Personal/server-specific overrides go in config.local.yaml (gitignored)
 #  Personal / server-specific overrides go in config.local.yaml (gitignored)
-#  config.local.yaml 中的值会覆盖此文件中的同名键。
 #  Values in config.local.yaml override matching keys in this file.
 #
-#  启动命令 | Start command:
+#  Start command:
 #    streamlit run ui/app_ui.py
 # ============================================================
 
-# ── LLM 模型 ──────────────────────────────────────────────────────────────────
+# ── LLM ──────────────────────────────────────────────────────────────────
 llm:
-  # 使用的模型名称，必须在 model_paths 中有对应路径
   # Which model to use — must have a matching entry in model_paths below
-  # 可选 / Options: qwen3_14B | qwen35_27B | qwen3_8B | qwen3_1_7B | qwen3_0_6B
+  # Options: qwen3_14B | qwen35_27B | qwen3_8B | qwen3_1_7B | qwen3_0_6B
   model_name: qwen3_14B
 
-  # 推理设备 | Inference device
+  # Inference device
   # Examples: cuda:0  cuda:1  auto  cpu
   device: auto
 
-  # 本地模型最大输出 token 数 | Max output tokens for local models
+  # Max output tokens for local models
   max_new_tokens: 4096
 
-  # API 模式最大输出 token 数 | Max output tokens for API models
+  # Max output tokens for API models
   max_tokens: 8192
 
-  # Embedding 模型推理设备 | Embedding model device
+  # Embedding model device
   embedding_device: cpu
 
-  # 本地模型路径（绝对路径）| Local model paths (absolute paths)
-  # 在 config.local.yaml 中覆盖为实际路径
+  # Local model paths (absolute paths)
   # Override with actual paths in config.local.yaml
   model_paths:
     qwen3_14B:  /path/to/Qwen3-14B
-    qwen35_27B: /path/to/Qwen3.5-27B
-    qwen3_8B:   /path/to/Qwen3-8B
-    qwen3_1_7B: /path/to/Qwen3-1.7B
-    qwen3_0_6B: /path/to/Qwen3-0.6B
-    embedding:  /path/to/all-MiniLM-L6-v2
-    reranker:   /path/to/bge-reranker-base
+    embedding:  sentence-transformers/all-MiniLM-L6-v2
+    reranker:   BAAI/bge-reranker-base
 
-# ── 工具执行环境 ───────────────────────────────────────────────────────────────
+# ── Tool execution environment ───────────────────────────────────────────────────────────────
 tools:
-  # 当找不到 Singularity 镜像时，生信工具在此 conda 环境下执行
+  # Fallback execution environment when no Singularity image is found
   # Execution environment for bio tools when no Singularity image is found
   #
   # type: conda   → conda run -n <env_name> bash -c "<cmd>"
   # type: script  → bash <script_path> "<cmd>"
-  # type: null    → 直接在当前 Python 进程环境执行 / run in current shell env
+  # type: null    → run in current shell env
   exec_env:
     type: conda
     env_name: sin
@@ -62,71 +55,64 @@ tools:
   # Self-host: docker run -d -p 8080:8080 searxng/searxng
   searxng_url: ""
 
-# ── 数据与模型目录 ─────────────────────────────────────────────────────────────
+# ── Data & model directories ─────────────────────────────────────────────────────────────
 data:
-  # 用户文件上传和运行结果存放的根目录（支持 ~）
   # Root directory for uploaded files and run results (~ supported)
   agent_data: ~/agent_data
 
-  # Dorado basecaller 模型目录 | Dorado model directory
+  # Dorado model directory
   dorado_models: ~/tools/dorado_model/
 
-  # Pod5 采样率，用于自动选择 Dorado 模型版本
   # Pod5 sampling rate for automatic Dorado model version selection
-  # 4000 → 旧版 R10.4.1 chemistry (v4.x.x models)
-  # 5000 → 新版 R10.4.1 chemistry (v5.x.x models)
+  # 4000 → older R10.4.1 chemistry (v4.x.x models)
+  # 5000 → newer R10.4.1 chemistry (v5.x.x models)
   dorado_sample_rate: 4000
 
-  # Singularity 镜像存放目录 | Singularity image directory
+  # Singularity image directory
   singularity_image_dir: ~/singularity_image
 
-  # 自定义本地 Nextflow pipeline 目录（每个子目录视为一条 pipeline）
   # Directory for local Nextflow pipelines (each subdirectory = one pipeline)
-  # 留空则使用项目内的 agent_workflow/ 目录
+  # Leave empty to use the built-in agent_workflow/ directory
   pipeline_dir: ~/agent_workflow/
 
-  # Nextflow 插件 / 缓存目录（NXF_HOME 环境变量）
+  # Nextflow plugin/cache directory (sets NXF_HOME env var)
   # Nextflow plugin and cache directory (sets NXF_HOME env var)
-  # 默认放在 agent_data/.nextflow，离线部署时可改为预先缓存好的目录
   # Defaults to {agent_data}/.nextflow; change to a pre-populated dir for air-gapped servers
   nfcore_home: ~/.nextflow
 
-  # 离网模式：true 表示 Nextflow 不访问网络（适用于无公网的 HPC）
+  # Offline mode: true prevents Nextflow from accessing the network
   # Offline mode: set true on air-gapped HPC nodes where internet is unavailable
   nextflow_offline: true
 
-  # 单用户最大存储配额（GB）| Per-user storage quota in GB
+  # Per-user storage quota in GB
   user_quota_gb: 100
 
-# ── 用户账号 ───────────────────────────────────────────────────────────────────
-# 仅首次启动时写入数据库，之后以数据库为准（密码修改请通过页面或管理接口）
+# ── User accounts ───────────────────────────────────────────────────────────────────
 # Only written to DB on first start — later changes go through the UI or admin API
-# 格式 / format:  username: password
-# 建议在 config.local.yaml 中设置真实密码
+# Format:  username: password
 # Set real passwords in config.local.yaml
 users:
-  admin: "CHANGE_ME"   # set real password in config.local.yaml
+  demo: "demo"   # set real password in config.local.yaml
 
 # ── Nextflow Workflow ──────────────────────────────────────────────────────────
 workflow:
-  # Nextflow 运行 profile | Nextflow run profile
-  # 常用值 / common: singularity | docker | conda
+  # Nextflow run profile
+  # Common: singularity | docker | conda
   profile: singularity
 
-  # 附加 Nextflow 参数 | Extra Nextflow CLI arguments
-  # 资源上限（防止单个 process 超出机器实际可用量）
+  # Extra Nextflow CLI arguments
   # Resource limits (prevent individual processes from exceeding available capacity)
   max_memory: "30.GB"
   max_time:   "72.h"
-  max_cpus:   null   # null = 自动检测 CPU 数 / auto-detect CPU count
+  max_cpus:   null   # null = auto-detect CPU count
 
-# ── Web 服务 ───────────────────────────────────────────────────────────────────
+# ── Web server ───────────────────────────────────────────────────────────────────
 server:
   port:             8501
   address:          "0.0.0.0"
   max_upload_mb:    102400
   file_server_port: 8502
 
-# ── 界面语言 ───────────────────────────────────────────────────────────────────
+# ── Language ───────────────────────────────────────────────────────────────────
 # UI language: zh_CN | en_US
 language: en_US

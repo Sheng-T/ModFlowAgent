@@ -1,7 +1,4 @@
-"""
-CpG 位点覆盖度评估。
-输入：BedAnalyzer 返回的统计 dict。
-"""
+
 from tools.analyzers.functional.base import FunctionalAnalyzer
 
 
@@ -24,7 +21,6 @@ class CpGSiteAnalyzer(FunctionalAnalyzer):
 
         issues = []
 
-        # 覆盖度充分性评估
         ge10_frac = sites_ge10 / total_sites if total_sites > 0 else 0.0
 
         if cov_median >= self.COV_SUFFICIENT and ge10_frac >= self.SITE_MIN_10X_FRAC:

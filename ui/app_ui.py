@@ -43,7 +43,7 @@ if "default_users_seeded" not in st.session_state:
     store.seed_default_users(DEFAULT_USERS)
     st.session_state.default_users_seeded = True
 
-# ── 登录 ──────────────────────────────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────────────────────────────
 render_login(store)
 
 user_id  = st.session_state.user_id
@@ -51,7 +51,7 @@ user_uid = st.session_state.get("user_uid") or store.get_user_uid(user_id)
 fm       = get_file_manager()
 start_file_server(fm.root, FILE_SERVER_PORT)
 
-# ── 初始化会话（首次进入或切换用户后）────────────────────────────────────────
+# ── ────────────────────────────────────────
 if not st.session_state.get("current_session_id"):
     sessions = store.get_user_sessions(user_id)
     if sessions:
@@ -63,10 +63,10 @@ if not st.session_state.get("current_session_id"):
         )
         switch_session(store, new_sess["session_id"])
 
-# ── 侧边栏 ────────────────────────────────────────────────────────────────────
+# ──  ────────────────────────────────────────────────────────────────────
 render_sidebar(store, fm, user_id, user_uid)
 
-# ── 主区域 ────────────────────────────────────────────────────────────────────
+# ──  ────────────────────────────────────────────────────────────────────
 st.title(_(f"🧬 {APP_DISPLAY} Analytics Platform"))
 st.markdown("---")
 
@@ -87,13 +87,13 @@ with st.spinner(_("Loading model...")):
 render_history(current_messages)
 render_completed_if_disconnected(app, store, current_session_id, current_session)
 
-# ── 后台 worker 恢复 & 轮询 ───────────────────────────────────────────────────
+# ──  ───────────────────────────────────────────────────
 _session_dir = fm.session_dir(user_uid, current_session_id) if current_session_id else ""
 render_worker_reconnect(store, current_session_id, _session_dir)
 render_worker_poller(store, current_session_id)
 
 
-# ── 初始化执行状态 ─────────────────────────────────────────────────────────────
+# ──  ─────────────────────────────────────────────────────────────
 defaults = {
     "pending_prompt":   None,
     "ui_mode":          None,
@@ -111,7 +111,7 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── 用户输入（后台任务运行时禁用）────────────────────────────────────────────
+# ── ────────────────────────────────────────────
 _task_running = bool(st.session_state.get("_agent_bg_result"))
 if prompt := st.chat_input(_("Enter your analysis instruction..."), disabled=_task_running):
     st.session_state.pending_prompt   = prompt.strip()
@@ -122,10 +122,10 @@ if prompt := st.chat_input(_("Enter your analysis instruction..."), disabled=_ta
     st.session_state.review_submitted   = False
     st.session_state.confirming_execute = False
     st.session_state.thinking_process   = []
-    st.session_state.pop("_agent_done_result", None)  # 新任务开始，清除上次结果
+    st.session_state.pop("_agent_done_result", None)  
     st.rerun()
 
-# ── 执行流程 ──────────────────────────────────────────────────────────────────
+# ── ──────────────────────────────────────────────────────────────────
 render_mode_selector()
 run_first_segment(app, store, fm, user_uid, current_session_id, current_session)
 render_workflow_selector(app)

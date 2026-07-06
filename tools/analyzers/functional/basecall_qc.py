@@ -1,15 +1,10 @@
-"""
-Basecall 质量评估（适用于 dorado basecaller 产生的 BAM）。
-输入：BamAnalyzer 返回的统计 dict。
-"""
+
 from tools.analyzers.functional.base import FunctionalAnalyzer
 
 
 class BasecallQCAnalyzer(FunctionalAnalyzer):
-    # Nanopore basecall 质量阈值（基于 Q 值）
-    Q_GOOD       = 15.0   # Q ≥ 15 → good（高精度）
+    Q_GOOD       = 15.0   # Q ≥ 15 → good
     Q_ACCEPTABLE = 10.0   # Q ≥ 10 → acceptable
-    # reads 通量阈值（示意，可按实际测序目标调整）
     MIN_READS_ACCEPTABLE = 1000
 
     def analyze(self, file_stats: dict) -> dict:
@@ -23,7 +18,6 @@ class BasecallQCAnalyzer(FunctionalAnalyzer):
 
         issues = []
 
-        # Q 值评级
         if avg_quality is None:
             quality_grade = "unknown"
             issues.append("Mean Q-score unavailable (samtools stats did not run or failed)")

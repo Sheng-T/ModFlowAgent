@@ -28,11 +28,13 @@ def retrieve_pipeline_docs_node(state: AgentState) -> AgentState:
 
     cache_key = f"pipeline_{pipeline}"
     if cache_key not in RAG_INSTANCES:
-        RAG_INSTANCES[cache_key] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=WORKFLOW_CACHE_DIRS.get(pipeline), )
-
+        try:
+            RAG_INSTANCES[cache_key] = EnhancedMDRAG(doc_path, llm=rag_llm, cache_dir=WORKFLOW_CACHE_DIRS.get(pipeline), )
+        except Exception as _e:
+            print(f"[RAG Pipeline] {pipeline}: {msg}")
+            return state
     context = RAG_INSTANCES[cache_key].search(user_query)
 
-    # 写入 rag_suggestion，key 用 pipeline 名，param_generator 直接取
     state["rag_suggestion"][pipeline] = context
     print(f"[RAG Pipeline] {pipeline} docs retrieved")
     return state

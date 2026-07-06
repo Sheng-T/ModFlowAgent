@@ -91,7 +91,7 @@ class SessionStore:
             CREATE TABLE IF NOT EXISTS users (
                 user_name     TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL DEFAULT '',
-                lang          TEXT DEFAULT 'zh_CN',
+                lang          TEXT DEFAULT 'en_US',
                 uid           INTEGER UNIQUE,
                 created_at    TEXT DEFAULT (datetime('now'))
             );

@@ -79,11 +79,15 @@ class EnhancedMDRAG:
             }
         )
 
-        # reranker
-        self.reranker = CrossEncoder(
-            model_name_or_path=llm_model_path['reranker'],
-            device=device
-        )
+        # reranker (optional, skip if unavailable)
+        try:
+            self.reranker = CrossEncoder(
+                model_name_or_path=llm_model_path['reranker'],
+                device=device
+            )
+        except Exception:
+            import logging; logging.warning("[RAG] Reranker not available, skipping")
+            self.reranker = None
 
         self.retriever = self._prepare_retriever()
 
@@ -92,7 +96,6 @@ class EnhancedMDRAG:
         if self._cache_dir:
             db_dir = self._cache_dir
         else:
-            # 保留原有兜底逻辑
             base_name = os.path.basename(self.doc_path).split('_')[0]
             db_dir = os.path.join(OTHER_PATH['db_dir'], base_name)
 
@@ -124,14 +127,11 @@ class EnhancedMDRAG:
             children = child_splitter.split_text(parent.page_content)
 
             for child_content in children:
-                # 文本有效性检查：过滤空白和无意义内容
                 cleaned_content = child_content.strip()
                 
-                # 跳过空文本或过短文本（少于10个字符）
                 if not cleaned_content or len(cleaned_content) < 10:
                     continue
                 
-                # 跳过只包含特殊符号的文本
                 if all(c in ' \n\t\r|—–-_*#[](){}' for c in cleaned_content):
                     continue
 
@@ -147,7 +147,7 @@ class EnhancedMDRAG:
                 final_docs.append(new_doc)
 
         if not final_docs:
-            raise ValueError(f"文档为空，无法构建检索器: {self.doc_path}")
+            raise ValueError(f"Document is empty, cannot build retriever: {self.doc_path}")
 
         # vector db
         if os.path.exists(db_dir) and os.listdir(db_dir):
@@ -205,7 +205,7 @@ class EnhancedMDRAG:
 
     def rerank(self, query: str, docs: List[Document]):
 
-        if len(docs) == 0:
+        if len(docs) == 0 or self.reranker is None:
             return docs
 
         pairs = [(query, d.page_content) for d in docs]
@@ -229,7 +229,6 @@ class EnhancedMDRAG:
         for q in queries:
             docs.extend(self.retriever.invoke(q))
 
-        # 去重
         seen = set()
         unique_docs = []
         for d in docs:
@@ -241,21 +240,17 @@ class EnhancedMDRAG:
         # 3 rerank
         reranked_docs = self.rerank(query, unique_docs)
 
-        # 4 核心修复：丢弃庞大的 parent_context，只用当前切片，并注入 Header 导航
         context_parts = []
         for doc in reranked_docs:
-            # 提取所在的标题层级 (例如: "samtools view > OPTIONS")
             headers = []
             for i in range(1, 4):
                 h_key = f"Header {i}"
                 if h_key in doc.metadata:
                     headers.append(doc.metadata[h_key])
 
-            header_path = " > ".join(headers) if headers else "文档片段"
+            header_path = " > ".join(headers) if headers else "Document fragments"
 
-            # 组合上下文：[导航路径] + 具体切片内容
-            chunk_text = f"【来源: {header_path}】\n{doc.page_content}"
+            chunk_text = f"[Source: {header_path}]\n{doc.page_content}"
             context_parts.append(chunk_text)
 
-        # 返回 Top 5 的相关切片 (10 * 500 chunk_size ≈ 5000 tokens，极度安全)
         return "\n\n---\n\n".join(context_parts[:10])

@@ -18,7 +18,6 @@ class ToolSpec:
     description: str = ""
 
 
-# 兼容旧接口：保留 TOOL_REGISTRY（validator 映射）
 TOOL_REGISTRY = {
     "dorado":   dorado,
     "samtools": samtools,
@@ -38,11 +37,10 @@ TOOL_SPECS: Dict[str, ToolSpec] = {
 
 
 WORKFLOW_REGISTRY = {
-    "methylong": methylong,  # 以后加 rnaseq、sarek 也在这里注册
+    "methylong": methylong,  #
 }
 
 
-# 保留 COMMAND_REGISTRY 以兼容现有调用
 COMMAND_REGISTRY = {
     "workflow": build_workflow_command,
 }

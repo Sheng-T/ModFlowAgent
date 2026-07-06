@@ -284,7 +284,6 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
             continue
         # ──────────────────────────────────────────────────────────────────────
 
-        # ── 普通工具：RAG + LLM 生成参数 ──────────────────────────────────────
         tool_real_name = ""
         for t in TOOL_LIST:
             if t.lower() in tool_name.lower():

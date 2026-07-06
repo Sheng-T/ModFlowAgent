@@ -8,7 +8,6 @@ VECTOR_DB_DIR = os.path.join(STATIC_DIR, "vector_db_cache")
 
 # configs/tool_config.py
 
-# 普通工具：自动发现 static/tools/ 子目录
 TOOLS_DIR = os.path.join(STATIC_DIR, "tools")
 
 def _autodiscover_tools(tools_dir: str) -> tuple[dict, dict, dict, dict]:

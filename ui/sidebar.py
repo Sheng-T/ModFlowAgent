@@ -10,12 +10,11 @@ from configs.path_config import USER_QUOTA_BYTES
 from configs.tool_config import TOOL_DESCIPTION
 from tools.workflow.registry import all_specs
 from utils.i18n import _
-from utils.auth_cookie import clear_login_cookie
+from utils.auth_cookie import clear_login_state
 from utils.file_server import make_download_html, is_running
 
 
 def switch_session(store, session_id: str):
-    """切换到指定会话并重置执行状态。"""
     session = store.get_session(session_id)
     if not session:
         return
@@ -39,19 +38,16 @@ def switch_session(store, session_id: str):
 
 
 def render_sidebar(store, fm, user_id, user_uid):
-    """渲染完整侧边栏：用户信息 / 语言 / 会话管理 / 文件管理。"""
     with st.sidebar:
-        # ── 用户信息 ──────────────────────────────────────────────────────────
         st.markdown(f"**👤 {user_id}**")
         if st.button(_("Switch User"), width="stretch"):
-            clear_login_cookie()
+            clear_login_state()
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
 
         st.divider()
 
-        # ── 语言切换 ──────────────────────────────────────────────────────────
         lang_options  = list(SUPPORTED_LANGS.keys())
         lang_labels   = list(SUPPORTED_LANGS.values())
         current_idx   = lang_options.index(st.session_state.get("lang", DEFAULT_LANG))
@@ -66,7 +62,6 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         st.divider()
 
-        # ── 能力一览 ──────────────────────────────────────────────────────────
         with st.expander(_("🧰 Supported Tools & Pipelines"), expanded=False):
             st.markdown(f"**{_('Tools')}**")
             for t in TOOL_DESCIPTION:
@@ -94,7 +89,6 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         st.divider()
 
-        # ── 会话管理 ──────────────────────────────────────────────────────────
         if st.button(_("➕ New Session"), width="stretch"):
             new_sess = store.create_session(
                 user_id,
@@ -121,9 +115,7 @@ def render_sidebar(store, fm, user_id, user_uid):
                     st.rerun()
             st.caption(f"  {store.message_count(sess['session_id'])} {_('messages')}")
 
-            # ── 删除确认弹框（内联展示） ─────────────────────────────────────
             if _sess_pending == sess["session_id"]:
-                # 计算会话目录大小
                 _sdir = fm.session_dir(user_uid, sess["session_id"])
                 _sz = 0
                 try:
@@ -166,7 +158,6 @@ def render_sidebar(store, fm, user_id, user_uid):
                     st.session_state.pop("_sess_del_pending", None)
                     st.rerun()
 
-        # ── 文件管理 ──────────────────────────────────────────────────────────
         st.markdown("""<style>
 [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="stDownloadButton"] button,
 [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="stBaseButton-secondary"] button,
@@ -338,7 +329,6 @@ def render_sidebar(store, fm, user_id, user_uid):
                     st.session_state[_pdk] = "clear_files"
                     st.rerun()
 
-        # ── 服务器路径链接（软链接）────────────────────────────────────────────
         with st.expander(_("🔗 Link server path"), expanded=False):
             _lang = st.session_state.get("lang", DEFAULT_LANG)
             _ph = "/data/users/xxx/sample.bam 或目录路径" if _lang != "en_US" \
@@ -367,7 +357,6 @@ def render_sidebar(store, fm, user_id, user_uid):
                         st.success(f"{'已链接' if _lang != 'en_US' else 'Linked'}: `{_link_name}` → `{_p}`")
                         st.rerun()
 
-            # 展示当前 session 中的所有软链接
             if _session_dir and os.path.isdir(_session_dir):
                 _symlinks = [e for e in os.scandir(_session_dir) if os.path.islink(e.path)]
                 if _symlinks:
@@ -381,7 +370,6 @@ def render_sidebar(store, fm, user_id, user_uid):
                             os.unlink(_sl.path)
                             st.rerun()
 
-        # ── 运行产物清理 ──────────────────────────────────────────────────────
         run_dirs = breakdown["run_dirs"]
         if run_dirs:
             with st.expander(f"{_('🗑 Clean run products')}  ({run_sz})", expanded=False):

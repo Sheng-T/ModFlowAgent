@@ -1,15 +1,13 @@
 #!/bin/bash
-# ModFlowAgent 启动脚本 — 自动从 config.yaml 读取服务配置
 # ModFlowAgent start script — reads server config from config.yaml automatically
 #
-# 用法 / Usage:
+# Usage:
 #   bash start.sh
-#   bash start.sh --server.port 8080   # 临时覆盖端口 / override port temporarily
+#   bash start.sh --server.port 8080   #  override port temporarily
 
 set -e
-cd "$(dirname "$0")"  # 确保在项目根目录执行 / ensure we run from project root
+cd "$(dirname "$0")"  # ensure we run from project root
 
-# 从 config.yaml + config.local.yaml 读取 server 配置（local 覆盖 public）
 # Read server config from config.yaml then config.local.yaml (local wins)
 _read_cfg() {
     python3 -c "
@@ -50,4 +48,5 @@ exec streamlit run ui/app_ui.py \
     --server.port      "$PORT" \
     --server.maxUploadSize "$MAX_UPLOAD" \
     --server.headless  true \
+    --server.fileWatcherType none \
     "$@"

@@ -1,7 +1,4 @@
-"""
-比对质量评级（适用于 mapping/alignment 工具产生的 BAM）。
-输入：BamAnalyzer 返回的统计 dict。
-"""
+
 from tools.analyzers.functional.base import FunctionalAnalyzer
 
 
@@ -9,7 +6,7 @@ class AlignmentQCAnalyzer(FunctionalAnalyzer):
     # 判断阈值
     MAPPED_RATE_PASS    = 90.0   # mapped_rate ≥ 90% → PASS
     MAPPED_RATE_WARN    = 70.0   # 70% ≤ mapped_rate < 90% → WARNING
-    MIN_READS_WARN      = 10000  # 总 reads 过少时额外警告
+    MIN_READS_WARN      = 10000  
 
     def analyze(self, file_stats: dict) -> dict:
         if "error" in file_stats:
@@ -21,7 +18,6 @@ class AlignmentQCAnalyzer(FunctionalAnalyzer):
 
         issues = []
 
-        # 映射率评级
         if mapped_rate >= self.MAPPED_RATE_PASS:
             grade = "PASS"
         elif mapped_rate >= self.MAPPED_RATE_WARN:

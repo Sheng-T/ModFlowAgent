@@ -5,8 +5,7 @@ DEFAULT_WORKFLOW_ARGS = {
     "profile": "singularity",
 }
 
-# nf-core 资源上限，防止单个 process 申请超出机器实际可用量。
-# max_cpus=None 表示自动取 os.cpu_count()；显式设值可覆盖。
+
 MAX_WORKFLOW_RESOURCES = {
     "max_cpus":   None,       # None → auto-detect
     "max_memory": "30.GB",

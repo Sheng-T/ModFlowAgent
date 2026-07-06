@@ -37,7 +37,6 @@ def reset_session_state_node(state: AgentState) -> AgentState:
     history = state.get("chat_history", [])
     # Strip old DNA/RNA mismatch warnings from preserved history (regenerated fresh if triggered)
     history = [m for m in history if not (isinstance(m, dict) and "DNA/RNA" in m.get("content", ""))]
-    # user_choice 必须保留，否则 classify_intent_route 和 select_tools_node 里的模式判断会失效
     user_choice = state.get("user_choice")
     # Preserve local_prereq_params tagged with workflow name so re-running the
     # same workflow skips the slow LLM inference step.  The planner clears them
@@ -143,8 +142,7 @@ def classify_intent_route(state: AgentState) -> str:
         elif choice == "tools":
             return "route_to_tools"
         elif choice == "workflow":
-            return "route_to_tools"   # workflow 也走 tools 路由，planner 负责解析具体类型
-        # auto: 继续走下方 LLM 判断
+            return "route_to_tools"  
 
     _workflow_kw = ["nextflow", "nf-core", "workflow", "pipeline", "流水线", "流程",
                     "methylong", "rnaseq", "methylseq", "sarek", "ampliseq", "mag", "taxprofiler",
@@ -177,7 +175,6 @@ def classify_intent_route(state: AgentState) -> str:
         print("[Router] Irrelevant keyword detected -- routing to irrelevant")
         return "route_to_irrelevant"
 
-    # 2) 如果没有显式选择，使用LLM判断
     print("[Router] Calling LLM for intent classification...")
     llm = get_llm_instance(is_planner=True, temperature=0.2)
 
@@ -197,7 +194,7 @@ def classify_intent_route(state: AgentState) -> str:
     mapping = {
         "tools": "tools",
         "tool": "tools",
-        "workflow": "tools",  # workflow也走tools
+        "workflow": "tools",
         "llmanswer": "answer",
         "answer": "answer",
         "irrelevant": "irrelevant",

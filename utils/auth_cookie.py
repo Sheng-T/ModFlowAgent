@@ -1,24 +1,27 @@
-"""
-Cookie-based login persistence.
-Saves/restores username across browser refreshes using extra-streamlit-components.
-"""
+"""Cookie-based login persistence with session_state caching."""
+from datetime import datetime, timedelta
+
 import streamlit as st
 
-_COOKIE_KEY  = "agent_uid"
-_CM_KEY      = "_auth_cookie_manager"
-_EXPIRY_DAYS = 30
+_COOKIE_KEY      = "agent_uid"
+_CM_KEY          = "_auth_cookie_manager"
+_CM_STATE_KEY    = "_modflowagent_cm_instance"
+_COOKIE_INIT_KEY = "_modflowagent_cookie_init_done"
+_EXPIRY_DAYS     = 30
 
 
 def get_cookie_manager():
+    """Return cached CookieManager (one per session)."""
     try:
         import extra_streamlit_components as stx
-        return stx.CookieManager(key=_CM_KEY)
+        if _CM_STATE_KEY not in st.session_state:
+            st.session_state[_CM_STATE_KEY] = stx.CookieManager(key=_CM_KEY)
+        return st.session_state[_CM_STATE_KEY]
     except ImportError:
         return None
 
 
 def save_login_cookie(user_id: str) -> None:
-    from datetime import datetime, timedelta
     mgr = get_cookie_manager()
     if mgr is None:
         return
@@ -35,16 +38,19 @@ def clear_login_cookie() -> None:
         return
     try:
         mgr.delete(_COOKIE_KEY)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[Cookie] Failed to clear login cookie: {e}")
+
+
+def clear_login_state() -> None:
+    """Clear both cookie and Streamlit session login state."""
+    clear_login_cookie()
+    for key in ["user_id", "user_uid", "lang", "current_session_id"]:
+        st.session_state.pop(key, None)
 
 
 def restore_from_cookie(store) -> bool:
-    """
-    Try to restore login state from cookie.
-    Returns True if restored successfully.
-    Must be called before st.stop() / render_login body.
-    """
+    """Restore login state from cookie. Returns True if restored."""
     if st.session_state.get("user_id"):
         return True
 
@@ -52,16 +58,14 @@ def restore_from_cookie(store) -> bool:
     if mgr is None:
         return False
 
-    # CookieManager JS runs asynchronously — on the very first page load mgr.get()
-    # always returns None before the browser script executes.  Trigger one rerun so
-    # the component has time to hydrate; skip the extra rerun on subsequent calls.
-    if not st.session_state.get("_cookie_init_done"):
-        st.session_state["_cookie_init_done"] = True
+    if not st.session_state.get(_COOKIE_INIT_KEY):
+        st.session_state[_COOKIE_INIT_KEY] = True
         st.rerun()
 
     try:
         saved_uid = mgr.get(cookie=_COOKIE_KEY)
-    except Exception:
+    except Exception as e:
+        print(f"[Cookie] Failed to restore: {e}")
         return False
 
     if not saved_uid:

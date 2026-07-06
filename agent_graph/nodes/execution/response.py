@@ -1,8 +1,4 @@
 
-"""
-问答节点 - 支持Web搜索增强
-需要依赖: pip install ddgs html2text beautifulsoup4
-"""
 import os
 from agent_graph.state import AgentState
 from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context, _load_workflow_qa_hints
@@ -293,12 +289,10 @@ def answer_general_question_node(state: AgentState, use_search: bool = True, num
             except Exception:
                 pass
 
-    # 输出完整回答
     answer = state["final_answer"]
     if not answer:
         answer = "(no content)"
     
-    # 输出回答，限制控制台显示长度
     if len(answer) > 1000:
         ui_print(f'\n[LLM Answer]\n{answer[:1000]}\n...\n[{len(answer)} chars total]')
     else:
@@ -483,7 +477,6 @@ def _summarize_workflow(state: AgentState) -> AgentState:
     else:
         warnings.append(f"outdir not found or empty: {outdir}")
 
-    # 不打包 — 原始数据留在 run_dir，用户直接 scp/rsync 取文件（与本地流水线策略一致）
     zip_path = ""
     ui_print(f"[WorkflowSummarizer] Raw outputs in: {run_dir}")
 
@@ -627,7 +620,7 @@ def _summarize_local_workflow(state: AgentState) -> AgentState:
         warnings        = ws.get("warnings") or []
         stats_txt       = text_summary[:3000] if text_summary else "{}"
         warn_txt        = "\n".join(warnings) if warnings else "None"
-        # zip 已不再生成，改为展示 run_dir 路径
+
         data_location   = run_dir
 
     else:
@@ -752,7 +745,6 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
 
     lang = get_lang()
 
-    # ── workflow 走专用分支 ────────────────────────────────────────────────────
     if state.get("workflow_type") == "nfcore":
         return _summarize_workflow(state)
 
@@ -770,12 +762,11 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     ui_print("\n[Summarizer] Starting two-stage analysis pipeline...")
     llm = get_llm_instance(is_planner=False)
 
-    # ── 步骤 1：从命令中提取输出文件路径 ──────────────────────────────────────
+
     output_paths = extract_output_paths(pending_commands)
     ui_print(f"[Summarizer] Detected output files: {output_paths}")
 
-    # ── 早退：命令只有 stdout 输出，无任何输出文件 ────────────────────────────
-    # 例如 dorado download --list / samtools view --header 等只打印到终端的命令
+
     existing_output_paths = [p for p in output_paths if os.path.isfile(p)]
     if not existing_output_paths:
         raw_lines = "\n".join(tool_output).strip()
@@ -798,7 +789,6 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         ui_print("[Summarizer] No output files detected — displaying raw command output")
         return state
 
-    # ── 步骤 2：文件分析（按后缀确定性执行，不调用 LLM）─────────────────────
     file_stats_map: dict[str, dict] = {}   # file_path → stats dict
     for path in existing_output_paths:
         analyzer = get_file_analyzer(path)
@@ -810,12 +800,11 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         file_stats_map[path] = stats
         ui_print(f"[Summarizer] File stats done: {stats.get('type', '?')} — {len(stats)} metrics")
 
-    # ── 步骤 3：使用 select_analysis_modules_node 预先选定的模块 ───────────
     selected_modules: list[str] = state.get("selected_modules", [])
     tool_desc = ", ".join(c["tool_name"] for c in tool_calls)
     ui_print(f"[Summarizer] Using analysis modules: {selected_modules}")
 
-    # ── 步骤 4：功能分析（规则判断，不调用 LLM）──────────────────────────────
+
     functional_results: list[dict] = []
     for module_name in selected_modules:
         analyzer = get_functional_analyzer(module_name)
@@ -835,8 +824,6 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         result = analyzer.analyze(stats_input)
         functional_results.append(result)
 
-    # ── 步骤 5：LLM 生成自然语言报告 ─────────────────────────────────────────
-    # 过滤掉原始错误字段，避免 LLM 把内部错误信息当作报告内容输出
     _error_keys = {"flagstat_error", "stats_error", "error"}
     clean_stats_map = {
         path: {k: v for k, v in stats.items() if k not in _error_keys}
@@ -906,7 +893,6 @@ Report requirements:
             f"### ✅ 任务执行总结\n\n工具执行完成，但报告生成失败：{e}"
         )
 
-    # ── 步骤 6：画图（在 run_dir 内生成 PNG）────────────────────────────────
     plot_paths_in_run: list[str] = []
     if run_dir and os.path.isdir(run_dir):
         try:
@@ -927,12 +913,10 @@ Report requirements:
                     except Exception as e:
                         ui_print(f"[Summarizer] Plot generation failed: {e}")
 
-    # ── 步骤 7：保存分析结果 JSON，将整个 run_dir 归档到 session_dir 下 ─────
     session_dir   = get_session_dir()
     archived_images: list[str] = []
 
     if run_dir and os.path.isdir(run_dir) and session_dir and os.path.isdir(session_dir):
-        # 保存分析结果 JSON 到 run_dir 内
         analysis_result = {
             "file_stats":         file_stats_map,
             "functional_results": functional_results,
@@ -944,13 +928,10 @@ Report requirements:
         except Exception as e:
             ui_print(f"[Summarizer] Failed to write analysis JSON: {e}")
 
-        # 收集 run_dir 内的图片路径（移动后更新）
         for entry in os.scandir(run_dir):
             if entry.is_file() and entry.name.endswith(".png"):
                 archived_images.append(os.path.join(run_dir, entry.name))
 
-        # run_dir 本身已是 session_dir 的子目录（get_or_create_run_dir 创建在 session_dir 下）
-        # 直接保留即可，无需额外移动；run_dir 不删除，作为本次运行的持久存档
         ui_print(f"[Summarizer] Run results archived to: {os.path.basename(run_dir)}")
     elif run_dir:
         ui_print("[Summarizer] Warning: run_dir or session_dir invalid, skipping archive")

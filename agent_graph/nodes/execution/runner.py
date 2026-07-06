@@ -27,9 +27,6 @@ def _format_error(resp: dict, tail: int = 3000) -> str:
 
 
 def _cleanup_run_dir(run_dir: str):
-    """执行失败时清理 run_dir 内的中间产物，但保留前置文件（samplesheet 等）。
-    只删除 nextflow 产生的子目录（work/ results/ .nextflow/ 等），不删整个目录。
-    """
     if not run_dir or not os.path.isdir(run_dir):
         return
     nf_subdirs = {"work", "results", ".nextflow"}
@@ -76,8 +73,7 @@ def execute_commands_node(state: AgentState) -> dict:
         return en if lang == "en_US" else zh
 
     if is_local_workflow:
-        # ── 本地工作流：校验参数，写 job.json，派生独立 worker 进程后立即返回 ────
-        # Worker 进程与 Streamlit 会话解耦，浏览器断连不影响流水线运行。
+
         import json as _json
         import sys as _sys
         import subprocess as _sp
@@ -252,8 +248,6 @@ def execute_commands_node(state: AgentState) -> dict:
                     f"Execution failed:\n{error_log}\nI will correct the parameters.",
                     f"执行失败，报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
                 )})
-                # [DEBUG] 注释掉清理逻辑，保留 work 目录用于调试
-                # _cleanup_run_dir(state.get("run_dir") or "")
                 break
 
         if _nf_run_dir:
@@ -318,15 +312,9 @@ def execute_commands_node(state: AgentState) -> dict:
                     f"Execution of {tool_name} failed:\n{error_log}\nI will correct the parameters.",
                     f"我尝试执行了 {tool_name}，但失败了。报错如下：\n{error_log}\n我需要根据这个错误修正参数。",
                 )})
-                # [DEBUG] 注释掉清理逻辑，保留 work 目录用于调试
-                # _cleanup_run_dir(state.get("run_dir") or "")
                 break
-            # [DEBUG] 注释掉成功后的清理逻辑，保留中间文件用于调试
-            # _cleanup_run_dir(state.get("run_dir") or "")
             break
 
-    # 本地工作流已派生独立 worker，临时脚本需保留直到 worker 使用完毕（atexit 负责最终清理）
-    # 其他路径可以立即清理
     if not (is_local_workflow and next_node == "summarizer"):
         cleanup_temp_scripts()
     return {

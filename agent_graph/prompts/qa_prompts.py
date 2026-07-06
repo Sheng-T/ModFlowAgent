@@ -1,12 +1,19 @@
+from configs.app_config import APP_PASCAL
+
+
 def build_platform_context() -> str:
     """
     Build a compact description of all tools and pipelines available on this platform.
     Called once per Q&A invocation so it always reflects the current config.
     """
+    from configs.app_config import APP_PASCAL
     from configs.tool_config import TOOL_DESCRIPTION
     from configs.workflow_config import PIPELINE_DESCRIPTIONS, LOCAL_PIPELINE_DESCRIPTIONS
 
-    lines = ["## Available tools on this platform"]
+    lines = [f"## About {APP_PASCAL}"]
+    lines.append(f"{APP_PASCAL} is a domain-specialized conversational agent for long-read DNA and RNA modification analysis. It can route natural-language requests to supported workflows, check prerequisites, generate parameters and commands, and, when the execution environment is configured, run workflows.")
+    lines.append("")
+    lines.append("## Available tools on this platform")
     for t in TOOL_DESCRIPTION:
         if t["name"] == "workflow":
             continue
@@ -103,7 +110,7 @@ def build_qa_prompt(user_input: str, augmented_context: str, lang: str,
     if lang == "en_US":
         if augmented_context:
             return (
-                "You are an expert bioinformatics assistant for a nanopore sequencing analysis platform.\n"
+                f"You are {APP_PASCAL}, a domain-specialized agent for long-read DNA and RNA modification analysis.\n"
                 "Use your full bioinformatics expertise to answer any question about sequencing, methods, "
                 "or biological concepts. Only when the user asks specifically what this platform CAN DO "
                 "(e.g. 'does this system support X?', 'which tools are available?') should you restrict "
@@ -144,7 +151,7 @@ def build_qa_prompt(user_input: str, augmented_context: str, lang: str,
     else:
         if augmented_context:
             return (
-                "你是一个纳米孔测序分析平台的生物信息学专家助手。\n"
+                "你是 ModFlowAgent，一个面向长读长 DNA 和 RNA 修饰分析的领域专用智能体。\n"
                 "对于测序技术、生物学概念、分析方法等通用生信问题，请直接用你的专业知识作答。\n"
                 "只有当用户明确询问本平台的功能或能力（如【你们支持X吗】【有哪些工具】）时，"
                 "才需要参照下方工具列表，不要编造未列出的工具或功能。\n"
@@ -163,7 +170,7 @@ def build_qa_prompt(user_input: str, augmented_context: str, lang: str,
                 "- 直接给出答案，不要写开场白。"
             )
         return (
-            "你是一个纳米孔测序分析平台的生物信息学专家助手。\n"
+            "你是 ModFlowAgent，一个面向长读长 DNA 和 RNA 修饰分析的领域专用智能体。\n"
             "对于测序技术、生物学概念、分析方法等通用生信问题，请直接用你的专业知识作答。\n"
             "只有当用户明确询问本平台的功能或能力（如【你们支持X吗】【有哪些工具】）时，"
             "才需要参照下方工具列表，不要编造未列出的工具或功能。\n"

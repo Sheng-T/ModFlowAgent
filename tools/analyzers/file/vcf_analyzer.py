@@ -1,16 +1,14 @@
 """
-VCF / VCF.GZ 文件统计分析器（纯 Python，支持 .gz 压缩）。
-
-标准 VCF 列（0-indexed）：
+ VCF 
   0  CHROM
   1  POS
   2  ID
   3  REF
   4  ALT
   5  QUAL
-  6  FILTER   ← "PASS" 或过滤器名；"." 表示缺失
+  6  FILTER   
   7  INFO
-  8+ FORMAT + 样本列（可选）
+  8+ FORMAT
 """
 import gzip
 import os
@@ -48,15 +46,13 @@ class VcfAnalyzer(FileAnalyzer):
                     total_variants += 1
                     chroms.add(cols[0])
 
-                    # FILTER 列（索引 6）
                     filt = cols[6].strip() if len(cols) > 6 else "."
                     if filt == "PASS":
                         pass_variants += 1
                     filter_counts[filt] += 1
 
-                    # 变异类型（根据 REF/ALT 长度判断）
                     ref = cols[3]
-                    alt = cols[4].split(",")[0]   # 取第一个等位基因
+                    alt = cols[4].split(",")[0]  
                     if len(ref) == 1 and len(alt) == 1:
                         var_types["SNV"] += 1
                     elif len(ref) != len(alt):

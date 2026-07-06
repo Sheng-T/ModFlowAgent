@@ -1,7 +1,4 @@
-"""
-BAM 文件统计分析器。
-通过 Singularity 容器调用 samtools flagstat / samtools stats 获取统计信息。
-"""
+
 import os
 import re
 import subprocess
@@ -11,7 +8,6 @@ from tools.analyzers.file.base import FileAnalyzer
 
 
 def _resolve_samtools_image() -> str | None:
-    """扫描 {image_store}/samtools/ 目录，优先返回 .img，其次 .sif。"""
     tool_dir = os.path.join(os.path.expanduser(IMAGE_PATH["image_store"]), "samtools")
     if not os.path.isdir(tool_dir):
         return None
@@ -32,7 +28,6 @@ def _build_singularity_cmd(bam_path: str, samtools_args: str) -> str:
             f"{image_path} "
             f"samtools {samtools_args}"
         )
-    # 未找到镜像，回退到本地 samtools
     print("[BamAnalyzer] No samtools image found, falling back to local samtools")
     return f"samtools {samtools_args}"
 
@@ -73,10 +68,7 @@ def _run(cmd: str, timeout: int = 120) -> tuple[str, str]:
 
 
 def _parse_flagstat(text: str) -> dict:
-    """
-    解析 samtools flagstat 输出。
-    示例行：1234567 + 0 mapped (99.50% : N/A)
-    """
+
     stats = {}
     for line in text.splitlines():
         line = line.strip()
@@ -108,12 +100,7 @@ def _parse_flagstat(text: str) -> dict:
 
 
 def _parse_stats(text: str) -> dict:
-    """
-    从 samtools stats 输出提取：
-      - SN 行：avg_quality / avg_read_length / reads_examined
-      - RL 行：read_length_dist  {length: count}
-      - QUAL 行：quality_dist {score: count}（每 cycle 质量行，累加得总分布）
-    """
+
     stats: dict = {}
     rl_dist: dict[int, int]   = {}
     qual_dist: dict[int, int] = {}
@@ -152,7 +139,6 @@ def _parse_stats(text: str) -> dict:
 
         elif line.startswith("QUAL\t"):
             # QUAL  <cycle>  <q0_count>  <q1_count> ... <q40_count>
-            # 累加各 quality bucket 的 count
             parts = line.split("\t")
             if len(parts) < 3:
                 continue
@@ -190,7 +176,6 @@ class BamAnalyzer(FileAnalyzer):
             result["flagstat_error"] = str(e)
 
         try:
-            # 2. stats（只取 SN 部分，速度快）
             cmd_stats = _build_singularity_cmd(file_path, f"stats {file_path}")
             out_stats, err_stats = _run(cmd_stats, timeout=180)
             if out_stats:

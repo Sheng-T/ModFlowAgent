@@ -24,7 +24,6 @@ def modkit(subcommand, subcommand_str, args_dict, data_path):
             bam_name = os.path.basename(pos_args[0])
             pos_args[0] = os.path.join(data_dir, bam_name)
 
-        # 若用户未指定输出路径，自动生成到 out_dir
         if len(pos_args) < 2:
             ts = int(time.time())
             pos_args.append(os.path.join(out_dir, f"modkit_pileup_{ts}.bed"))
@@ -32,7 +31,6 @@ def modkit(subcommand, subcommand_str, args_dict, data_path):
             out_name = os.path.basename(pos_args[1])
             pos_args[1] = os.path.join(out_dir, out_name)
 
-        # 规范化 --ref 路径
         ref = kwargs.get("ref", "")
         if ref:
             kwargs["ref"] = os.path.join(data_dir, os.path.basename(ref))
