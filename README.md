@@ -62,8 +62,12 @@ Then open: http://localhost:8501
 
 Default demo login: 
 
-> Username: `demo`
-> Password: `demo`
+```
+Username: demo
+Password: demo
+```
+
+> For deployment, please override the default account in `config.local.yaml`.
 
 Docker mode is intended for lightweight demonstration of the web interface, Q&A, workflow routing, RAG-assisted planning when RAG resources are available, prerequisite validation, and command preview. It does not include Dorado, modkit, Nextflow, nf-core/methylong, Singularity/Apptainer, or local LLM weights. Full workflow execution requires the corresponding external tools and runtime environment.
 
@@ -87,8 +91,6 @@ bash start.sh
 bash start.sh --server.port 8501
 
 ```
-
-For deployment, please override the default account in `config.local.yaml`.
 
 ### Configuration
 
