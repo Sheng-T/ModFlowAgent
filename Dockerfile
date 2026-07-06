@@ -8,9 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
-    sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update -o Acquire::Retries=5 && \
+RUN apt-get update -o Acquire::Retries=5 && \
     apt-get install -y --no-install-recommends \
     build-essential gcc g++ git curl ca-certificates libgomp1 \
     -o Acquire::Retries=5 && \
