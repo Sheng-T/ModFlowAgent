@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # deploy/common.sh — shared utilities, sourced by all sub-scripts
 
 set -euo pipefail

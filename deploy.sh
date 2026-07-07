@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # =============================================================================
 #  ModFlowAgent one-click deployment script
 #
@@ -188,7 +188,7 @@ _run_wizard() {
         _ask "API key (e.g. sk-...)" "" W_API_KEY
         _ask "API base URL" "https://api.deepseek.com/v1" W_API_URL
         _ask "API model name" "deepseek-chat" W_API_MODEL
-        W_CUDA="cu118"; W_DEVICE="cpu"
+        W_CUDA="cpu"; W_DEVICE="cpu"
     fi
 
     echo ""
