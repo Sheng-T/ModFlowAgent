@@ -32,7 +32,7 @@ init_conda() {
 conda_run() {
     local env_name="$1"; shift
     init_conda
-    conda run -n "$env_name" --no-capture-output bash -c "$*"
+    conda run -n "$env_name" --no-capture-output "$@"
 }
 
 conda_env_exists() {

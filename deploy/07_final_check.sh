@@ -51,7 +51,7 @@ fi
 # Conda envs
 echo -e "\n${_BLD}Conda environments:${_RST}"
 if conda_env_exists "${SIN_ENV}"; then
-    NF_VER=$(conda_run "${SIN_ENV}" nextflow -version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "?")
+    NF_VER=$(conda_run "${SIN_ENV}" bash -c 'nextflow -version' 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "?")
     _ok "sin env '${SIN_ENV}' (Nextflow ${NF_VER})"
 else
     _fail "sin env '${SIN_ENV}' not found"

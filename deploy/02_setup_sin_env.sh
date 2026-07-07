@@ -23,7 +23,7 @@ fi
 
 # Install Nextflow
 if conda_run "${SIN_ENV}" which nextflow &>/dev/null; then
-    NF_VER=$(conda_run "${SIN_ENV}" nextflow -version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "unknown")
+    NF_VER=$(conda_run "${SIN_ENV}" bash -c 'nextflow -version' 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "unknown")
     log_info "Nextflow already installed (${NF_VER}), skipping."
 else
     log_info "Installing Nextflow..."
@@ -51,7 +51,7 @@ if [[ "${_has_singularity}" == "false" ]]; then
 fi
 
 # Verify
-NF_VER=$(conda_run "${SIN_ENV}" nextflow -version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "FAILED")
+NF_VER=$(conda_run "${SIN_ENV}" bash -c 'nextflow -version' 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "FAILED")
 [[ "${NF_VER}" == "FAILED" ]] && die "Nextflow verification failed."
 log_success "Nextflow ${NF_VER}"
 
