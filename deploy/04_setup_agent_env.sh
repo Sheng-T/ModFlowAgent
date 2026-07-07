@@ -26,7 +26,7 @@ fi
 conda_run "${AGENT_ENV}" pip install --upgrade pip -q
 
 # Install torch with the correct CUDA wheel
-_cuda="${CUDA_VERSION:-cu118}"
+_cuda="${CUDA_VERSION:-cpu}"
 if conda_run "${AGENT_ENV}" python -c "import torch" &>/dev/null; then
     _torch_ver=$(conda_run "${AGENT_ENV}" python -c "import torch; print(torch.__version__)" 2>/dev/null)
     log_info "torch already installed (${_torch_ver}), skipping."

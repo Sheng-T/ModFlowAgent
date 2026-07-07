@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 #  ModFlowAgent one-click deployment script
 #
@@ -175,7 +175,7 @@ _run_wizard() {
 
     echo ""
     echo -e "${_BLD}[2/5] LLM backend${_RST}"
-    _ask_choice "LLM mode" "local|api" "local" W_LLM_MODE
+    _ask_choice "LLM mode" "local|api" "api" W_LLM_MODE
 
     echo ""
     if [[ "$W_LLM_MODE" == "local" ]]; then

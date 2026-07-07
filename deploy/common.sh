@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # deploy/common.sh — shared utilities, sourced by all sub-scripts
 
 set -euo pipefail
@@ -32,7 +32,7 @@ init_conda() {
 conda_run() {
     local env_name="$1"; shift
     init_conda
-    conda run -n "$env_name" --no-capture-output "$@"
+    conda run -n "$env_name" --no-capture-output bash -c "$*"
 }
 
 conda_env_exists() {
@@ -88,7 +88,7 @@ resolve_paths() {
     SIN_ENV="${SIN_ENV:-sin}"
     AGENT_ENV="${AGENT_ENV:-mod_flow_agent}"
     PYTHON_VERSION="${PYTHON_VERSION:-3.10}"
-    LLM_MODE="${LLM_MODE:-local}"
+    LLM_MODE="${LLM_MODE:-api}"
     DORADO_SAMPLE_RATE="${DORADO_SAMPLE_RATE:-5000}"
     SERVER_PORT="${SERVER_PORT:-8501}"
     USER_QUOTA_GB="${USER_QUOTA_GB:-100}"

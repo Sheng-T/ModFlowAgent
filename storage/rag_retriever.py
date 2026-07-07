@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List
 
 from langchain_chroma import Chroma
@@ -69,38 +70,82 @@ class EnhancedMDRAG:
 
         device = get_embedding_device()
 
-        # print(f'use device {device}')
+        # -- Embedding model (auto-download from HuggingFace) ---------------------
+        _embedding_model = str(llm_model_path.get("embedding", "")).strip()
+        if not _embedding_model:
+            _embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+            print(f"[RAG] Embedding model not configured, using default: {_embedding_model}")
+        else:
+            print(f"[RAG] Loading embedding model: {_embedding_model}")
 
-        # embedding
-        print("[RAG] Loading embedding model...")
-        try:
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=llm_model_path['embedding'],
-                model_kwargs={
-                    'device': device
-                }
-            )
-        except Exception as _emb_e:
-            print(f"[RAG] HuggingFace download failed: {_emb_e}")
+        _hf_endpoint = os.environ.get("HF_ENDPOINT", "").strip()
+        if _hf_endpoint:
+            print(f"[RAG] Using HuggingFace mirror: {_hf_endpoint}")
+
+        _MAX_RETRIES = 3
+        _last_error = None
+
+        for _attempt in range(_MAX_RETRIES):
+            try:
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=_embedding_model,
+                    model_kwargs={"device": device}
+                )
+                _last_error = None
+                if _attempt > 0:
+                    print("[RAG] Embedding model loaded successfully after retry.")
+                else:
+                    print("[RAG] Embedding model loaded successfully.")
+                break
+            except Exception as _e:
+                _last_error = _e
+                if _attempt < _MAX_RETRIES - 1:
+                    _wait = (_attempt + 1) * 2
+                    print(f"[RAG] HuggingFace download failed (attempt {_attempt+1}/{_MAX_RETRIES}): {_e}")
+                    print(f"[RAG] Retrying in {_wait}s...")
+                    time.sleep(_wait)
+
+        if _last_error is not None:
+            print(f"[RAG] HuggingFace download failed after {_MAX_RETRIES} attempts: {_last_error}")
             print("[RAG] Retrying with HuggingFace mirror (hf-mirror.com)...")
-            import os as _os
-            _os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=llm_model_path['embedding'],
-                model_kwargs={
-                    'device': device
-                }
-            )
+            os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+            try:
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=_embedding_model,
+                    model_kwargs={"device": device}
+                )
+                print("[RAG] Embedding model loaded successfully from mirror.")
+            except Exception as _mirror_e:
+                raise RuntimeError(
+                    f"[RAG] Failed to load embedding model from both HuggingFace and mirror.\n"
+                    f"  Model: {_embedding_model}\n"
+                    f"  Mirror: https://hf-mirror.com\n"
+                    f"  Last error: {_mirror_e}\n\n"
+                    f"  Possible fixes:\n"
+                    f"  - Set HF_ENDPOINT to a working mirror\n"
+                    f"  - Pre-download the model or set a local path in config.local.yaml\n"
+                    f"  - Set reranker to empty in config.yaml to avoid extra downloads"
+                ) from _mirror_e
 
-        # reranker (optional, skip if unavailable)
-        try:
-            self.reranker = CrossEncoder(
-                model_name_or_path=llm_model_path['reranker'],
-                device=device
-            )
-        except Exception:
-            import logging; logging.warning("[RAG] Reranker not available, skipping")
+        # -- Reranker (optional, skip if model path unavailable) ------------------
+        _reranker_model = str(llm_model_path.get("reranker", "") or "").strip()
+        if not _reranker_model or _reranker_model.startswith("/path/to/"):
+            print("[RAG] Reranker disabled (no model configured).")
             self.reranker = None
+        else:
+            _reranker_path = os.path.expanduser(_reranker_model)
+            if os.path.exists(_reranker_path):
+                try:
+                    self.reranker = CrossEncoder(
+                        model_name_or_path=_reranker_path,
+                        device=device
+                    )
+                except Exception:
+                    import logging; logging.warning("[RAG] Reranker not available, skipping")
+                    self.reranker = None
+            else:
+                print(f"[RAG] Reranker path not found, skipping: {_reranker_path}")
+                self.reranker = None
 
         self.retriever = self._prepare_retriever()
 
