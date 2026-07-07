@@ -31,10 +31,11 @@ for f in "${DORADO_IMAGE_DIR}"/*.img "${DORADO_IMAGE_DIR}"/*.sif; do
 done
 
 if [[ -z "${DORADO_SIF}" ]]; then
-    log_warn "No Dorado SIF found in "
+    log_warn "No Dorado SIF found in ${DORADO_IMAGE_DIR}"
     log_warn "Skipping Dorado model download. Run 03_pull_images.sh first if models are needed."
     log_done "Dorado model download skipped"
     exit 0
+fi
 log_info "Using Dorado SIF: ${DORADO_SIF}"
 
 init_conda
