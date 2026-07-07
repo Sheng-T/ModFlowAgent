@@ -19,6 +19,14 @@ _fail() { _FAIL+=("$*"); echo -e "  ${_RED}✘${_RST}  $*"; }
 
 init_conda
 
+_hf_model_complete() {
+    local local_dir="$1"
+    [[ -f "${local_dir}/config.json" ]] || return 1
+    ls "${local_dir}"/pytorch_model.bin \
+       "${local_dir}"/model.safetensors \
+       "${local_dir}"/*.safetensors 2>/dev/null | head -1 | grep -q .
+}
+
 # GPU
 echo -e "\n${_BLD}GPU / NVIDIA:${_RST}"
 if command -v nvidia-smi &>/dev/null; then
@@ -139,10 +147,10 @@ else
     [[ -f "${PROJECT_ROOT}/api_keys.py" ]] \
         && _ok "API mode: api_keys.py found" || _warn "API mode: api_keys.py missing"
 fi
-[[ -f "${EMBEDDING_MODEL_DIR}/config.json" ]] && _ok "Embedding: ${EMBEDDING_MODEL_DIR}" \
-                                               || _warn "Embedding model not found"
-[[ -f "${RERANKER_MODEL_DIR}/config.json" ]]  && _ok "Reranker: ${RERANKER_MODEL_DIR}" \
-                                               || _warn "Reranker model not found"
+_hf_model_complete "${EMBEDDING_MODEL_DIR}" && _ok "Embedding: ${EMBEDDING_MODEL_DIR}" \
+                                           || _warn "Embedding model incomplete or not found"
+_hf_model_complete "${RERANKER_MODEL_DIR}"  && _ok "Reranker: ${RERANKER_MODEL_DIR}" \
+                                           || _warn "Reranker model incomplete or not found"
 
 # Summary
 echo ""

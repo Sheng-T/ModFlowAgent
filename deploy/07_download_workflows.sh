@@ -57,6 +57,24 @@ for workflow_dir in "${STATIC_WORKFLOWS}"/*/; do
         log_info "Found patch for workflow: ${workflow_name}"
 
         if [[ -d "${pipeline_target}" ]]; then
+            if [[ "${workflow_name}" == "methylong" ]]; then
+                _required_files=(
+                    "${pipeline_target}/modules/local/dorado/basecaller/main.nf"
+                    "${pipeline_target}/nextflow.config"
+                )
+                _missing_files=()
+                for _required in "${_required_files[@]}"; do
+                    [[ -f "${_required}" ]] || _missing_files+=("${_required}")
+                done
+                if [[ ${#_missing_files[@]} -gt 0 ]]; then
+                    log_warn "Pipeline directory exists but is not a compatible methylong source tree; skipping patch."
+                    for _missing in "${_missing_files[@]}"; do
+                        log_warn "  missing: ${_missing}"
+                    done
+                    continue
+                fi
+            fi
+
             log_info "  Applying: ${patch_file} -> ${pipeline_target}"
             init_conda
             conda_run "${AGENT_ENV}" python3 "${patch_file}" --base "${pipeline_target}" --cache-dir "${pipeline_image_dir}" && {
