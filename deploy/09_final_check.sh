@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # deploy/09_final_check.sh — final environment checks and deployment report
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,7 +10,7 @@ if [[ -z "${BASE_DIR:-}" ]]; then
     resolve_paths
 fi
 
-log_step "Step 7 — Final checks"
+log_step "Step 9 — Final checks"
 
 _PASS=(); _WARN=(); _FAIL=()
 _ok()   { _PASS+=("$*"); echo -e "  ${_GRN}✔${_RST}  $*"; }

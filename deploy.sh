@@ -20,8 +20,8 @@
 #    4  Create agent Python env (mod_flow_agent)          ─╯
 #    5  Download Dorado basecall models (for methylong)
 #    6  Download LLM / Embedding / Reranker models
-#    7  Patch config.yaml with deployed paths
-#    8  Apply workflow compatibility patches
+#    7  Download and patch workflow files
+#    8  Patch config.yaml with deployed paths
 #    9  Final environment checks
 # =============================================================================
 
@@ -35,6 +35,7 @@ source "${DEPLOY_DIR}/common.sh"
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 _SKIP_LLM=false
+_SKIP_IMAGES=false
 _ONLY_STEP=""
 _FROM_STEP=1
 _OVERRIDE_BASE=""
@@ -44,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --base)         _OVERRIDE_BASE="$2"; shift 2 ;;
         --skip-llm)     _SKIP_LLM=true; shift ;;
+        --skip-images)  _SKIP_IMAGES=true; shift ;;
         --step)         _ONLY_STEP="$2"; shift 2 ;;
         --from)         _FROM_STEP="$2"; shift 2 ;;
         --reconfigure)  _RECONFIGURE=true; shift ;;
@@ -58,6 +60,7 @@ Options:
   --reconfigure    Re-run the interactive setup wizard
   --base  <dir>   Override BASE_DIR (skips wizard)
   --skip-llm      Skip LLM/model download (step 6)
+  --skip-images   Skip Singularity image pull (step 3)
   --step  <n>     Run only step n (1-8)
   --from  <n>     Run from step n onward (1-8)
   --help          Show this help
@@ -69,8 +72,8 @@ Steps:
   4  Create agent Python env (mod_flow_agent)          ─╯
   5  Download Dorado basecall models
   6  Download LLM / Embedding / Reranker models
-  7  Patch config.yaml with deployed paths
-  8  Apply workflow compatibility patches
+  7  Download and patch workflow files
+  8  Patch config.yaml with deployed paths
   9  Final environment checks
 
 Image layout after step 3:
@@ -294,6 +297,9 @@ _run_step 2 "02_setup_sin_env.sh"
 if _should_run 3 || _should_run 4; then
     echo ""
     if _should_run 3 && _should_run 4; then
+        if [[ "${_SKIP_IMAGES}" == "true" ]] && _should_run 3; then
+            log_info "--skip-images: skipping image pull (step 3)"
+        fi
         log_info "Steps 3 & 4 running in parallel..."
         bash "${DEPLOY_DIR}/03_pull_images.sh" \
             > >(sed 's/^/[03_pull_images] /') \
@@ -305,10 +311,10 @@ if _should_run 3 || _should_run 4; then
             2> >(sed 's/^/[04_agent_env]   /' >&2) &
         _pid_4=$!
 
-        wait_job "${_pid_3}" "03_pull_images.sh"
+        [[ -n "${_pid_3:-}" ]] && wait_job "${_pid_3}" "03_pull_images.sh"
         wait_job "${_pid_4}" "04_setup_agent_env.sh"
     else
-        if _should_run 3; then
+        if [[ "${_SKIP_IMAGES}" != "true" ]] && _should_run 3; then
             _run_step 3 "03_pull_images.sh"
         fi
         if _should_run 4; then
@@ -327,6 +333,6 @@ else
 fi
 
 # Step 8 before step 7 so the final check sees the patched config
-_run_step 7 "07_patch_config.sh"
-_run_step 8 "08_patch_workflows.sh"
+_run_step 7 "07_download_workflows.sh"
+_run_step 8 "08_patch_config.sh"
 _run_step 9 "09_final_check.sh"

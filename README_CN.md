@@ -94,8 +94,9 @@ ModFlowAgent 提供用于准备这些执行依赖项的部署脚本：
 ```bash
 bash deploy.sh
 bash deploy.sh --skip-llm
+bash deploy.sh --skip-images  # 跳过 Singularity 镜像拉取（第 3 步）
 ```
-> **注意**：第 3 步会拉取用于执行流水线的 Singularity 镜像。如果因网络限制导致镜像拉取失败，脚本会报告失败的镜像并停止运行。您可以执行 `bash deploy.sh --from 4` 继续后续设置，稍后再手动拉取失败的镜像。Web 界面和基于 LLM 的规划功能无需这些镜像即可运行，但执行 Dorado、modkit 或 methylong 工作流则必须使用它们。
+> **注意**：第 3 步会拉取用于执行流水线的 Singularity 镜像。如果因网络限制导致镜像拉取失败，脚本会报告失败的镜像并停止运行。使用 `bash deploy.sh --skip-images` 仅跳过镜像拉取，或 `bash deploy.sh --from 4` 跳过后续设置。Web 界面和基于 LLM 的规划功能无需这些镜像即可运行，但执行 Dorado、modkit 或 methylong 工作流则必须使用它们。
 
 ## 使用示例
 

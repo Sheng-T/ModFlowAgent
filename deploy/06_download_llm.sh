@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # deploy/06_download_llm.sh — download LLM / Embedding / Reranker models
 # Tries the official HuggingFace endpoint first, falls back to hf-mirror.com.
 

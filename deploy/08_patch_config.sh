@@ -1,5 +1,5 @@
-﻿#!/usr/bin/env bash
-# deploy/07_patch_config.sh — patch config.yaml with deployed paths
+#!/usr/bin/env bash
+# deploy/08_patch_config.sh — patch config.yaml with deployed paths
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

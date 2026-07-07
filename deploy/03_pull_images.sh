@@ -202,22 +202,6 @@ _symlink \
     "${MODKIT_IMAGE_DIR}/modkit.img" \
     "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-ont-modkit-0.5.0--hcdda2d0_2.img"
 
-# ── Clone methylong pipeline ──────────────────────────────────────────────────
-if [[ -n "${METHYLONG_PIPELINE_REPO:-}" ]]; then
-    _pipeline_dest="${PIPELINE_DIR}/methylong"
-    if [[ -d "${_pipeline_dest}/.git" ]]; then
-        log_info "Pipeline repo exists, pulling latest..."
-        git -C "${_pipeline_dest}" pull || log_warn "git pull failed, using existing code."
-    else
-        log_info "Cloning pipeline from ${METHYLONG_PIPELINE_REPO}..."
-        _ref_arg=""
-        [[ -n "${METHYLONG_PIPELINE_REF:-}" ]] && _ref_arg="--branch ${METHYLONG_PIPELINE_REF}"
-        git clone ${_ref_arg} "${METHYLONG_PIPELINE_REPO}" "${_pipeline_dest}"
-        log_success "Pipeline cloned to ${_pipeline_dest}"
-    fi
-else
-    log_warn "METHYLONG_PIPELINE_REPO not set — place pipeline code manually at ${PIPELINE_DIR}/methylong/"
-fi
 
 echo ""
 echo -e "${_BLD}Images: total=${_total}  skipped=${_skipped}  ok=${_ok}  failed=${_failed}${_RST}"
