@@ -55,6 +55,7 @@ log_success "Python dependencies installed."
 log_info "Verifying key packages..."
 conda_run "${AGENT_ENV}" python -c "
 import sys
+import importlib.util
 checks = {
     'streamlit': 'streamlit', 'langgraph': 'langgraph',
     'langchain_core': 'langchain-core', 'langchain_openai': 'langchain-openai',
@@ -62,7 +63,7 @@ checks = {
     'numpy': 'numpy', 'matplotlib': 'matplotlib',
     'torch': 'torch', 'transformers': 'transformers', 'bs4': 'beautifulsoup4',
 }
-failed = [pkg for mod, pkg in checks.items() if __import__('importlib').util.find_spec(mod) is None]
+failed = [pkg for mod, pkg in checks.items() if importlib.util.find_spec(mod) is None]
 if failed:
     print(f'MISSING: {failed}', file=sys.stderr); sys.exit(1)
 import torch
