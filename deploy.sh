@@ -203,7 +203,7 @@ _run_wizard() {
 
     echo ""
     echo -e "${_BLD}[5/5] Pipeline & server${_RST}"
-    _ask "methylong pipeline git URL" "https://github.com/nf-core/methylong" W_REPO
+    _ask "methylong pipeline git URL" "https://github.com/nf-core/methylong.git" W_REPO
     _ask "Web server port" "8501" W_PORT
 
     echo ""
