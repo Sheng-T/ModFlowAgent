@@ -41,11 +41,17 @@ _hf_download() {
         local endpoint="$1"
         [[ -n "${endpoint}" ]] && log_info "  endpoint: ${endpoint}" \
                                || log_info "  endpoint: https://huggingface.co (official)"
-        HF_ENDPOINT="${endpoint}" \
-        conda_run "${AGENT_ENV}" huggingface-cli download \
-            "${repo_id}" \
-            --local-dir "${local_dir}" \
-            --local-dir-use-symlinks False
+        if conda_run "${AGENT_ENV}" hf --help >/dev/null 2>&1; then
+            HF_ENDPOINT="${endpoint}" \
+            conda_run "${AGENT_ENV}" hf download \
+                "${repo_id}" \
+                --local-dir "${local_dir}"
+        else
+            HF_ENDPOINT="${endpoint}" \
+            conda_run "${AGENT_ENV}" python -m huggingface_hub download \
+                "${repo_id}" \
+                --local-dir "${local_dir}"
+        fi
     }
 
     if _do_download "${HF_ENDPOINT:-}"; then

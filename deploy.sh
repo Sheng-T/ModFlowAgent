@@ -332,7 +332,7 @@ else
     _run_step 6 "06_download_llm.sh"
 fi
 
-# Step 8 before step 7 so the final check sees the patched config
+# Run workflow download/patching before config patching.
 _run_step 7 "07_download_workflows.sh"
 _run_step 8 "08_patch_config.sh"
 _run_step 9 "09_final_check.sh"

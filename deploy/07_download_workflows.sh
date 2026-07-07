@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/07_download_workflows.sh — download and patch workflow files
+# deploy/07_download_workflows.sh - download and patch workflow files
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -10,31 +10,37 @@ if [[ -z "${BASE_DIR:-}" ]]; then
     resolve_paths
 fi
 
-log_step "Step 7 — Apply workflow download and compatibility patches"
+log_step "Step 7 - Download workflows and apply compatibility patches"
 
-# ── Clone methylong pipeline ──────────────────────────────────────────────────
+PIPELINE_DIR="${PIPELINE_DIR:-${BASE_DIR}/agent_workflow}"
+STATIC_WORKFLOWS="${PROJECT_ROOT}/static/workflows"
+SINGULARITY_DIR="${SINGULARITY_DIR:-${BASE_DIR}/singularity_image}"
+IMAGE_DIR="${SINGULARITY_DIR}/workflow"
+
+pipeline_cloned=false
+
 if [[ -n "${METHYLONG_PIPELINE_REPO:-}" ]]; then
     _pipeline_dest="${PIPELINE_DIR}/methylong"
     if [[ -d "${_pipeline_dest}/.git" ]]; then
         log_info "Pipeline repo exists, pulling latest..."
         git -C "${_pipeline_dest}" pull || log_warn "git pull failed, using existing code."
+        pipeline_cloned=true
     else
         log_info "Cloning pipeline from ${METHYLONG_PIPELINE_REPO}..."
-        _ref_arg=""
-        [[ -n "${METHYLONG_PIPELINE_REF:-}" ]] && _ref_arg="--branch ${METHYLONG_PIPELINE_REF}"
-        git clone ${_ref_arg} "${METHYLONG_PIPELINE_REPO}" "${_pipeline_dest}"
-        log_success "Pipeline cloned to ${_pipeline_dest}"
+        _ref_arg=()
+        [[ -n "${METHYLONG_PIPELINE_REF:-}" ]] && _ref_arg=(--branch "${METHYLONG_PIPELINE_REF}")
+        if git clone "${_ref_arg[@]}" "${METHYLONG_PIPELINE_REPO}" "${_pipeline_dest}"; then
+            log_success "Pipeline cloned to ${_pipeline_dest}"
+            pipeline_cloned=true
+        else
+            log_warn "Pipeline clone failed, patch step will only use existing local files."
+        fi
     fi
 else
-    log_warn "METHYLONG_PIPELINE_REPO not set — place pipeline code manually at ${PIPELINE_DIR}/methylong/"
+    log_warn "METHYLONG_PIPELINE_REPO not set - place pipeline code manually at ${PIPELINE_DIR}/methylong/"
 fi
 
-# ── Pipeline compatibility patches ──────────────────────────────────────────────────
 log_info "Applying workflow compatibility patches..."
-PIPELINE_DIR="${PIPELINE_DIR:-${BASE_DIR}/agent_workflow}"
-STATIC_WORKFLOWS="${PROJECT_ROOT}/static/workflows"
-SINGULARITY_DIR="${SINGULARITY_DIR:-${BASE_DIR}/singularity_image}"
-IMAGE_DIR="${SINGULARITY_DIR}/workflow"
 
 patches_found=0
 patches_applied=0
@@ -53,14 +59,18 @@ for workflow_dir in "${STATIC_WORKFLOWS}"/*/; do
         if [[ -d "${pipeline_target}" ]]; then
             log_info "  Applying: ${patch_file} -> ${pipeline_target}"
             init_conda
-            conda_run "${AGENT_ENV}" python3 "${patch_file}" --base "${PIPELINE_DIR}" --cache-dir "${pipeline_image_dir}" && {
+            conda_run "${AGENT_ENV}" python3 "${patch_file}" --base "${pipeline_target}" --cache-dir "${pipeline_image_dir}" && {
                 patches_applied=$((patches_applied + 1))
                 log_success "Patched: ${workflow_name}"
             } || {
                 log_error "Failed to patch: ${workflow_name}"
             }
         else
-            log_warn "Pipeline directory not found, skipping: ${pipeline_target}"
+            if [[ "${workflow_name}" == "methylong" && "${pipeline_cloned}" != "true" && -z "${METHYLONG_PIPELINE_REPO:-}" ]]; then
+                log_warn "Pipeline directory not found because METHYLONG_PIPELINE_REPO is unset; skipping patch: ${pipeline_target}"
+            else
+                log_warn "Pipeline directory not found, skipping: ${pipeline_target}"
+            fi
         fi
     fi
 done
@@ -74,5 +84,3 @@ else
 fi
 
 log_done "Workflow patching complete"
-
-
