@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # =============================================================================
 #  ModFlowAgent one-click deployment script
 #
@@ -306,8 +306,12 @@ if _should_run 3 || _should_run 4; then
         wait_job "${_pid_3}" "03_pull_images.sh"
         wait_job "${_pid_4}" "04_setup_agent_env.sh"
     else
-        _run_step 3 "03_pull_images.sh"
-        _run_step 4 "04_setup_agent_env.sh"
+        if _should_run 3; then
+            _run_step 3 "03_pull_images.sh"
+        fi
+        if _should_run 4; then
+            _run_step 4 "04_setup_agent_env.sh"
+        fi
     fi
 fi
 
