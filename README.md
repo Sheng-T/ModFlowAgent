@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="static/icon/logo.svg" width="70%" alt="ModFlowAgent logo">
 
@@ -115,7 +115,7 @@ ModFlowAgent provides deployment scripts for preparing these execution dependenc
 bash deploy.sh
 bash deploy.sh --skip-llm  # API mode, skip downloading local LLM weights
 ```
-> **Note**: Step 3 pulls Singularity images for pipeline execution. If image pulling fails due to network restrictions, the script reports the failed images and stops. You can continue the remaining setup with `bash deploy.sh --from 4`, then manually pull the failed images later. The web interface and LLM-based planning can run without these images, but executing Dorado/modkit/methylong workflows requires them.
+> **Note**: Steps 3 and 5 require Singularity images and Dorado models for pipeline execution. If image pulling fails due to network restrictions, these steps produce warnings and skip instead of erroring. Run `bash deploy.sh --from 4` to continue setup without them. The web interface and LLM-based planning work without these images, but executing Dorado/modkit/methylong workflows requires them.
 
 ## Usage examples
 
