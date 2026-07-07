@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 #  ModFlowAgent one-click deployment script
 #
@@ -171,7 +171,7 @@ _run_wizard() {
     local W_MEM W_CPUS
 
     echo -e "${_BLD}[1/5] Directories${_RST}"
-    _ask "Base directory for all data files" "${HOME}/modflowagent" W_BASE
+    _ask "Base directory for all data files" "./modflowagent_data" W_BASE
 
     echo ""
     echo -e "${_BLD}[2/5] LLM backend${_RST}"

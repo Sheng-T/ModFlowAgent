@@ -38,3 +38,7 @@ config.local.yaml
 # Runtime logs
 *.log
 
+
+# Deployment data (images, databases, uploads)
+modflowagent_data/
+
