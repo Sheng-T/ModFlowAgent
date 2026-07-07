@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # deploy/05_pull_dorado_models.sh — download Dorado basecall models
 # Uses the dorado SIF from DORADO_IMAGE_DIR (single-tool image directory).
 

@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# deploy/08_patch_config.sh — patch config.yaml with deployed paths
+﻿#!/usr/bin/env bash
+# deploy/07_patch_config.sh — patch config.yaml with deployed paths
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -47,6 +47,7 @@ fi
 
 conda_run "${AGENT_ENV}" python3 - <<PYEOF
 import sys
+import os
 
 llm_mode         = "${LLM_MODE}"
 base_dir         = "${BASE_DIR}"
@@ -112,8 +113,10 @@ if llm_mode == "local":
     _set(mp, model_name, llm_dir)
 else:
     _set(l, "model_name", "openai_compatible")
-_set(mp, "embedding", embed_dir)
-_set(mp, "reranker",  rerank_dir)
+if os.path.isdir(embed_dir):
+    _set(mp, "embedding", embed_dir)
+if os.path.isdir(rerank_dir):
+    _set(mp, "reranker", rerank_dir)
 
 w = cfg.setdefault("workflow", {})
 _set(w, "max_memory", nf_max_memory)

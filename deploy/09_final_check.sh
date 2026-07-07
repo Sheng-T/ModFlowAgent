@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# deploy/07_final_check.sh — final environment checks and deployment report
+﻿#!/usr/bin/env bash
+# deploy/09_final_check.sh — final environment checks and deployment report
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

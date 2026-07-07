@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # deploy/06_download_llm.sh — download LLM / Embedding / Reranker models
 # Tries the official HuggingFace endpoint first, falls back to hf-mirror.com.
 
@@ -91,10 +91,10 @@ else
 fi
 
 _hf_download "sentence-transformers/all-MiniLM-L6-v2" \
-             "${EMBEDDING_MODEL_DIR}" "all-MiniLM-L6-v2 (Embedding)"
+             "${EMBEDDING_MODEL_DIR}" "all-MiniLM-L6-v2 (Embedding)" || true
 
 _hf_download "BAAI/bge-reranker-base" \
-             "${RERANKER_MODEL_DIR}" "bge-reranker-base (Reranker)"
+             "${RERANKER_MODEL_DIR}" "bge-reranker-base (Reranker)" || true
 
 echo ""
 log_info "Model directories:"

@@ -20,8 +20,9 @@
 #    4  Create agent Python env (mod_flow_agent)          ─╯
 #    5  Download Dorado basecall models (for methylong)
 #    6  Download LLM / Embedding / Reranker models
-#    7  Final environment checks
-#    8  Patch config.yaml with deployed paths
+#    7  Patch config.yaml with deployed paths
+#    8  Apply workflow compatibility patches
+#    9  Final environment checks
 # =============================================================================
 
 set -euo pipefail
@@ -64,12 +65,13 @@ Options:
 Steps:
   1  Create directory structure
   2  Create sin conda env (Nextflow + Singularity)
-  3  Pull Singularity images & create symlinks    ─╮ parallel
+  3  Pull Singularity images & create symlinks    ── parallel
   4  Create agent Python env (mod_flow_agent)          ─╯
   5  Download Dorado basecall models
   6  Download LLM / Embedding / Reranker models
-  7  Final environment checks
-  8  Patch config.yaml
+  7  Patch config.yaml with deployed paths
+  8  Apply workflow compatibility patches
+  9  Final environment checks
 
 Image layout after step 3:
   singularity_image/
@@ -146,7 +148,7 @@ _ask_choice() {
 _run_wizard() {
     echo ""
     echo -e "${_BLD}${_CYN}╔══════════════════════════════════════════╗${_RST}"
-    echo -e "${_BLD}${_CYN}║       ModFlowAgent — Setup Wizard            ║${_RST}"
+    echo -e "${_BLD}${_CYN}║       ModFlowAgent — Setup Wizard        ║${_RST}"
     echo -e "${_BLD}${_CYN}╚══════════════════════════════════════════╝${_RST}"
     echo ""
     echo "  Press Enter to accept the detected / default value."
@@ -283,7 +285,7 @@ _run_step() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${_BLD}${_CYN}╔══════════════════════════════════════════╗${_RST}"
-echo -e "${_BLD}${_CYN}║         ModFlowAgent Deployment              ║${_RST}"
+echo -e "${_BLD}${_CYN}║         ModFlowAgent Deployment          ║${_RST}"
 echo -e "${_BLD}${_CYN}╚══════════════════════════════════════════╝${_RST}"
 
 _run_step 1 "01_setup_dirs.sh"
@@ -318,11 +320,13 @@ fi
 _run_step 5 "05_pull_dorado_models.sh"
 
 if [[ "${_SKIP_LLM}" == "true" ]]; then
-    log_info "Skipping step 6 (--skip-llm)"
+    log_info "--skip-llm: skipping LLM model download, still downloading embedding and reranker..."
+    LLM_MODE=api _run_step 6 "06_download_llm.sh"
 else
     _run_step 6 "06_download_llm.sh"
 fi
 
 # Step 8 before step 7 so the final check sees the patched config
-_run_step 8 "08_patch_config.sh"
-_run_step 7 "07_final_check.sh"
+_run_step 7 "07_patch_config.sh"
+_run_step 8 "08_patch_workflows.sh"
+_run_step 9 "09_final_check.sh"
