@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/09_final_check.sh — final environment checks and deployment report
+# deploy/09_final_check.sh - final environment checks and deployment report
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -8,12 +8,12 @@ source "${SCRIPT_DIR}/common.sh"
 [[ -f "${SCRIPT_DIR}/deploy.conf" ]] && source "${SCRIPT_DIR}/deploy.conf"
 resolve_paths
 
-log_step "Step 9 — Final checks"
+log_step "Step 9 - Final checks"
 
 _PASS=(); _WARN=(); _FAIL=()
-_ok()   { _PASS+=("$*"); echo -e "  ${_GRN}✔${_RST}  $*"; }
-_warn() { _WARN+=("$*"); echo -e "  ${_YLW}⚠${_RST}  $*"; }
-_fail() { _FAIL+=("$*"); echo -e "  ${_RED}✘${_RST}  $*"; }
+_ok()   { _PASS+=("$*"); echo -e "  ${_GRN}OK${_RST}  $*"; }
+_warn() { _WARN+=("$*"); echo -e "  ${_YLW}!!${_RST}  $*"; }
+_fail() { _FAIL+=("$*"); echo -e "  ${_RED}XX${_RST}  $*"; }
 
 init_conda
 
@@ -25,7 +25,6 @@ _hf_model_complete() {
        "${local_dir}"/*.safetensors 2>/dev/null | head -1 | grep -q .
 }
 
-# GPU
 echo -e "\n${_BLD}GPU / NVIDIA:${_RST}"
 if command -v nvidia-smi &>/dev/null; then
     GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader 2>/dev/null || echo "")
@@ -38,13 +37,12 @@ if command -v nvidia-smi &>/dev/null; then
         _warn "nvidia-smi present but returned no GPU info"
     fi
 else
-    _warn "nvidia-smi not found — GPU unavailable (required for Dorado)"
+    _warn "nvidia-smi not found - GPU unavailable (required for Dorado)"
 fi
 
-# Port
 echo -e "\n${_BLD}Port ${SERVER_PORT}:${_RST}"
 _in_use=""
-command -v ss      &>/dev/null && _in_use=$(ss -tulpn 2>/dev/null | grep ":${SERVER_PORT}\b" || true)
+command -v ss &>/dev/null && _in_use=$(ss -tulpn 2>/dev/null | grep ":${SERVER_PORT}\b" || true)
 command -v netstat &>/dev/null && [[ -z "${_in_use}" ]] && \
     _in_use=$(netstat -tulpn 2>/dev/null | grep ":${SERVER_PORT}\b" || true)
 if [[ -n "${_in_use}" ]]; then
@@ -54,7 +52,6 @@ else
     _ok "Port ${SERVER_PORT} is available"
 fi
 
-# Conda envs
 echo -e "\n${_BLD}Conda environments:${_RST}"
 if conda_env_exists "${SIN_ENV}"; then
     NF_VER=$(conda_run "${SIN_ENV}" bash -c 'nextflow -version' 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "?")
@@ -69,70 +66,68 @@ else
     _fail "agent env '${AGENT_ENV}' not found"
 fi
 
-# Single-tool image directories
 echo -e "\n${_BLD}Single-tool Singularity images:${_RST}"
 for _tool in dorado samtools modkit fastqc; do
     _tool_dir="${SINGULARITY_DIR}/${_tool}"
-    # Count real files only (symlinks to here are not counted)
     _img_count=$(find "${_tool_dir}" -maxdepth 1 \( -name "*.img" -o -name "*.sif" \) ! -type l 2>/dev/null | wc -l || echo 0)
     if [[ "${_img_count}" -ge 1 ]]; then
         _img_name=$(find "${_tool_dir}" -maxdepth 1 \( -name "*.img" -o -name "*.sif" \) ! -type l 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
         _ok "${_tool}: ${_img_name}"
     else
-        _fail "${_tool}: no image found in ${_tool_dir} — run 03_pull_images.sh"
+        _fail "${_tool}: no image found in ${_tool_dir} - run 03_pull_images.sh"
     fi
 done
 
-# methylong workflow images
 echo -e "\n${_BLD}methylong pipeline images (${METHYLONG_IMAGE_DIR}):${_RST}"
 _img_real=$(find "${METHYLONG_IMAGE_DIR}" -maxdepth 1 -name "*.img" ! -type l 2>/dev/null | wc -l || echo 0)
 _img_link=$(find "${METHYLONG_IMAGE_DIR}" -maxdepth 1 -name "*.img" -type l 2>/dev/null | wc -l || echo 0)
 _img_total=$(( _img_real + _img_link ))
 echo "     ${_img_real} real + ${_img_link} symlinked = ${_img_total} total"
 if [[ "${_img_total}" -ge 15 ]]; then
-    _ok "${_img_total} images in workflow/methylong (≥15 expected)"
+    _ok "${_img_total} images in workflow/methylong (>=15 expected)"
 elif [[ "${_img_total}" -gt 0 ]]; then
-    _warn "Only ${_img_total}/15 images in workflow/methylong — run 03_pull_images.sh"
+    _warn "Only ${_img_total}/15 images in workflow/methylong - run 03_pull_images.sh"
 else
-    _fail "No images in workflow/methylong — run 03_pull_images.sh"
+    _fail "No images in workflow/methylong - run 03_pull_images.sh"
 fi
 
-# Check symlinks are not broken
 echo -e "\n${_BLD}Symlink integrity check:${_RST}"
 _broken=0
 for _link in "${METHYLONG_IMAGE_DIR}"/*.img; do
     [[ -L "${_link}" ]] || continue
     if [[ ! -e "${_link}" ]]; then
-        _warn "Broken symlink: $(basename ${_link})"
+        _warn "Broken symlink: $(basename "${_link}")"
         (( _broken++ )) || true
     fi
 done
 if [[ "${_broken}" -eq 0 ]]; then
     _ok "All symlinks in workflow/methylong are valid"
 else
-    _fail "${_broken} broken symlink(s) detected — re-run 03_pull_images.sh"
+    _fail "${_broken} broken symlink(s) detected - re-run 03_pull_images.sh"
 fi
 
-# methylong pipeline
 echo -e "\n${_BLD}Pipeline:${_RST}"
-if [[ -d "${PIPELINE_DIR}/methylong/.git" ]]; then
-    _ok "methylong pipeline: ${PIPELINE_DIR}/methylong"
-elif [[ -d "${PIPELINE_DIR}/methylong" ]]; then
-    _warn "methylong dir exists but is not a git repo — may be manually placed"
+_pipeline_dir="${PIPELINE_DIR}/methylong"
+if [[ -d "${_pipeline_dir}/.git" ]]; then
+    _ok "methylong pipeline: ${_pipeline_dir}"
+elif [[ -d "${_pipeline_dir}" ]]; then
+    if [[ -n "${METHYLONG_PIPELINE_REPO:-}" ]]; then
+        _fail "methylong dir exists but repo clone is incomplete or failed: ${_pipeline_dir}"
+    else
+        _warn "methylong dir exists without .git - assuming manual placement"
+    fi
 else
-    _fail "methylong pipeline not found at ${PIPELINE_DIR}/methylong"
+    _fail "methylong pipeline not found at ${_pipeline_dir}"
 fi
 
-# Dorado models
 echo -e "\n${_BLD}Dorado models (${DORADO_MODEL_DIR}):${_RST}"
 _simplex="${DORADO_MODEL_DIR}/dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 _mod="${DORADO_MODEL_DIR}/dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC@v2"
 [[ -d "${_simplex}" ]] && _ok "simplex model: dna_r10.4.1_e8.2_400bps_sup@v5.2.0" \
-                       || _warn "simplex model not found — run 05_pull_dorado_models.sh (needed for methylong)"
+                       || _warn "simplex model not found - run 05_pull_dorado_models.sh (needed for methylong)"
 [[ -d "${_mod}" ]] && _ok "mod model: dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC@v2" \
-                   || _warn "mod model not found — run 05_pull_dorado_models.sh (needed for methylong)"
+                   || _warn "mod model not found - run 05_pull_dorado_models.sh (needed for methylong)"
 
-# LLM models
 echo -e "\n${_BLD}Models (LLM_MODE=${LLM_MODE:-local}):${_RST}"
 LLM_MODEL_DIR="${LLM_MODEL_DIR:-${BASE_DIR}/models/qwen3-14b}"
 EMBEDDING_MODEL_DIR="${EMBEDDING_MODEL_DIR:-${BASE_DIR}/models/all-MiniLM-L6-v2}"
@@ -147,16 +142,15 @@ else
 fi
 _hf_model_complete "${EMBEDDING_MODEL_DIR}" && _ok "Embedding: ${EMBEDDING_MODEL_DIR}" \
                                            || _warn "Embedding model incomplete or not found"
-_hf_model_complete "${RERANKER_MODEL_DIR}"  && _ok "Reranker: ${RERANKER_MODEL_DIR}" \
+_hf_model_complete "${RERANKER_MODEL_DIR}" && _ok "Reranker: ${RERANKER_MODEL_DIR}" \
                                            || _warn "Reranker model incomplete or not found"
 
-# Summary
 echo ""
-echo -e "${_BLD}════════════════════════════════════════${_RST}"
-echo -e "${_GRN}${_BLD}  ✔ Passed  : ${#_PASS[@]}${_RST}"
-[[ ${#_WARN[@]} -gt 0 ]] && echo -e "${_YLW}${_BLD}  ⚠ Warnings: ${#_WARN[@]}${_RST}"
-[[ ${#_FAIL[@]} -gt 0 ]] && echo -e "${_RED}${_BLD}  ✘ Failed  : ${#_FAIL[@]}${_RST}"
-echo -e "${_BLD}════════════════════════════════════════${_RST}"
+echo -e "${_BLD}====================${_RST}"
+echo -e "${_GRN}${_BLD}  Passed  : ${#_PASS[@]}${_RST}"
+[[ ${#_WARN[@]} -gt 0 ]] && echo -e "${_YLW}${_BLD}  Warnings: ${#_WARN[@]}${_RST}"
+[[ ${#_FAIL[@]} -gt 0 ]] && echo -e "${_RED}${_BLD}  Failed  : ${#_FAIL[@]}${_RST}"
+echo -e "${_BLD}====================${_RST}"
 
 if [[ ${#_FAIL[@]} -eq 0 ]]; then
     echo -e "\n${_GRN}${_BLD}Deployment complete!${_RST}"
@@ -167,6 +161,6 @@ if [[ ${#_FAIL[@]} -eq 0 ]]; then
     echo "  # or: bash start.sh"
     exit 0
 else
-    echo -e "\n${_RED}${_BLD}Deployment incomplete — ${#_FAIL[@]} check(s) failed.${_RST}"
+    echo -e "\n${_RED}${_BLD}Deployment incomplete - ${#_FAIL[@]} check(s) failed.${_RST}"
     exit 1
 fi
