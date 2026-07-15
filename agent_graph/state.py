@@ -11,6 +11,7 @@ EMPTY_STATE = {
     "final_answer": "",
     "next_node": "",
     "selected_workflow": "",
+    "execution_profile": "",
     # "nfcore" → nextflow pipeline  |  "local" → per-tool singularity chain  |  "" → not yet resolved
     "workflow_type": "",
     # populated when LLM is ambiguous; each item: {name, display_name, type, description,
@@ -21,11 +22,13 @@ EMPTY_STATE = {
     "user_choice": None,
     "router_hint": "",
     "pending_commands": [],
+    "review_commands": [],
     "pre_files": [],
     "samplesheet_issues": [],
     "run_dir": "",
     "analysis_images": [],
     "workflow_result_zip": "",
+    "result_artifacts": [],
     "selected_modules": [],
     "module_candidates": [],
     "module_confident": True,
@@ -55,6 +58,7 @@ class AgentState(TypedDict):
     workflow_type: str          # "nfcore" | "local" | ""
     workflow_candidates: List[Dict]  # non-empty when ambiguous; cleared after selection
     selected_workflow: str
+    execution_profile: str
     # Local workflow prereq params (key-value form, not CSV)
     # e.g. {"data_file": "/path/x.pod5", "reference": "", "modification_type": "m6A"}
     local_prereq_params: Dict
@@ -62,11 +66,13 @@ class AgentState(TypedDict):
     nfcore_prereq_params: Dict
 
     pending_commands: List[str]
+    review_commands: List[str]
     pre_files: List[Dict]
     samplesheet_issues: List[Dict]
     run_dir: str
     analysis_images: List[str]
     workflow_result_zip: str
+    result_artifacts: List[str]
 
     selected_modules: List[str]
     module_candidates: List[str]

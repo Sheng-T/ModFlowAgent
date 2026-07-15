@@ -20,14 +20,10 @@ with a [ -f output ] || ... guard so the step is skipped automatically.
 import os
 
 from configs.runtime_config import TOOL_THREADS
+from tools.workflow.local.profile_common import render_command_template, skip_if_exists
 from tools.toolchain.dorado.validator import resolve_models
 from tools.toolchain.modkit.validator import get_modkit_flags
 from utils.runner_utils import find_all_free_gpus
-
-
-def _skip_if_exists(output_path: str, cmd: str) -> str:
-    """Wrap cmd so it is skipped when output_path already exists."""
-    return f'[ -f "{output_path}" ] && echo "[Resume] {os.path.basename(output_path)} exists, skipping" || ( {cmd} )'
 
 
 def build_step_command(
@@ -39,8 +35,11 @@ def build_step_command(
 ) -> "tuple[str, str] | None":
     data_file  = prereq.get("data_file", "")
     reference  = prereq.get("reference", "")
-    mod_type   = (prereq.get("modification_type") or "5mCG").strip()
+    mod_type   = (prereq.get("modification_type") or "5mcpg").strip()
+    device     = (prereq.get("device") or "cpu").strip() or "cpu"
+    modcaller  = (prereq.get("modcaller") or prereq.get("caller") or "dorado").strip().lower()
     model_dir  = data_path.get("dorado_models", "")
+    use_dorado_mod_model = modcaller == "dorado"
 
     basecall_model, mod_model = resolve_models("DNA", mod_type)
     basecall_path = os.path.join(model_dir, basecall_model)
@@ -50,7 +49,7 @@ def build_step_command(
             f'([ -d "{basecall_path}" ] || '
             f'dorado download --model {basecall_model} --directory "{model_dir}")'
         )
-        if mod_model:
+        if mod_model and use_dorado_mod_model:
             mod_model_path = os.path.join(model_dir, mod_model)
             dl_mod = (
                 f'([ -d "{mod_model_path}" ] || '
@@ -63,33 +62,35 @@ def build_step_command(
         out_bam = os.path.join(step_dir, "calls.bam")
 
         cmd_parts = [f'dorado basecaller "{basecall_path}" "{data_file}"']
-        if mod_model:
+        if mod_model and use_dorado_mod_model:
             mod_model_path = os.path.join(model_dir, mod_model)
             cmd_parts.append(f'--modified-bases-models "{mod_model_path}"')
         cmd_parts.append("--emit-moves")
 
-        gpu_list = find_all_free_gpus(min_free_mb=10000)
-        device = gpu_list if gpu_list else "cpu"
-        cmd_parts.append(f"--device {device}")
+        resolved_device = device
+        if resolved_device == "auto":
+            gpu_list = find_all_free_gpus(min_free_mb=10000)
+            resolved_device = gpu_list if gpu_list else "cpu"
+        cmd_parts.append(f"--device {resolved_device}")
 
         if reference:
             cmd_parts.append(f'--reference "{reference}"')
 
         cmd_parts.append(f'> "{out_bam}"')
         raw = " ".join(cmd_parts)
-        return ("dorado", _skip_if_exists(out_bam, raw))
+        return ("dorado", skip_if_exists(out_bam, raw))
 
     if step == "samtools_sort":
         in_bam  = os.path.join(all_step_dirs.get("dorado_basecaller", ""), "calls.bam")
         out_bam = os.path.join(step_dir, "sorted.bam")
         raw = f'samtools sort -@{TOOL_THREADS} "{in_bam}" -o "{out_bam}"'
-        return ("samtools", _skip_if_exists(out_bam, raw))
+        return ("samtools", skip_if_exists(out_bam, raw))
 
     if step == "samtools_index":
         sorted_bam = os.path.join(all_step_dirs.get("samtools_sort", ""), "sorted.bam")
         bai = sorted_bam + ".bai"
         raw = f'samtools index -@{TOOL_THREADS} "{sorted_bam}"'
-        return ("samtools", _skip_if_exists(bai, raw))
+        return ("samtools", skip_if_exists(bai, raw))
 
     if step == "samtools_faidx":
         if not reference:
@@ -99,10 +100,10 @@ def build_step_command(
         local_ref = os.path.join(step_dir, os.path.basename(reference))
         local_fai = local_ref + ".fai"
         raw = f'ln -sf "{reference}" "{local_ref}" && samtools faidx "{local_ref}"'
-        return ("samtools", _skip_if_exists(local_fai, raw))
+        return ("samtools", skip_if_exists(local_fai, raw))
 
     if step == "modkit_pileup":
-        if not reference:
+        if not reference or mod_type == "none":
             return None
         sorted_bam = os.path.join(all_step_dirs.get("samtools_sort", ""), "sorted.bam")
         out_bed    = os.path.join(step_dir, "pileup.bed")
@@ -118,9 +119,11 @@ def build_step_command(
                  f' -t {TOOL_THREADS} --no-filtering')
         if extra:
             parts += f" {extra}"
-        return ("modkit", _skip_if_exists(out_bed, parts))
+        return ("modkit", skip_if_exists(out_bed, parts))
 
     if step == "modkit_extract":
+        if mod_type == "none":
+            return None
         sorted_bam = os.path.join(all_step_dirs.get("samtools_sort", ""), "sorted.bam")
         out_tsv    = os.path.join(step_dir, "extract.tsv")
         flags      = get_modkit_flags("DNA", mod_type)
@@ -132,6 +135,9 @@ def build_step_command(
         parts = f'{bind_hint}modkit extract full "{sorted_bam}" "{out_tsv}"{ref_arg} -t {TOOL_THREADS}'
         if extra:
             parts += f" {extra}"
-        return ("modkit", _skip_if_exists(out_tsv, parts))
+        return ("modkit", skip_if_exists(out_tsv, parts))
+
+    if step == "modcaller_run":
+        return render_command_template("ont_dna", prereq, step_dir, all_step_dirs, data_path)
 
     return None

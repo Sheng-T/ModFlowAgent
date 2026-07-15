@@ -1,120 +1,261 @@
 """
-Lightweight i18n helper.
+Simple i18n helper used by the Streamlit UI.
 
-Usage:
-    from utils.i18n import _
-    st.button(_("Login"))
-
-Strategy:
-  - English (en_US) is the source language — key is returned as-is (zero-cost).
-  - Other languages look up TRANSLATIONS[lang]; missing keys fall back to the English source.
-  - Active language is read from st.session_state.lang, defaulting to DEFAULT_LANG.
+Notes:
+- Historical `.po` files under `locales/` are already mojibake/corrupted.
+- We therefore keep a small in-code translation table for the current UI.
+- Missing keys always fall back to the original source string.
 """
 
-from configs.i18n_config import DEFAULT_LANG
-from configs.app_config import APP_DISPLAY
+from __future__ import annotations
 
-# ── Translation table ─────────────────────────────────────────────────────────
-# key = English source string, value = translated string
-# To add a new language: add a new lang key in TRANSLATIONS and fill in translations.
+from configs.app_config import APP_DISPLAY
+from configs.i18n_config import DEFAULT_LANG
+
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "zh_CN": {
-        # ── Login ──────────────────────────────────────────────────────────
-        "Enter your username to continue":   "请输入用户名以继续",
-        "Username":                          "用户名",
-        "e.g. alice":                        "例如：alice",
-        "Login":                             "登录",
-
-        # ── Sidebar ────────────────────────────────────────────────────────
-        "Switch User":                       "切换用户",
-        "Language":                          "语言",
-        "🧰 Supported Tools & Pipelines":    "🧰 支持的工具与流水线",
-        "Tools":                             "单步工具",
-        "Pipelines":                         "分析流水线",
-        "➕ New Session":                    "➕ 新建会话",
-        "Session":                           "会话",
-        "Sessions":                          "会话列表",
-        "messages":                          "条消息",
-        "📁 File Management":                "📁 文件管理",
-        "Upload files to current session":   "上传文件到当前会话",
-        "files":                             "个文件",
-        "🗑 Clear session files":            "🗑 清空当前会话文件",
-        "Storage by session":                "各会话占用",
-        "current":                           "当前",
-        "Uploads":                           "上传文件",
-        "Run products":                      "运行产物",
-        "🗑 Clean run products":             "🗑 清理运行产物",
-        "🗑 Clean all run products":         "🗑 清理全部运行产物",
-        "Local Workflows":                   "本地流水线",
-
-        # ── Main area ──────────────────────────────────────────────────────
-        f"🧬 {APP_DISPLAY} Analytics Platform":   f"🧬 {APP_DISPLAY} 智能分析平台",
-        "Loading model...":                  "正在加载模型...",
-        "Enter your analysis instruction...": "请输入你的分析指令...",
-
-        # ── Mode selector ──────────────────────────────────────────────────
-        "Your input":                        "你的输入",
-        "Select processing mode:":           "请选择处理方式：",
-        "💬 Chat Q&A":                       "💬 对话问答",
-        "🔧 Tool Call":                      "🔧 工具调用",
-        "🧬 Pipeline":                       "🧬 流水线",
-        "🤖 Auto Detect":                    "🤖 自动判断",
-
-        # ── Status labels ──────────────────────────────────────────────────
-        "🔄 Agent running...":               "🔄 Agent 执行中...",
-        "⏸️ Awaiting confirmation":          "⏸️ 等待你的确认",
-        "✅ Completed":                      "✅ 执行完成",
-        "🔄 Resuming...":                    "🔄 继续执行...",
-
-        # ── Review panel ───────────────────────────────────────────────────
-        "Pending commands — please confirm": "待执行命令，请确认",
-        "Last run failed — commands have been auto-corrected":
-                                             "上次执行失败，系统已自动修正命令",
-        "View error details":                "查看错误详情",
-        "Review the corrected commands below and confirm to re-run:":
-                                             "请检查以下修正后的命令，确认无误后重新执行：",
-        "Pre-requisite files":               "前置文件",
-        "Commands to execute":               "待执行命令",
-        "Step":                              "步骤",
-        "Command list is empty — check parameter generation":
-                                             "命令列表为空，请检查参数生成是否正常",
-        "🔧 Revision notes (fill in before submitting)":
-                                             "🔧 修改意见（提交修改时填写）",
-        "✅ Confirm & Run":                  "✅ 确认执行",
-        "⚠️ This will run on the server immediately. Are you sure?":
-                                             "⚠️ 命令将立即在服务器执行，确定吗？",
-        "▶ Yes, run it":                    "▶ 确定执行",
-        "← Let me check again":             "← 我再看看",
-        "❌ Cancel":                         "❌ 取消任务",
-        "💬 Submit Revision":                "💬 提交修改",
-        "Please fill in revision notes first": "请先填写修改意见",
-        "🚫 Cancelling...":                  "🚫 正在取消任务...",
-        "🔄 Regenerating commands...":       "🔄 正在重新生成命令...",
-        "⏳ Submitted — task is running, please wait...":
-                                             "⏳ 已提交，任务执行中，请稍候...",
-        "✅ Task cancelled":                 "✅ 任务已取消",
-        "❌ Execution failed — commands auto-corrected, please re-confirm":
-                                             "❌ 执行失败，已自动修正命令，请重新确认",
-
-        # ── General ────────────────────────────────────────────────────────
-        "🧠 View thinking process":          "🧠 查看思考过程",
-        "**📊 Analyze charts**":             "**📊 分析图表**",
-        "Download chart":                    "下载图表",
-        "✅ Task completed":                 "✅ 任务处理完成",
+        "Enter your username to continue": "\u8bf7\u8f93\u5165\u7528\u6237\u540d\u540e\u7ee7\u7eed",
+        "Username": "\u7528\u6237\u540d",
+        "e.g. alice": "\u4f8b\u5982 alice",
+        "Login": "\u767b\u5f55",
+        "Switch User": "\u5207\u6362\u7528\u6237",
+        "Language": "\u8bed\u8a00",
+        "Supported Tools & Pipelines": "\u652f\u6301\u7684\u5de5\u5177\u4e0e\u6d41\u6c34\u7ebf",
+        "Tools": "\u5de5\u5177",
+        "Pipelines": "\u6d41\u6c34\u7ebf",
+        "New Session": "\u65b0\u5efa\u4f1a\u8bdd",
+        "Session": "\u4f1a\u8bdd",
+        "Sessions": "\u4f1a\u8bdd\u5217\u8868",
+        "messages": "\u6761\u6d88\u606f",
+        "File Management": "\u6587\u4ef6\u7ba1\u7406",
+        "Upload files to current session": "\u4e0a\u4f20\u6587\u4ef6\u5230\u5f53\u524d\u4f1a\u8bdd",
+        "files": "\u4e2a\u6587\u4ef6",
+        "Clear session files": "\u6e05\u7a7a\u5f53\u524d\u4f1a\u8bdd\u6587\u4ef6",
+        "Storage by session": "\u4f1a\u8bdd\u5b58\u50a8\u5360\u7528",
+        "current": "\u5f53\u524d",
+        "Uploads": "\u4e0a\u4f20\u6587\u4ef6",
+        "Run products": "\u8fd0\u884c\u4ea7\u7269",
+        "Clean run products": "\u6e05\u7406\u8fd0\u884c\u4ea7\u7269",
+        "Clean all run products": "\u6e05\u7406\u5168\u90e8\u8fd0\u884c\u4ea7\u7269",
+        "Local Workflows": "\u672c\u5730\u6d41\u6c34\u7ebf",
+        f"{APP_DISPLAY} Analytics Platform": f"{APP_DISPLAY} \u667a\u80fd\u5206\u6790\u5e73\u53f0",
+        "Loading model...": "\u6b63\u5728\u52a0\u8f7d\u6a21\u578b...",
+        "Enter your analysis instruction...": "\u8bf7\u8f93\u5165\u5206\u6790\u6307\u4ee4...",
+        "Your input": "\u4f60\u7684\u8f93\u5165",
+        "Select processing mode:": "\u8bf7\u9009\u62e9\u5904\u7406\u65b9\u5f0f\uff1a",
+        "Chat Q&A": "\u95ee\u7b54",
+        "Tool Call": "\u5de5\u5177\u8c03\u7528",
+        "Pipeline": "\u6d41\u6c34\u7ebf",
+        "Auto Detect": "\u81ea\u52a8\u8bc6\u522b",
+        "Agent running...": "\u6b63\u5728\u8fd0\u884c...",
+        "Awaiting confirmation": "\u7b49\u5f85\u786e\u8ba4",
+        "Awaiting workflow selection": "\u7b49\u5f85\u9009\u62e9\u5de5\u4f5c\u6d41",
+        "Awaiting workflow parameters": "\u7b49\u5f85\u786e\u8ba4\u5de5\u4f5c\u6d41\u53c2\u6570",
+        "Awaiting samplesheet confirmation": "\u7b49\u5f85\u786e\u8ba4\u6837\u672c\u8868",
+        "Awaiting module selection": "\u7b49\u5f85\u9009\u62e9\u5206\u6790\u6a21\u5757",
+        "Completed": "\u5df2\u5b8c\u6210",
+        "Resuming...": "\u6b63\u5728\u6062\u590d...",
+        "Last run failed": "\u4e0a\u4e00\u6b21\u8fd0\u884c\u5931\u8d25",
+        "Pending commands - please confirm": "\u5f85\u6267\u884c\u547d\u4ee4\uff0c\u8bf7\u786e\u8ba4",
+        "Last run failed - commands have been auto-corrected": "\u4e0a\u4e00\u6b21\u8fd0\u884c\u5931\u8d25\uff0c\u547d\u4ee4\u5df2\u81ea\u52a8\u4fee\u6b63",
+        "View error details": "\u67e5\u770b\u9519\u8bef\u8be6\u60c5",
+        "Review the commands below and confirm to continue.": "\u8bf7\u68c0\u67e5\u4e0b\u9762\u7684\u547d\u4ee4\u5e76\u786e\u8ba4\u7ee7\u7eed\u3002",
+        "Pre-requisite files": "\u524d\u7f6e\u6587\u4ef6",
+        "Commands to execute": "\u5f85\u6267\u884c\u547d\u4ee4",
+        "Commands for this run": "\u672c\u6b21\u8fd0\u884c\u7684\u547d\u4ee4",
+        "Step": "\u6b65\u9aa4",
+        "Command list is empty - check parameter generation": "\u547d\u4ee4\u5217\u8868\u4e3a\u7a7a\uff0c\u8bf7\u68c0\u67e5\u53c2\u6570\u751f\u6210\u6b65\u9aa4",
+        "Revision notes (fill in before submitting)": "\u4fee\u6539\u8bf4\u660e\uff08\u63d0\u4ea4\u524d\u586b\u5199\uff09",
+        "Confirm & Run": "\u786e\u8ba4\u5e76\u8fd0\u884c",
+        "This will run on the server immediately. Are you sure?": "\u8fd9\u4f1a\u7acb\u5373\u5728\u670d\u52a1\u5668\u4e0a\u8fd0\u884c\uff0c\u662f\u5426\u7ee7\u7eed\uff1f",
+        "This will continue the selected run on the server immediately. Valid completed steps will be skipped; failed or unfinished steps will run again.": "\u8fd9\u4f1a\u7acb\u5373\u5728\u670d\u52a1\u5668\u4e0a\u7ee7\u7eed\u8be5\u8fd0\u884c\u3002\u5df2\u5b8c\u6210\u4e14\u4ecd\u6709\u6548\u7684\u6b65\u9aa4\u4f1a\u81ea\u52a8\u8df3\u8fc7\uff1b\u5931\u8d25\u6216\u672a\u5b8c\u6210\u7684\u6b65\u9aa4\u4f1a\u91cd\u65b0\u8fd0\u884c\u3002",
+        "Yes, run it": "\u662f\uff0c\u7acb\u5373\u8fd0\u884c",
+        "Yes, continue": "\u662f\uff0c\u7ee7\u7eed",
+        "Let me check again": "\u6211\u518d\u68c0\u67e5\u4e00\u4e0b",
+        "Let me review again": "\u6211\u518d\u68c0\u67e5\u4e00\u4e0b",
+        "Cancel": "\u53d6\u6d88",
+        "Submit Revision": "\u63d0\u4ea4\u4fee\u6539\u610f\u89c1",
+        "Please fill in revision notes first": "\u8bf7\u5148\u586b\u5199\u4fee\u6539\u8bf4\u660e",
+        "Cancelling...": "\u6b63\u5728\u53d6\u6d88...",
+        "Regenerating commands...": "\u6b63\u5728\u91cd\u65b0\u751f\u6210\u547d\u4ee4...",
+        "Submitted - task is running, please wait...": "\u5df2\u63d0\u4ea4\uff0c\u4efb\u52a1\u6b63\u5728\u8fd0\u884c\uff0c\u8bf7\u7a0d\u5019...",
+        "Task cancelled": "\u4efb\u52a1\u5df2\u53d6\u6d88",
+        "Execution failed - commands auto-corrected, please re-confirm": "\u6267\u884c\u5931\u8d25\uff0c\u547d\u4ee4\u5df2\u81ea\u52a8\u4fee\u6b63\uff0c\u8bf7\u91cd\u65b0\u786e\u8ba4",
+        "View thinking process": "\u67e5\u770b\u601d\u8003\u8fc7\u7a0b",
+        "Analysis Charts": "\u5206\u6790\u56fe\u8868",
+        "Download chart": "\u4e0b\u8f7d\u56fe\u8868",
+        "Task completed": "\u4efb\u52a1\u5df2\u5b8c\u6210",
+        "Step {done}/{total}": "步骤 {done}/{total}",
+        "Download {filename}": "下载 {filename}",
+        "All charts": "所有图表",
+        "View {index}": "查看 {index}",
+        "Copy": "复制",
+        "Copied": "已复制",
+        "Download Results (.zip)": "下载结果（.zip）",
+        "Download Report (.md)": "下载报告（.md）",
+        "Download Report (.pdf)": "下载报告（.pdf）",
+        "PDF unavailable - run `pip install fpdf2`": "PDF 当前不可用，请执行 `pip install fpdf2`",
+        "File server unavailable - fetch the file directly from the server path.": "文件服务未启动，请从服务器路径直接获取文件。",
+        "Review Sample Sheet": "请确认样本表",
+        "The system has auto-generated the samplesheet below. Please verify that file paths (BAM, reference, etc.) are correct before continuing. You can edit the content directly if needed.": "系统已根据上传文件自动生成以下样本表。请确认文件路径（BAM、参考序列等）无误后再继续；如有需要可直接编辑内容。",
+        "Fix the errors above, then click Confirm to re-validate and continue.": "请修正上方错误后点击确认继续，系统将重新校验。",
+        "Select a Workflow": "请选择工作流",
+        "Multiple workflows match your request. Please select one to proceed:": "有多个工作流符合您的需求，请选择一个继续：",
+        "Processing...": "处理中，请稍候...",
+        "Recommended": "推荐",
+        "Select this": "选择此工作流",
+        "Delete": "删除",
+        "Confirm": "确认",
+        "Cancel": "取消",
+        "Copy session upload directory path": "复制 session 上传目录路径",
+        "Last run dir": "上次运行目录",
+        "For large files (>1 GB), upload directly to the server session directory": "建议大文件（>1GB）直接上传到服务器 session 目录",
+        "Link server path": "链接服务器路径",
+        "Server file or directory path": "服务器文件或目录路径",
+        "Link": "链接",
+        "Refresh file list": "刷新文件列表",
+        "Please enter a path.": "请输入路径。",
+        "Path not found: {path}": "路径不存在：{path}",
+        "Already linked: {name}": "已存在：{name}",
+        "Linked: {name} -> {path}": "已链接：{name} -> {path}",
+        "Delete all uploaded files?": "删除所有上传文件？",
+        "Delete all run products?": "删除所有运行产物？",
+        "Unlock resume": "取消续跑锁定",
+        "Resume from this dir (skip completed steps)": "设为续跑目录（跳过已完成步骤）",
+        "Click ▶ to resume a workflow from this run directory; completed steps will be skipped": "点击 ▶ 可将该目录设为续跑起点，重新提问时将跳过已完成的步骤",
+        "Deleting {session_name} will permanently remove all session files (uploads, run products, results - {size}). This cannot be undone.": "删除 {session_name} 将同时清除该会话下所有文件（上传文件、运行产物、分析结果，共 {size}），操作不可撤销。",
+        "/data/users/xxx/sample.bam or a directory": "/data/users/xxx/sample.bam 或目录路径",
+        "✓ Confirm": "✓ 确认",
+        "✗ Cancel": "✗ 取消",
+        "Sequencing Platform": "测序平台",
+        "Oxford Nanopore (ont) or PacBio HiFi (pacbio)": "Oxford Nanopore (ont) 或 PacBio HiFi (pacbio)",
+        "Molecule Type": "分子类型",
+        "DNA methylation or RNA modification analysis": "DNA 甲基化分析 或 RNA 修饰分析",
+        "methylong samplesheet — one row per sample.\n- group: sample group name. Auto-generate as 'group1', 'group2'... if not specified.\n- sample: sample name. Use input filename without extension if not specified (e.g. 'PAU05248_pass_ffa693eb').\n- path: FULL absolute path to the BAM or pod5 file.\n- ref: FULL absolute path to the reference genome FASTA (optional — leave empty if no reference available).\n- method: sequencing platform — 'pacbio' or 'ont'.": "methylong 样本表，每行一个样本。\n- group：样本分组名称；未指定时自动生成为 group1、group2 等。\n- sample：样本名称；未指定时使用输入文件名去掉扩展名。\n- path：BAM 或 POD5 文件的完整绝对路径。\n- ref：参考基因组 FASTA 的完整绝对路径（可选；没有参考时留空）。\n- method：测序平台，pacbio 或 ont。",
+        "Each row represents one sample.\n- sample: sample name.\n- fastq_1: path to Read1 FASTQ file.\n- fastq_2: path to Read2 FASTQ file (leave blank for single-end).\n- strandedness: auto / forward / reverse / unstranded.": "每行代表一个样本。\n- sample：样本名称。\n- fastq_1：Read1 FASTQ 文件路径。\n- fastq_2：Read2 FASTQ 文件路径（单端测序可留空）。\n- strandedness：auto / forward / reverse / unstranded。",
+        "Workflow Parameters": "\u5de5\u4f5c\u6d41\u53c2\u6570",
+        "The system has auto-detected or pre-filled the workflow parameters below. Please review and edit any fields if needed before continuing.": "系统已自动检测或预填以下工作流参数。如有需要，请检查并编辑任意字段后再继续。",
+        "No available modcaller matched the current configuration:": "当前没有可用的 modcaller 与本次配置匹配：",
+        "Modcaller": "Modcaller",
+        "The list is filtered by the selected modification type. If the current caller does not support that type, the workflow default will be used.": "该列表会随 modification type 联动过滤；如果当前 caller 不支持该 type，会自动回退到 workflow 默认 caller。",
+        "Please select a compatible modcaller": "请选择一个兼容的 modcaller",
+        "Unavailable": "不可用",
+        "Unavailable modcallers": "不可用的 modcaller",
+        "No supported modification types": "无支持的修饰类型",
+        "Not compatible with the selected modification type": "与当前选择的修饰类型不兼容",
+        "Requested modcaller: {modcaller}": "用户请求的 modcaller：{modcaller}",
+        "Resolved modcaller: {modcaller}": "最终解析的 modcaller：{modcaller}",
+        "Selected modcaller: {modcaller}": "当前选择的 modcaller：{modcaller}",
+        "Jump to latest": "跳到最新消息",
+        "Resume metadata matched the current request. Completed steps can be reused.": "续跑元数据与当前请求匹配，可以复用已完成的步骤。",
+        "Full path to an existing run_xxx dir; completed steps will be skipped automatically": "填写已有 run_xxx 目录的完整路径；已完成步骤会自动跳过。",
+        "Resume locked: {run_dir}": "已锁定继续运行目录：{run_dir}",
+        "Please correct the issues above and click Confirm & Continue again.": "请修正上方问题后再次点击确认并继续。",
+        "{label} is required.": "{label} 为必填项。",
+        "{label}: path not found - {path}": "{label}：路径不存在 - {path}",
+        "Select Analysis Type": "请选择分析类型",
+        "The system is unsure which analysis to run. Please select the appropriate module(s):": "系统无法确定应运行哪种分析，请手动选择合适的模块。",
+        "No analysis modules available.": "没有可选的分析模块。",
+        "Select modules": "\u9009\u62e9\u6a21\u5757",
+        "Confirm & Continue": "\u786e\u8ba4\u5e76\u7ee7\u7eed",
+        "Confirm": "\u786e\u8ba4",
+        "Skip": "\u8df3\u8fc7",
+        "Skip analysis": "\u8df3\u8fc7\u5206\u6790",
+        "Execution log": "\u6267\u884c\u65e5\u5fd7",
+        "Worker log": "Worker \u8fd0\u884c\u65e5\u5fd7",
+        "Worker error log": "Worker \u9519\u8bef\u65e5\u5fd7",
+        "Resuming analysis...": "正在恢复分析...",
+        "Execution log": "执行日志",
+        "Analyzing results and generating report, please wait...": "正在分析结果并生成报告，请稍候...",
+        "Running workflow, please wait...": "工作流正在运行，请稍候...",
+        "Pipeline running - step {index}/{total}: {step} (refreshes every 10 s)": "流程正在运行：第 {index}/{total} 步 {step}（每 10 秒刷新一次）",
+        "Pipeline cancelled by user.": "流水线已被用户取消。",
+        "Pipeline failed": "流水线执行失败",
+        "Pipeline {workflow} failed": "流水线 {workflow} 执行失败",
+        "Background pipeline {workflow} stopped (process no longer running).": "后台流水线 {workflow} 已中断（进程不存在）。",
+        "Generating report...": "正在生成报告...",
+        "Pipeline Complete": "流水线已完成",
+        "Report generation error: {error}": "报告生成失败：{error}",
+        "Pipeline {workflow} completed - results recovered after reconnect": "流水线 {workflow} 已完成，重连后自动恢复结果",
+        "The previous task completed while the browser was disconnected. Results have been recovered from the server.": "上一次任务在浏览器断开连接期间已经完成，下面显示的是从服务器恢复的结果。",
+        "You are a bioinformatics expert. Summarize the completed {workflow} pipeline run in a concise Markdown report (3-5 paragraphs).\n\n[Analysis statistics]\n{stats}\n\n[Warnings]\n{warnings}\n\nInclude: overall result, key metrics, biological interpretation, any warnings. End with: raw results are stored on the server at `{data_location}`.": (
+            "你是一名生物信息学专家。请将已经完成的 {workflow} 流水线结果整理成简洁的 Markdown 报告（3-5 段）。\n\n"
+            "[分析统计]\n{stats}\n\n"
+            "[警告信息]\n{warnings}\n\n"
+            "请包含：总体结果、关键指标、生物学解释，以及需要注意的警告。"
+            "最后注明：原始结果保存在服务器路径 `{data_location}`。"
+        ),
+        "Data file (pod5 or fast5)": "\u6570\u636e\u6587\u4ef6\uff08POD5 \u6216 FAST5\uff09",
+        "Data file (pod5)": "\u6570\u636e\u6587\u4ef6\uff08POD5\uff09",
+        "HiFi BAM": "HiFi BAM \u6587\u4ef6",
+        "Modification type (optional, default: m6a)": "\u4fee\u9970\u7c7b\u578b\uff08\u53ef\u9009\uff0c\u9ed8\u8ba4 m6a\uff09",
+        "Modification type (optional, default: 5mcpg)": "\u4fee\u9970\u7c7b\u578b\uff08\u53ef\u9009\uff0c\u9ed8\u8ba4 5mcpg\uff09",
+        "Device (optional, default: auto)": "\u8bbe\u5907\uff08\u53ef\u9009\uff0c\u9ed8\u8ba4 auto\uff09",
+        "Reference FASTA (transcriptome or genome, optional)": "\u53c2\u8003\u5e8f\u5217 FASTA\uff08\u8f6c\u5f55\u7ec4\u6216\u57fa\u56e0\u7ec4\uff0c\u53ef\u9009\uff09",
+        "Reference genome FASTA (optional)": "\u53c2\u8003\u57fa\u56e0\u7ec4 FASTA\uff08\u53ef\u9009\uff09",
+        "Resume from run dir (optional, leave empty to create new)": "\u7ee7\u7eed\u8fd0\u884c\u76ee\u5f55\uff08\u53ef\u9009\uff0c\u7559\u7a7a\u5219\u521b\u5efa\u65b0\u76ee\u5f55\uff09",
+        "ONT direct-RNA sequencing file. RNA004 kit required. Flowcell and kit will be auto-detected.": "ONT direct-RNA \u6d4b\u5e8f\u6587\u4ef6\u3002\u9700\u8981 RNA004 kit\uff0cflowcell \u548c kit \u4f1a\u81ea\u52a8\u68c0\u6d4b\u3002",
+        "ONT DNA sequencing file in pod5 or fast5 format.": "POD5 \u6216 FAST5 \u683c\u5f0f\u7684 ONT DNA \u6d4b\u5e8f\u6587\u4ef6\u3002",
+        "Choose the RNA modification signal to detect. Caller selection is resolved automatically from the workflow and modification type.": "\u9009\u62e9\u8981\u68c0\u6d4b\u7684 RNA \u4fee\u9970\u4fe1\u53f7\u3002\u7cfb\u7edf\u4f1a\u6839\u636e workflow \u548c modification type \u81ea\u52a8\u89e3\u6790 caller\u3002",
+        "Choose the DNA modification signal to detect. Caller selection is resolved automatically from the workflow and modification type.": "\u9009\u62e9\u8981\u68c0\u6d4b\u7684 DNA \u4fee\u9970\u4fe1\u53f7\u3002\u7cfb\u7edf\u4f1a\u6839\u636e workflow \u548c modification type \u81ea\u52a8\u89e3\u6790 caller\u3002",
+        "Accepted forms: auto, cpu, cuda:0, cuda:0,1. Use auto to pick a free GPU when available.": "\u652f\u6301\u683c\u5f0f\uff1aauto\u3001cpu\u3001cuda:0\u3001cuda:0,1\u3002\u4f7f\u7528 auto \u65f6\u4f1a\u5c3d\u91cf\u9009\u62e9\u7a7a\u95f2 GPU\u3002",
+        "If provided, modkit pileup will run to produce site-level modification statistics in bedMethyl format.": "\u5982\u679c\u63d0\u4f9b\u53c2\u8003\u5e8f\u5217\uff0c\u5c06\u8fd0\u884c modkit pileup \u5e76\u751f\u6210 bedMethyl \u683c\u5f0f\u7684\u4f4d\u70b9\u7ea7\u4fee\u9970\u7edf\u8ba1\u3002",
+        "Providing a reference improves pileup accuracy and enables site-level modification statistics.": "\u63d0\u4f9b\u53c2\u8003\u57fa\u56e0\u7ec4\u53ef\u63d0\u9ad8 pileup \u51c6\u786e\u6027\uff0c\u5e76\u542f\u7528\u4f4d\u70b9\u7ea7\u4fee\u9970\u7edf\u8ba1\u3002",
+        "If provided, the run metadata must match the current workflow and parameters before resume is allowed.": "\u5982\u679c\u63d0\u4f9b\u8be5\u76ee\u5f55\uff0c\u53ea\u6709\u5f53\u8fd0\u884c\u5143\u6570\u636e\u4e0e\u5f53\u524d workflow \u548c\u53c2\u6570\u5339\u914d\u65f6\u624d\u5141\u8bb8\u7ee7\u7eed\u8fd0\u884c\u3002",
+        "PacBio local workflow currently assumes BAM input only. Some callers expect unaligned HiFi BAM before pbmm2; downstream pileup steps may also need a reference.": "PacBio \u672c\u5730 workflow \u76ee\u524d\u4ec5\u5047\u5b9a\u8f93\u5165\u4e3a BAM\u3002\u90e8\u5206 caller \u9700\u8981\u5728 pbmm2 \u4e4b\u524d\u4f7f\u7528\u672a\u6bd4\u5bf9\u7684 HiFi BAM\uff1b\u4e0b\u6e38 pileup \u6b65\u9aa4\u4e5f\u53ef\u80fd\u9700\u8981\u53c2\u8003\u57fa\u56e0\u7ec4\u3002",
+        "PacBio placeholder callers currently target 5mcpg, 5mc, and 6ma only.": "PacBio \u5f53\u524d\u5360\u4f4d caller \u4ec5\u9762\u5411 5mcpg\u30015mc \u548c 6ma\u3002",
     }
 }
 
 
+LEGACY_KEY_ALIASES: dict[str, str] = {
+    "\U0001f504 Agent running...": "Agent running...",
+    "\u23f8\ufe0f Awaiting confirmation": "Awaiting confirmation",
+    "\u23f8\ufe0f Awaiting workflow selection": "Awaiting workflow selection",
+    "\u23f8\ufe0f Awaiting workflow parameters": "Awaiting workflow parameters",
+    "\u23f8\ufe0f Awaiting samplesheet confirmation": "Awaiting samplesheet confirmation",
+    "\u23f8\ufe0f Awaiting module selection": "Awaiting module selection",
+    "\u2705 Completed": "Completed",
+    "\u2705 Task completed": "Task completed",
+    "\u2705 Confirm & Run": "Confirm & Run",
+    "\u2705 Confirm & Continue": "Confirm & Continue",
+    "\u274c Cancel": "Cancel",
+    "\u274c Execution failed \u2014 commands auto-corrected, please re-confirm": "Execution failed - commands auto-corrected, please re-confirm",
+    "Pending commands \u2014 please confirm": "Pending commands - please confirm",
+    "Last run failed \u2014 commands have been auto-corrected": "Last run failed - commands have been auto-corrected",
+    "Command list is empty \u2014 check parameter generation": "Command list is empty - check parameter generation",
+    "\U0001f527 Revision notes (fill in before submitting)": "Revision notes (fill in before submitting)",
+    "\u26a0\ufe0f This will run on the server immediately. Are you sure?": "This will run on the server immediately. Are you sure?",
+    "\u25b6 Yes, run it": "Yes, run it",
+    "\u21a9 Let me check again": "Let me check again",
+    "\U0001f4ac Chat Q&A": "Chat Q&A",
+    "\U0001f9e1 Tool Call": "Tool Call",
+    "\U0001f9ea Pipeline": "Pipeline",
+    "\U0001f916 Auto Detect": "Auto Detect",
+    "\U0001f4e5 Download Results (.zip)": "Download Results (.zip)",
+    "\U0001f4e5 Download Report (.md)": "Download Report (.md)",
+    "\U0001f4e5 Download Report (.pdf)": "Download Report (.pdf)",
+    "\U0001f4cb Copy": "Copy",
+    "\U0001f50d View thinking process": "View thinking process",
+    "**\U0001f4ca Analysis Charts**": "Analysis Charts",
+}
+
+
+def _normalize_key(text: str) -> str:
+    return LEGACY_KEY_ALIASES.get(text, text)
+
+
 def _(text: str) -> str:
-    """Translate text. en_US returns the key as-is; other languages look up the table."""
+    """Translate UI text with safe fallback."""
     try:
         import streamlit as st
+
         lang = st.session_state.get("lang", DEFAULT_LANG)
     except Exception:
         lang = DEFAULT_LANG
 
+    key = _normalize_key(text)
     if lang == "en_US" or lang not in TRANSLATIONS:
-        return text
-
-    return TRANSLATIONS[lang].get(text, text)
+        return key
+    return TRANSLATIONS[lang].get(key, key)

@@ -1,10 +1,13 @@
-from agent_graph.state import AgentState
+from agent_graph.nodes.toolchain.single_tool import (
+    fallback_single_tool_candidates,
+    resolve_single_tool_request,
+)
 from agent_graph.prompts.toolchain_prompts import build_tools_selector_prompt
+from agent_graph.state import AgentState
 from configs import TOOL_DESCIPTION, TOOLS_DOC
-
+from utils.lang_utils import get_lang
 from utils.llm_utils import get_llm_instance, invoke_json
 from utils.nodes_utils import format_history
-from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
 
 
@@ -13,18 +16,28 @@ def select_tools_node(state: AgentState) -> AgentState:
     user_feedback = state.get("user_feedback", "")
     history_str = format_history(state.get("chat_history", []))
     tool_sequence = state.get("tool_sequence", [])
+    lower_input = (user_input or "").lower()
 
-    # User explicitly chose "workflow" mode from the UI — skip LLM, go straight to planner
     if state.get("user_choice") == "workflow":
-        ui_print(f"\n[Tools Selector] Pipeline mode selected by user, skipping tool identification")
+        ui_print("\n[Tools Selector] Pipeline mode selected by user, skipping tool identification")
         state["identified_tools"] = ["workflow"]
         if not state.get("selected_workflow"):
-            state["workflow_type"] = ""   # not yet resolved; planner will pick
+            state["workflow_type"] = ""
         state["workflow_candidates"] = []
         return state
 
-    ui_print(f"\n[Tools Selector] Identifying tools for the task...")
-    tools_info = "\n".join([f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION])
+    if state.get("user_choice") == "tools":
+        explicit_tool = resolve_single_tool_request(user_input)
+        if explicit_tool:
+            ui_print(f"\n[Tools Selector] Tool mode selected - resolved explicit {explicit_tool} request")
+            state["identified_tools"] = [explicit_tool]
+            state["workflow_type"] = ""
+            state["selected_workflow"] = ""
+            state["workflow_candidates"] = []
+            return state
+
+    ui_print("\n[Tools Selector] Identifying tools for the task...")
+    tools_info = "\n".join(f"- {t['name']}: {t['description']}" for t in TOOL_DESCIPTION)
     selector_llm = get_llm_instance(is_planner=True)
     prompt_str = build_tools_selector_prompt(get_lang()).format(
         input=user_input,
@@ -38,33 +51,37 @@ def select_tools_node(state: AgentState) -> AgentState:
         selected = response.get("selected_tools", [])
         valid_tools = [t for t in selected if t in TOOLS_DOC.keys() or t == "workflow"]
 
-        # keyword fallback
         if not valid_tools:
-            lower = user_input.lower()
-            if "basecall" in lower or "dorado" in lower:
-                valid_tools.append("dorado")
-            if "sort" in lower or "index" in lower:
-                valid_tools.append("samtools")
-            if any(k in lower for k in ["nextflow", "nf-core", "workflow", "pipeline", "流水线", "流程",
-                                         "methylong", "fiber-seq", "fiberseq", "fiber seq",
-                                         "nucleosome", "核小体", "6ma", "m6a", "pacbio", "hifi"]):
+            valid_tools.extend(fallback_single_tool_candidates(user_input))
+            if any(
+                keyword in lower_input
+                for keyword in [
+                    "nextflow",
+                    "nf-core",
+                    "workflow",
+                    "pipeline",
+                    "methylong",
+                    "fiber-seq",
+                    "fiberseq",
+                    "fiber seq",
+                    "nucleosome",
+                    "6ma",
+                    "m6a",
+                    "pacbio",
+                    "hifi",
+                ]
+            ):
                 valid_tools.append("workflow")
 
         ordered = list(dict.fromkeys(valid_tools))
         state["identified_tools"] = ordered[:1]
 
-        is_workflow_request = (
-            len(state["identified_tools"]) > 0
-            and state["identified_tools"][0] == "workflow"
-        )
+        is_workflow_request = bool(state["identified_tools"]) and state["identified_tools"][0] == "workflow"
         if is_workflow_request:
-            # Preserve resolved workflow_type when same workflow is continuing;
-            # clear only on first run (no selected_workflow) so planner can resolve it.
             if not state.get("selected_workflow"):
                 state["workflow_type"] = ""
             state["workflow_candidates"] = []
         else:
-            # User switched away from workflow mode — clear workflow state
             if state.get("workflow_type"):
                 state["workflow_type"] = ""
                 state["selected_workflow"] = ""
@@ -76,7 +93,13 @@ def select_tools_node(state: AgentState) -> AgentState:
 
     except Exception as e:
         ui_print(f"[Tools Selector Error] Parse failed, using fallback: {e}")
-        state["identified_tools"] = []
+        fallback_tools = fallback_single_tool_candidates(user_input)
+        if any(
+            keyword in lower_input
+            for keyword in ["nextflow", "nf-core", "workflow", "pipeline", "methylong", "pacbio", "hifi"]
+        ):
+            fallback_tools.append("workflow")
+        state["identified_tools"] = list(dict.fromkeys(fallback_tools))[:1]
         state["workflow_type"] = ""
         state["selected_workflow"] = ""
         state["local_prereq_params"] = {}

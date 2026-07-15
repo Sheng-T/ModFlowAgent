@@ -67,7 +67,7 @@ else
 fi
 
 echo -e "\n${_BLD}Single-tool Singularity images:${_RST}"
-for _tool in dorado samtools modkit fastqc; do
+for _tool in dorado samtools modkit fastqc pbjasmine ccsmeth fibertools-rs pbmm2 pb-cpg-tools; do
     _tool_dir="${SINGULARITY_DIR}/${_tool}"
     _img_count=$(find "${_tool_dir}" -maxdepth 1 \( -name "*.img" -o -name "*.sif" \) ! -type l 2>/dev/null | wc -l || echo 0)
     if [[ "${_img_count}" -ge 1 ]]; then

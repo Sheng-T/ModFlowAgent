@@ -5,7 +5,20 @@
 自动生成文件内容，存入 state["pre_files"]，供审查和执行使用。
 """
 import importlib
+import json
 import os
+import re
+
+from tools.workflow.caller_profiles import (
+    PROFILE_VERSION,
+    build_tool_sequence,
+    evaluate_modcaller_request,
+    get_modcaller_display_name,
+    get_modcaller_profile,
+    list_available_modcallers,
+    normalize_modification_type,
+    resolve_modcaller,
+)
 
 
 def _skip_validation() -> bool:
@@ -53,6 +66,61 @@ def _list_session_files() -> list[str]:
                 if se.is_file(follow_symlinks=True)
             )
     return result
+
+
+def _load_resume_meta(resume_run_dir: str) -> dict:
+    if not resume_run_dir:
+        return {}
+    path = os.path.join(resume_run_dir, "run_meta.json")
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _validate_resume_meta(params: dict, resume_meta: dict, step_sequence: list[str] | None = None) -> str:
+    if not resume_meta:
+        return ""
+    checks = {
+        "workflow": params.get("_workflow", ""),
+        "modcaller": params.get("modcaller", params.get("caller", "")),
+        "caller": params.get("caller", ""),
+        "modification_type": params.get("modification_type", ""),
+        "data_file": params.get("data_file", ""),
+        "reference": params.get("reference", ""),
+        "device": params.get("device", ""),
+        "caller_profile_version": params.get("_caller_profile_version", PROFILE_VERSION),
+    }
+    for key, expected in checks.items():
+        got = resume_meta.get(key, "")
+        if key == "caller" and not got:
+            got = resume_meta.get("modcaller", "")
+        if key == "modcaller" and not got:
+            got = resume_meta.get("caller", "")
+        if str(got or "") != str(expected or ""):
+            return f"Resume metadata mismatch for {key}: previous='{got}' current='{expected}'"
+    if step_sequence is not None:
+        prev_steps = resume_meta.get("resolved_step_sequence") or []
+        if list(prev_steps) != list(step_sequence):
+            return (
+                "Resume metadata mismatch for resolved_step_sequence: "
+                f"previous='{prev_steps}' current='{step_sequence}'"
+            )
+    return ""
+
+
+def evaluate_resume_request(params: dict, step_sequence: list[str] | None = None) -> tuple[str, str]:
+    resume_run_dir = (params.get("resume_run_dir") or "").strip()
+    if not resume_run_dir:
+        return "", ""
+    resume_meta = _load_resume_meta(resume_run_dir)
+    mismatch = _validate_resume_meta(params, resume_meta, step_sequence)
+    if mismatch:
+        return "", mismatch
+    return resume_run_dir, ""
 
 
 
@@ -299,7 +367,7 @@ def _extract_paths_from_input(user_input: str) -> list[str]:
     return result
 
 
-def generate_local_prereqs_node(state: AgentState) -> dict:
+def _legacy_generate_local_prereqs_node(state: AgentState) -> dict:
     """
     For local workflows with local_params prereqs:
     1. LLM fills param values from uploaded files + user input.
@@ -416,7 +484,167 @@ def generate_local_prereqs_node(state: AgentState) -> dict:
     }
 
 
-def human_local_prereq_reviewer_node(state: AgentState) -> dict:
+def generate_local_prereqs_node(state: AgentState) -> dict:
+    """
+    Override local prereq generation with caller-profile resolution.
+    """
+    from utils.workflow_prerequisites import get_local_prereq_params
+    import json
+    import re
+
+    selected_workflow = state.get("selected_workflow", "")
+    param_defs = get_local_prereq_params(selected_workflow)
+    if not param_defs:
+        return {}
+
+    user_input = state.get("input", "")
+    uploaded_files = _list_session_files()
+    for p in _extract_paths_from_input(user_input):
+        if p not in uploaded_files:
+            uploaded_files.append(p)
+            print(f"[LocalPrereq] Added path from user input: {p}")
+    lang = get_lang()
+    llm = get_llm_instance(is_planner=True)
+    prompt = _build_local_prereq_prompt(param_defs, uploaded_files, user_input, lang)
+
+    ui_print("[LocalPrereq] Extracting workflow parameters via LLM...")
+    params: dict = {}
+    for attempt in range(1, 3):
+        try:
+            raw = llm.invoke(prompt)
+            content = raw if isinstance(raw, str) else raw.content
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            params = json.loads(content)
+            break
+        except Exception as e:
+            ui_print(f"[LocalPrereq] Attempt {attempt} failed: {e}")
+
+    if not params:
+        params = {p["key"]: p.get("default", "") for p in param_defs}
+
+    preserved = state.get("local_prereq_params") or {}
+    for p_def in param_defs:
+        key = p_def["key"]
+        if not params.get(key) and preserved.get(key):
+            params[key] = preserved[key]
+
+    for p_def in param_defs:
+        if p_def.get("type") != "select":
+            continue
+        key = p_def["key"]
+        val = (params.get(key) or "").strip()
+        opts = p_def.get("options", [])
+        if val in opts:
+            continue
+        matched = next((o for o in opts if o.lower() == val.lower()), None)
+        if matched:
+            params[key] = matched
+            continue
+        if key == "modification_type":
+            params[key] = normalize_modification_type(selected_workflow, val)
+
+    kit_info: dict = {}
+    data_file = params.get("data_file") or ""
+    if data_file and os.path.isfile(data_file) and data_file.endswith(".pod5"):
+        kit_info = _inspect_pod5_kit(data_file)
+        if kit_info:
+            params["_kit_check"] = kit_info
+            if kit_info.get("is_rna004") is False:
+                if lang != "en_US":
+                    params["_kit_warning"] = (
+                        f"Detected kit={kit_info.get('kit')} and it is not RNA004. "
+                        "Please confirm the data is suitable for RNA modification analysis."
+                    )
+                else:
+                    params["_kit_warning"] = (
+                        f"Detected kit={kit_info.get('kit')}, not RNA004. "
+                        "Please confirm data is suitable for RNA modification analysis."
+                    )
+            print(f"[LocalPrereq] kit check: {kit_info}")
+
+    params["modification_type"] = normalize_modification_type(
+        selected_workflow,
+        params.get("modification_type", ""),
+    )
+    params["device"] = (params.get("device") or "auto").strip() or "auto"
+    params["_workflow"] = selected_workflow
+
+    manual_modcaller = (params.get("requested_modcaller") or params.get("modcaller") or params.get("caller") or "").strip()
+    request_eval = evaluate_modcaller_request(
+        selected_workflow,
+        params["modification_type"],
+        manual_modcaller,
+    )
+    resolved_modcaller = request_eval.get("resolved_modcaller", "")
+    modcaller_name = resolved_modcaller
+    modcaller_profile = get_modcaller_profile(selected_workflow, modcaller_name) if modcaller_name else {}
+    params["requested_modcaller"] = request_eval.get("requested_modcaller", "")
+    params["requested_modcaller_display_name"] = (
+        get_modcaller_display_name(selected_workflow, params["requested_modcaller"])
+        if params["requested_modcaller"] and get_modcaller_profile(selected_workflow, params["requested_modcaller"])
+        else params["requested_modcaller"]
+    )
+    params["resolved_modcaller"] = resolved_modcaller
+    params["resolved_modcaller_display_name"] = (
+        get_modcaller_display_name(selected_workflow, resolved_modcaller) if resolved_modcaller else ""
+    )
+    params["modcaller"] = modcaller_name
+    params["modcaller_display_name"] = get_modcaller_display_name(selected_workflow, modcaller_name) if modcaller_name else ""
+    params["caller"] = modcaller_name
+    params["_caller_profile_version"] = PROFILE_VERSION
+    params["_modcaller_candidates"] = [
+        {
+            "name": item["name"],
+            "display_name": item.get("display_name", item["name"]),
+            "available": bool(item.get("available")),
+            "reason": item.get("unavailable_reason", ""),
+        }
+        for item in list_available_modcallers(selected_workflow)
+    ]
+    params["_caller_runtime"] = modcaller_profile.get("runtime", {})
+    params["_device_transform"] = modcaller_profile.get("device_transform", "passthrough")
+    params["_entrypoint"] = modcaller_profile.get("entrypoint", "")
+    params["_workdir"] = modcaller_profile.get("workdir", "")
+
+    reference = params.get("reference") or ""
+    tool_sequence = build_tool_sequence(
+        selected_workflow,
+        modcaller_name,
+        params["modification_type"],
+        reference,
+    )
+    if request_eval.get("blocking_reason"):
+        params["_caller_warning"] = request_eval["blocking_reason"]
+        params["_caller_blocking"] = True
+    elif not modcaller_name:
+        params["_caller_warning"] = (
+            f"No available modcaller is configured for workflow '{selected_workflow}' "
+            f"and modification '{params['modification_type']}'."
+        )
+    elif not tool_sequence:
+        params["_caller_warning"] = (
+            f"Modcaller '{modcaller_name}' was resolved, but no executable step sequence was produced."
+        )
+
+    run_dir, resume_warning = evaluate_resume_request(params, tool_sequence)
+    if resume_warning:
+        params["_resume_warning"] = resume_warning
+    elif run_dir:
+        params["_resume_ok"] = True
+
+    ui_print(f"[LocalPrereq] Parameters extracted: {list(k for k in params if not k.startswith('_'))}")
+    result = {
+        "local_prereq_params": params,
+        "tool_sequence": tool_sequence,
+    }
+    if run_dir:
+        result["run_dir"] = run_dir
+    return result
+
+
+def _legacy_human_local_prereq_reviewer_node(state: AgentState) -> dict:
     """
     Interrupt node: pauses before execution so the UI can display local_prereq_params
     as an editable form. The UI writes confirmed values back via app.update_state()
@@ -442,3 +670,33 @@ def human_local_prereq_reviewer_node(state: AgentState) -> dict:
         ui_print(f"[LocalPrereq] ⚠ {kit_warning}")
 
     return {}
+
+
+def human_local_prereq_reviewer_node_override(state: AgentState) -> dict:
+    """Override helper to surface caller and resume warnings."""
+    from utils.workflow_prerequisites import get_local_prereq_params
+    from utils.ui_logger import ui_print
+
+    selected_workflow = state.get("selected_workflow", "")
+    param_defs = get_local_prereq_params(selected_workflow)
+    params = state.get("local_prereq_params", {})
+
+    missing = [
+        p["key"] for p in param_defs
+        if p.get("required") and not params.get(p["key"])
+    ]
+    if missing and not _skip_validation():
+        ui_print(
+            f"[LocalPrereq] WARNING: required params still missing: {missing}. "
+            "Please fill them in before proceeding."
+        )
+
+    for key in ("_kit_warning", "_caller_warning", "_resume_warning"):
+        warning = params.get(key, "")
+        if warning and not _skip_validation():
+            ui_print(f"[LocalPrereq] WARNING: {warning}")
+
+    return {}
+
+
+human_local_prereq_reviewer_node = human_local_prereq_reviewer_node_override

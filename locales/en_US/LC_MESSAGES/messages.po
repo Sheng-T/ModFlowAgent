@@ -1,33 +1,12 @@
-# English translations for Bio-Agent
-# Source language: English. msgid == msgstr (identity — no translation needed).
+# English translations for ModFlowAgent
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: en_US\n"
 
-# Login
-msgid "Enter your username to continue"
-msgstr "Enter your username to continue"
-
-msgid "Username"
-msgstr "Username"
-
-msgid "e.g. alice"
-msgstr "e.g. alice"
-
-msgid "Login"
-msgstr "Login"
-
-# Sidebar
-msgid "Switch User"
-msgstr "Switch User"
-
-msgid "Language"
-msgstr "Language"
-
-msgid "🧰 Supported Tools & Pipelines"
-msgstr "🧰 Supported Tools & Pipelines"
+msgid "Supported Tools & Pipelines"
+msgstr "Supported Tools & Pipelines"
 
 msgid "Tools"
 msgstr "Tools"
@@ -35,90 +14,56 @@ msgstr "Tools"
 msgid "Pipelines"
 msgstr "Pipelines"
 
-msgid "➕ New Session"
-msgstr "➕ New Session"
+msgid "New Session"
+msgstr "New Session"
 
-msgid "Session"
-msgstr "Session"
+msgid "File Management"
+msgstr "File Management"
 
-msgid "Sessions"
-msgstr "Sessions"
-
-msgid "messages"
-msgstr "messages"
-
-msgid "📁 File Management"
-msgstr "📁 File Management"
-
-msgid "Upload files to current session"
-msgstr "Upload files to current session"
-
-msgid "files"
-msgstr "files"
-
-msgid "🗑 Clear session files"
-msgstr "🗑 Clear session files"
-
-msgid "Storage by session"
-msgstr "Storage by session"
-
-msgid "current"
-msgstr "current"
-
-# Main area
-msgid "🧬 Bio-Agent Analytics Platform"
-msgstr "🧬 Bio-Agent Analytics Platform"
-
-msgid "Loading model..."
-msgstr "Loading model..."
-
-msgid "Enter your analysis instruction..."
-msgstr "Enter your analysis instruction..."
-
-# Mode selection
 msgid "Your input"
 msgstr "Your input"
 
 msgid "Select processing mode:"
 msgstr "Select processing mode:"
 
-msgid "💬 Chat Q&A"
-msgstr "💬 Chat Q&A"
+msgid "Chat Q&A"
+msgstr "Chat Q&A"
 
-msgid "🔧 Tool Call"
-msgstr "🔧 Tool Call"
+msgid "Tool Call"
+msgstr "Tool Call"
 
-msgid "🧬 Pipeline"
-msgstr "🧬 Pipeline"
+msgid "Pipeline"
+msgstr "Pipeline"
 
-msgid "🤖 Auto Detect"
-msgstr "🤖 Auto Detect"
+msgid "Auto Detect"
+msgstr "Auto Detect"
 
-# Status labels
-msgid "🔄 Agent running..."
-msgstr "🔄 Agent running..."
+msgid "Agent running..."
+msgstr "Agent running..."
 
-msgid "⏸️ Awaiting confirmation"
-msgstr "⏸️ Awaiting confirmation"
+msgid "Awaiting confirmation"
+msgstr "Awaiting confirmation"
 
-msgid "✅ Completed"
-msgstr "✅ Completed"
+msgid "Awaiting workflow selection"
+msgstr "Awaiting workflow selection"
 
-msgid "🔄 Resuming..."
-msgstr "🔄 Resuming..."
+msgid "Awaiting workflow parameters"
+msgstr "Awaiting workflow parameters"
 
-# Review panel
-msgid "Pending commands — please confirm"
-msgstr "Pending commands — please confirm"
+msgid "Awaiting samplesheet confirmation"
+msgstr "Awaiting samplesheet confirmation"
 
-msgid "Last run failed — commands have been auto-corrected"
-msgstr "Last run failed — commands have been auto-corrected"
+msgid "Completed"
+msgstr "Completed"
 
-msgid "View error details"
-msgstr "View error details"
+msgid "Pending commands - please confirm"
+msgstr "Pending commands - please confirm"
 
-msgid "Review the corrected commands below and confirm to re-run:"
-msgstr "Review the corrected commands below and confirm to re-run:"
+msgid "Last run failed"
+msgstr "Last run failed"
+
+msgid "Review the commands below and confirm to continue."
+msgstr "Review the commands below and confirm to continue."
 
 msgid "Pre-requisite files"
 msgstr "Pre-requisite files"
@@ -126,60 +71,50 @@ msgstr "Pre-requisite files"
 msgid "Commands to execute"
 msgstr "Commands to execute"
 
-msgid "Step"
-msgstr "Step"
+msgid "Commands for this run"
+msgstr "Commands for this run"
 
-msgid "Command list is empty — check parameter generation"
-msgstr "Command list is empty — check parameter generation"
+msgid "Command list is empty - check parameter generation"
+msgstr "Command list is empty - check parameter generation"
 
-msgid "🔧 Revision notes (fill in before submitting)"
-msgstr "🔧 Revision notes (fill in before submitting)"
+msgid "Revision notes (fill in before submitting)"
+msgstr "Revision notes (fill in before submitting)"
 
-msgid "✅ Confirm & Run"
-msgstr "✅ Confirm & Run"
+msgid "Confirm & Run"
+msgstr "Confirm & Run"
 
-msgid "⚠️ This will run on the server immediately. Are you sure?"
-msgstr "⚠️ This will run on the server immediately. Are you sure?"
+msgid "Confirm & Continue"
+msgstr "Confirm & Continue"
 
-msgid "▶ Yes, run it"
-msgstr "▶ Yes, run it"
+msgid "This will continue the selected run on the server immediately. Valid completed steps will be skipped; failed or unfinished steps will run again."
+msgstr "This will continue the selected run on the server immediately. Valid completed steps will be skipped; failed or unfinished steps will run again."
 
-msgid "← Let me check again"
-msgstr "← Let me check again"
+msgid "Yes, continue"
+msgstr "Yes, continue"
 
-msgid "❌ Cancel"
-msgstr "❌ Cancel"
+msgid "Let me review again"
+msgstr "Let me review again"
 
-msgid "💬 Submit Revision"
-msgstr "💬 Submit Revision"
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Submit Revision"
+msgstr "Submit Revision"
 
 msgid "Please fill in revision notes first"
 msgstr "Please fill in revision notes first"
 
-msgid "🚫 Cancelling..."
-msgstr "🚫 Cancelling..."
+msgid "Cancelling..."
+msgstr "Cancelling..."
 
-msgid "🔄 Regenerating commands..."
-msgstr "🔄 Regenerating commands..."
+msgid "Regenerating commands..."
+msgstr "Regenerating commands..."
 
-msgid "⏳ Submitted — task is running, please wait..."
-msgstr "⏳ Submitted — task is running, please wait..."
+msgid "Submitted - task is running, please wait..."
+msgstr "Submitted - task is running, please wait..."
 
-msgid "✅ Task cancelled"
-msgstr "✅ Task cancelled"
+msgid "Task cancelled"
+msgstr "Task cancelled"
 
-msgid "❌ Execution failed — commands auto-corrected, please re-confirm"
-msgstr "❌ Execution failed — commands auto-corrected, please re-confirm"
-
-# General
-msgid "🧠 View thinking process"
-msgstr "🧠 View thinking process"
-
-msgid "**📊 Analyze charts**"
-msgstr "**📊 Analyze charts**"
-
-msgid "Download chart"
-msgstr "Download chart"
-
-msgid "✅ Task completed"
-msgstr "✅ Task completed"
+msgid "Task completed"
+msgstr "Task completed"

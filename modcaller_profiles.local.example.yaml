@@ -1,0 +1,103 @@
+# Copy this file to `modcaller_profiles.local.yaml` and edit locally.
+#
+# Full field reference and more examples:
+#   docs/modcaller_profiles.md
+#
+# Important:
+# - `caller_steps` is an ordered list of symbolic workflow steps, not a place
+#   to paste the full shell command directly.
+# - `postprocess` always means "append after caller_steps".
+# - `dorado_basecaller` automatically implies `samtools_sort` and
+#   `samtools_index`, so you usually do not need to write those two steps.
+# - If your custom modcaller really needs a common step before it runs, you can
+#   still put it into `caller_steps`; duplicate steps are suppressed.
+#
+# Example: DeepMod2 using Dorado only for plain basecalling, then handing the
+# sorted BAM to DeepMod2. The platform will auto-insert `samtools_sort` and
+# `samtools_index` after `dorado_basecaller`.
+#
+# workflows:
+#   ont_dna:
+#     modcallers:
+#       deepmod2:
+#         display_name: DeepMod2
+#         priority: 120
+#         runtime:
+#           type: conda
+#           env_name: deepmod2
+#         workdir: /home/buguai/project/DeepMod2
+#         entrypoint: python /home/buguai/project/DeepMod2/deepmod2
+#         supported_modification_types:
+#           - 5mcpg
+#         caller_steps:
+#           - dorado_download
+#           - dorado_basecaller
+#           - modcaller_run
+#         command_example: |
+#           {entrypoint} detect \
+#             --bam {sorted_bam} \
+#             --input {data_file} \
+#             --model bilstm_r10.4.1_5khz_v5.0 \
+#             --file_type pod5 \
+#             --threads {threads} \
+#             --ref {reference} \
+#             --output {step_dir}/deepmod2 \
+#             --seq_type dna \
+#             --device {device}
+#         placeholders:
+#           data_file: Raw signal input selected in the local workflow form.
+#           sorted_bam: Output from the earlier `samtools_sort` step.
+#           reference: Reference genome FASTA from the local workflow form.
+#           step_dir: Auto-created directory for this step inside the run dir.
+#           threads: Platform thread count for the current worker.
+#
+# Example: user-managed DeepRM for ONT RNA.
+#
+#   ont_rna:
+#     modcallers:
+#       deeprm:
+#         display_name: DeepRM
+#         priority: 120
+#         runtime:
+#           type: conda
+#           env_name: deeprm
+#         workdir: ""
+#         entrypoint: deeprm
+#         modcaller_pre:
+#           mode: python
+#           required: true
+#           code: |
+#             device = "{device}"
+#             if not device.startswith("cuda:"):
+#                 raise ValueError("DeepRM requires a CUDA device")
+#             gpu_ids = [x for x in device.split(":", 1)[1].split(",") if x]
+#             result = {
+#                 "device_gpu_count": str(len(gpu_ids)),
+#                 "device_gpu_pool": " ".join(gpu_ids),
+#                 "device_first_gpu": gpu_ids[0],
+#             }
+#         supported_modification_types:
+#           - m6a
+#         caller_steps:
+#           - dorado_download
+#           - dorado_basecaller
+#           - modcaller_run
+#         command_example: |
+#           mkdir -p "{step_dir}/prep" "{step_dir}/pred" && \
+#           {entrypoint} call prep \
+#             -p "{data_file}" \
+#             -b "{sorted_bam}" \
+#             -o "{step_dir}/prep" \
+#             --thread {threads} \
+#             --chunk 5000 && \
+#           {entrypoint} call run \
+#             -i "{step_dir}/prep" \
+#             -b "{sorted_bam}" \
+#             -o "{step_dir}/pred" \
+#             -s 3000 \
+#             -t 1 \
+#             -f 10 \
+#             --gpu {device_gpu_count} \
+#             --gpu-pool {device_gpu_pool}
+#
+#

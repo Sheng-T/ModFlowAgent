@@ -1,5 +1,9 @@
 
 import os
+from agent_graph.nodes.toolchain.single_tool import (
+    format_single_tool_raw_output,
+    summarize_single_tool_outputs,
+)
 from agent_graph.state import AgentState
 from agent_graph.prompts.qa_prompts import build_qa_prompt, build_search_decision_prompt, build_platform_context, _load_workflow_qa_hints
 from utils.llm_utils import get_llm_instance
@@ -561,6 +565,43 @@ def _summarize_local_workflow(state: AgentState) -> AgentState:
     prereq_params = state.get("local_prereq_params", {})
     has_reference = bool(prereq_params.get("reference", ""))
     mod_type      = prereq_params.get("modification_type") or "m6A"
+    run_meta      = {}
+    run_meta_path = os.path.join(run_dir, "run_meta.json") if run_dir else ""
+    if run_meta_path and os.path.isfile(run_meta_path):
+        try:
+            with open(run_meta_path, encoding="utf-8") as _rmf:
+                run_meta = json.load(_rmf)
+        except Exception as exc:
+            ui_print(f"[LocalSummarizer] Could not read run_meta.json: {exc}")
+
+    resolved_modcaller = (
+        prereq_params.get("resolved_modcaller")
+        or prereq_params.get("modcaller")
+        or prereq_params.get("caller")
+        or run_meta.get("modcaller")
+        or run_meta.get("caller")
+        or "unknown"
+    )
+    requested_modcaller = (
+        prereq_params.get("requested_modcaller")
+        or run_meta.get("requested_modcaller")
+        or resolved_modcaller
+    )
+    resolved_steps = run_meta.get("resolved_step_sequence") or []
+    caller_context_en = (
+        f"Requested modcaller: {requested_modcaller}\n"
+        f"Resolved modcaller actually used: {resolved_modcaller}\n"
+        f"Resolved step sequence: {', '.join(resolved_steps) if resolved_steps else 'unknown'}\n"
+        f"Reference provided: {'yes' if has_reference else 'no'}\n"
+        f"Device setting: {prereq_params.get('device') or run_meta.get('device') or 'unknown'}"
+    )
+    caller_context_zh = (
+        f"用户请求的 modcaller：{requested_modcaller}\n"
+        f"本次实际使用的 modcaller：{resolved_modcaller}\n"
+        f"实际执行步骤序列：{', '.join(resolved_steps) if resolved_steps else 'unknown'}\n"
+        f"是否提供参考序列：{'是' if has_reference else '否'}\n"
+        f"设备设置：{prereq_params.get('device') or run_meta.get('device') or 'unknown'}"
+    )
 
     # Skip re-summarization if already done
     existing_zip = state.get("workflow_result_zip", "")
@@ -660,6 +701,15 @@ def _summarize_local_workflow(state: AgentState) -> AgentState:
         stats_txt     = text_summary_content or json.dumps(summary, ensure_ascii=False, indent=2)[:3000]
         warn_txt      = "\n".join(warnings) if warnings else "None"
 
+    execution_context = (
+        "[Execution context]\n"
+        + caller_context_en
+        + "\n\n[Execution context zh]\n"
+        + caller_context_zh
+        + "\n"
+    )
+    stats_txt = (execution_context + "\n" + stats_txt).strip()
+
     # ── Build LLM report ─────────────────────────────────────────────────────
     if lang == "en_US":
         mode_hint = (
@@ -669,9 +719,11 @@ def _summarize_local_workflow(state: AgentState) -> AgentState:
             "The pipeline ran WITHOUT a reference sequence; only modkit extract (read-level) output is available. "
             "Report total read-level calls, how many were classified as modified, and the overall fraction."
         )
-        prompt = f"""You are a bioinformatics expert summarizing a {workflow_name} RNA modification analysis.
+        prompt = f"""You are a bioinformatics expert summarizing a {workflow_name} modification analysis.
 
 Modification type targeted: {mod_type}
+Execution context:
+{caller_context_en}
 {mode_hint}
 
 [Analysis statistics]
@@ -682,10 +734,12 @@ Modification type targeted: {mod_type}
 
 Write a concise markdown report (3–5 paragraphs):
 1. One-sentence overall result (success / partial / failed).
-2. Key quantitative findings from the stats above.
-3. Biological interpretation (what the modification pattern may indicate).
-4. Any warnings or caveats.
-5. Data location note: raw results are stored on the server at: `{data_location}`
+2. State which modcaller actually produced the result and keep the description consistent with the execution context above.
+3. Key quantitative findings from the stats above.
+4. Biological interpretation (what the modification pattern may indicate).
+5. Any warnings or caveats.
+6. Data location note: raw results are stored on the server at: `{data_location}`
+Do not invent tools or steps that are not listed in the execution context.
 """
     else:
         mode_hint = (
@@ -720,7 +774,7 @@ Write a concise markdown report (3–5 paragraphs):
         report = raw if isinstance(raw, str) else raw.content
         report = re.sub(r"<think>.*?</think>", "", report, flags=re.DOTALL).strip()
     except Exception as e:
-        report = (f"### RNA Modification Analysis Complete\n\nReport generation error: {e}"
+        report = (f"### Modification Analysis Complete\n\nReport generation error: {e}"
                   if lang == "en_US" else
                   f"### RNA 修饰分析完成\n\n报告生成失败：{e}")
 
@@ -755,6 +809,7 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     tool_output       = state.get("tool_output", [])
     pending_commands  = state.get("pending_commands", [])
     run_dir           = state.get("run_dir", "")
+    result_artifacts  = state.get("result_artifacts", [])
 
     if not tool_calls:
         return state
@@ -763,33 +818,29 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
     llm = get_llm_instance(is_planner=False)
 
 
-    output_paths = extract_output_paths(pending_commands)
+    output_paths = result_artifacts or extract_output_paths(pending_commands)
     ui_print(f"[Summarizer] Detected output files: {output_paths}")
 
 
     existing_output_paths = [p for p in output_paths if os.path.isfile(p)]
+    existing_output_dirs = [p for p in output_paths if os.path.isdir(p)]
+    generated_output_files: list[str] = []
+    for out_dir in existing_output_dirs:
+        try:
+            for entry in sorted(os.scandir(out_dir), key=lambda e: e.name):
+                if entry.is_file():
+                    generated_output_files.append(entry.path)
+        except OSError:
+            continue
+    existing_output_paths.extend(generated_output_files)
+    existing_output_paths = list(dict.fromkeys(existing_output_paths))
     if not existing_output_paths:
-        raw_lines = "\n".join(tool_output).strip()
-        if raw_lines:
-            if lang == "en_US":
-                state["final_answer"] = (
-                    "**Command output:**\n\n```\n" + raw_lines + "\n```"
-                )
-            else:
-                state["final_answer"] = (
-                    "**命令输出：**\n\n```\n" + raw_lines + "\n```"
-                )
-        else:
-            state["final_answer"] = (
-                "✅ Command completed with no output."
-                if lang == "en_US" else
-                "✅ 命令执行完成，无输出内容。"
-            )
+        state["final_answer"] = format_single_tool_raw_output(tool_output, run_dir, lang)
         state["analysis_images"] = []
-        ui_print("[Summarizer] No output files detected — displaying raw command output")
+        ui_print("[Summarizer] No output files detected - displaying raw command output")
         return state
 
-    file_stats_map: dict[str, dict] = {}   # file_path → stats dict
+    file_stats_map: dict[str, dict] = {}   # file_path -> stats dict
     for path in existing_output_paths:
         analyzer = get_file_analyzer(path)
         if analyzer is None:
@@ -798,12 +849,24 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
         ui_print(f"[Summarizer] Analyzing file: {os.path.basename(path)}")
         stats = analyzer.analyze(path)
         file_stats_map[path] = stats
-        ui_print(f"[Summarizer] File stats done: {stats.get('type', '?')} — {len(stats)} metrics")
+        ui_print(f"[Summarizer] File stats done: {stats.get('type', '?')} - {len(stats)} metrics")
 
     selected_modules: list[str] = state.get("selected_modules", [])
     tool_desc = ", ".join(c["tool_name"] for c in tool_calls)
     ui_print(f"[Summarizer] Using analysis modules: {selected_modules}")
 
+    if not file_stats_map and existing_output_paths:
+        state["final_answer"] = summarize_single_tool_outputs(
+            tool_calls=tool_calls,
+            tool_output=tool_output,
+            existing_output_paths=existing_output_paths,
+            run_dir=run_dir,
+            llm=llm,
+            lang=lang,
+        )
+        state["analysis_images"] = []
+        ui_print("[Summarizer] Unsupported output types detected - returning single-tool summary")
+        return state
 
     functional_results: list[dict] = []
     for module_name in selected_modules:
@@ -832,7 +895,9 @@ def summarize_execution_result_node(state: AgentState) -> AgentState:
 
     stats_json      = json.dumps(clean_stats_map,      ensure_ascii=False, indent=2)
     func_json       = json.dumps(functional_results,   ensure_ascii=False, indent=2)
-    raw_output_text = "\n".join(tool_output).strip()[:1000]
+    raw_output_text = "\n".join(
+        line for line in tool_output if str(line).strip().lower() != "null"
+    ).strip()[:1000]
 
     if lang == "en_US":
         report_prompt = f"""You are a bioinformatics expert. Generate a professional report based on the analysis results below.

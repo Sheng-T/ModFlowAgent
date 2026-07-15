@@ -21,7 +21,7 @@ It converts natural-language requests into validated workflow plans, tool comman
 - ONT RNA modification analysis (e.g., m6A, inosine)
 - ONT DNA methylation analysis (e.g., 5mC, 5hmC)
 - Single-tool operations (Dorado, modkit, samtools, FastQC)
-- nf-core/methylong-based multi-step workflows (ONT / PacBio)
+- Production-scale methylong-based multi-step workflows (ONT / PacBio)
 
 The system integrates **LLM + RAG + workflow validation + execution planning** into a unified agent framework.
 
@@ -32,7 +32,7 @@ The system integrates **LLM + RAG + workflow validation + execution planning** i
 ## What it does
 
 - **Single-tool calls:** Dorado, samtools, modkit, and FastQC. ModFlowAgent retrieves tool parameters via hybrid RAG and generates validated shell commands.
-- **Workflow planning:** Supports nf-core/methylong via Nextflow and local ONT RNA/DNA workflows via Singularity-based tool chains.
+- **Workflow planning:** Supports a production-scale methylong workflow mode via Nextflow and local ONT RNA, ONT DNA, and PacBio DNA workflows via Singularity-based tool chains.
 - **Prerequisite validation:** Checks input formats, reference files, sample metadata, MM/ML tags, and workflow-specific constraints before execution.
 - **Human-in-the-loop review:** Shows workflow plans, parameters, and final commands for user confirmation.
 - **Q&A:** Answers workflow-related questions using hybrid RAG over tool and workflow documentation.
@@ -69,7 +69,7 @@ Password: demo
 
 > For deployment, please override the default account in `config.local.yaml`.
 
-Docker mode is intended for lightweight demonstration of the web interface, Q&A, workflow routing, RAG-assisted planning when RAG resources are available, prerequisite validation, and command preview. It does not include Dorado, modkit, Nextflow, nf-core/methylong, Singularity/Apptainer, or local LLM weights. Full workflow execution requires the corresponding external tools and runtime environment.
+Docker mode is intended for lightweight demonstration of the web interface, Q&A, workflow routing, RAG-assisted planning when RAG resources are available, prerequisite validation, and command preview. It does not include Dorado, modkit, Nextflow, methylong, Singularity/Apptainer, or local LLM weights. Full workflow execution requires the corresponding external tools and runtime environment.
 
 ### API-based setup with Conda
 
@@ -97,9 +97,9 @@ bash start.sh --server.port 8501
 ModFlowAgent can be configured through public defaults, private local overrides, and environment variables.
 
 - `config.yaml` contains public default settings for demo and lightweight use.
-- `config.local.yaml` is used for private or server-specific overrides, such as real user accounts, - local model paths, and execution paths. This file should not be committed.
+- `config.local.yaml` is used for private or server-specific overrides, such as real user accounts, local model paths, and execution paths. This file should not be committed.
 - `api_keys.py` can be used for local API-based setup.
-- Docker deployment should pass API settings through environment variables such as `LLM_API_KEY`, - `LLM_API_BASE_URL`, and `LLM_API_MODEL`.
+- Docker deployment should pass API settings through environment variables such as `LLM_API_KEY`, `LLM_API_BASE_URL`, and `LLM_API_MODEL`.
 
 The recommended priority is:
 
@@ -107,7 +107,7 @@ The recommended priority is:
 
 ### Optional workflow execution setup
 
-The Docker and API-based setups are sufficient for launching the web interface, workflow planning, validation, RAG-assisted Q&A, and command preview. To actually execute long-read workflows, external tools and runtime environments such as Singularity/Apptainer, Nextflow, Dorado, modkit, and nf-core/methylong need to be installed or built.
+The Docker and API-based setups are sufficient for launching the web interface, workflow planning, validation, RAG-assisted Q&A, and command preview. To actually execute long-read workflows, external tools and runtime environments such as Singularity/Apptainer, Nextflow, Dorado, modkit, and methylong need to be installed or built.
 
 ModFlowAgent provides deployment scripts for preparing these execution dependencies:
 

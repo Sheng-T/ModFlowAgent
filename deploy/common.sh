@@ -55,6 +55,11 @@ show_paths() {
     echo -e "${_BLD}Deployment paths:${_RST}"
     echo "  BASE_DIR              = ${BASE_DIR}"
     echo "  SINGULARITY_DIR       = ${SINGULARITY_DIR}"
+    echo "  PBJASMINE_IMAGE_DIR   = ${PBJASMINE_IMAGE_DIR}"
+    echo "  CCSMETH_IMAGE_DIR     = ${CCSMETH_IMAGE_DIR}"
+    echo "  FIBERTOOLS_IMAGE_DIR  = ${FIBERTOOLS_IMAGE_DIR}"
+    echo "  PBMM2_IMAGE_DIR       = ${PBMM2_IMAGE_DIR}"
+    echo "  PBCPGTOOLS_IMAGE_DIR  = ${PBCPGTOOLS_IMAGE_DIR}"
     echo "  DORADO_MODEL_DIR      = ${DORADO_MODEL_DIR}"
     echo "  PIPELINE_DIR          = ${PIPELINE_DIR}"
     echo "  AGENT_DATA_DIR        = ${AGENT_DATA_DIR}"
@@ -73,6 +78,11 @@ resolve_paths() {
     SAMTOOLS_IMAGE_DIR="${SINGULARITY_DIR}/samtools"
     MODKIT_IMAGE_DIR="${SINGULARITY_DIR}/modkit"
     FASTQC_IMAGE_DIR="${SINGULARITY_DIR}/fastqc"
+    PBJASMINE_IMAGE_DIR="${SINGULARITY_DIR}/pbjasmine"
+    CCSMETH_IMAGE_DIR="${SINGULARITY_DIR}/ccsmeth"
+    FIBERTOOLS_IMAGE_DIR="${SINGULARITY_DIR}/fibertools-rs"
+    PBMM2_IMAGE_DIR="${SINGULARITY_DIR}/pbmm2"
+    PBCPGTOOLS_IMAGE_DIR="${SINGULARITY_DIR}/pb-cpg-tools"
 
     # methylong Nextflow pipeline image cache (NXF_SINGULARITY_CACHEDIR)
     METHYLONG_IMAGE_DIR="${SINGULARITY_DIR}/workflow/methylong"
@@ -83,6 +93,7 @@ resolve_paths() {
 
     export BASE_DIR SINGULARITY_DIR \
            DORADO_IMAGE_DIR SAMTOOLS_IMAGE_DIR MODKIT_IMAGE_DIR FASTQC_IMAGE_DIR \
+           PBJASMINE_IMAGE_DIR CCSMETH_IMAGE_DIR FIBERTOOLS_IMAGE_DIR PBMM2_IMAGE_DIR PBCPGTOOLS_IMAGE_DIR \
            METHYLONG_IMAGE_DIR DORADO_MODEL_DIR PIPELINE_DIR AGENT_DATA_DIR
 
     SIN_ENV="${SIN_ENV:-sin}"

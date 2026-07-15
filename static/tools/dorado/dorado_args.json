@@ -7,7 +7,7 @@
       "pos_args": [
         {
           "name": "model",
-          "description": "Basecalling model. ALWAYS prefer 'sup'. Example: rna004_130bps_sup@v5.2.0."
+          "description": "Basecalling model. ALWAYS prefer a full 'sup' model version string. Examples: dna_r10.4.1_e8.2_400bps_sup@v5.2.0 or rna004_130bps_sup@v5.2.0."
         },
         {
           "name": "data",
@@ -17,7 +17,7 @@
       "kwargs": {
         "reference": "Path to reference for alignment. [nargs=0..1] [default: \"\"]",
         "modified-bases": "String. Example: m6A_DRACH (NOT list) (e.g., m6A_DRACH). Used with --modified-bases.",
-        "modified-bases-models": "Path(s) to custom models. Used with --modified-bases-models. Note: The --modified-bases-models in Dorado typically follows the naming convention: [Base Model Name]_[Modified Name]@v[Version Number]. If the user requests m6A_DRACH, please refer to the model naming format provided in the context or RAG results. If the precise model path cannot be determined, please leave it blank in ToolCall and allow the Validator node to automatically complete it.",
+        "modified-bases-models": "Path(s) to custom models. Used only when the user explicitly provides a custom modified-base model name or path. Prefer --modified-bases for standard built-in DNA/RNA modification calling. If the precise custom model path cannot be determined, leave this blank.",
         "modified-bases-threshold": "Probability threshold (0-1). Optional.",
         "device": "Compute device (auto, cpu, cuda).",
         "recursive": "Set to true if data is a directory.",

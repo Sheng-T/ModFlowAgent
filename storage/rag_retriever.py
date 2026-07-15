@@ -1,4 +1,6 @@
 import os
+import re
+import threading
 import time
 from typing import List
 
@@ -25,6 +27,10 @@ import logging
 from configs import embedding_args, llm_model_path, OTHER_PATH
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
+
+_EMBEDDING_CACHE = {}
+_RERANKER_CACHE = {}
+_MODEL_CACHE_LOCK = threading.Lock()
 
 class HybridRetriever:
     """
@@ -75,8 +81,6 @@ class EnhancedMDRAG:
         if not _embedding_model:
             _embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
             print(f"[RAG] Embedding model not configured, using default: {_embedding_model}")
-        else:
-            print(f"[RAG] Loading embedding model: {_embedding_model}")
 
         _hf_endpoint = os.environ.get("HF_ENDPOINT", "").strip()
         if _hf_endpoint:
@@ -85,27 +89,37 @@ class EnhancedMDRAG:
         _MAX_RETRIES = 3
         _last_error = None
 
-        for _attempt in range(_MAX_RETRIES):
-            try:
-                self.embeddings = HuggingFaceEmbeddings(
-                    model_name=_embedding_model,
-                    model_kwargs={"device": device}
-                )
-                _last_error = None
-                if _attempt > 0:
-                    print("[RAG] Embedding model loaded successfully after retry.")
-                else:
-                    print("[RAG] Embedding model loaded successfully.")
-                break
-            except Exception as _e:
-                _last_error = _e
-                if _attempt < _MAX_RETRIES - 1:
-                    _wait = (_attempt + 1) * 2
-                    print(f"[RAG] HuggingFace download failed (attempt {_attempt+1}/{_MAX_RETRIES}): {_e}")
-                    print(f"[RAG] Retrying in {_wait}s...")
-                    time.sleep(_wait)
+        _embedding_cache_key = (_embedding_model, device)
+        with _MODEL_CACHE_LOCK:
+            self.embeddings = _EMBEDDING_CACHE.get(_embedding_cache_key)
 
-        if _last_error is not None:
+        if self.embeddings is not None:
+            print("[RAG] Reusing cached embedding model.")
+        else:
+            print(f"[RAG] Loading embedding model: {_embedding_model}")
+            for _attempt in range(_MAX_RETRIES):
+                try:
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name=_embedding_model,
+                        model_kwargs={"device": device}
+                    )
+                    with _MODEL_CACHE_LOCK:
+                        _EMBEDDING_CACHE[_embedding_cache_key] = self.embeddings
+                    _last_error = None
+                    if _attempt > 0:
+                        print("[RAG] Embedding model loaded successfully after retry.")
+                    else:
+                        print("[RAG] Embedding model loaded successfully.")
+                    break
+                except Exception as _e:
+                    _last_error = _e
+                    if _attempt < _MAX_RETRIES - 1:
+                        _wait = (_attempt + 1) * 2
+                        print(f"[RAG] HuggingFace download failed (attempt {_attempt+1}/{_MAX_RETRIES}): {_e}")
+                        print(f"[RAG] Retrying in {_wait}s...")
+                        time.sleep(_wait)
+
+        if self.embeddings is None and _last_error is not None:
             print(f"[RAG] HuggingFace download failed after {_MAX_RETRIES} attempts: {_last_error}")
             print("[RAG] Retrying with HuggingFace mirror (hf-mirror.com)...")
             os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
@@ -114,6 +128,8 @@ class EnhancedMDRAG:
                     model_name=_embedding_model,
                     model_kwargs={"device": device}
                 )
+                with _MODEL_CACHE_LOCK:
+                    _EMBEDDING_CACHE[_embedding_cache_key] = self.embeddings
                 print("[RAG] Embedding model loaded successfully from mirror.")
             except Exception as _mirror_e:
                 raise RuntimeError(
@@ -135,14 +151,23 @@ class EnhancedMDRAG:
         else:
             _reranker_path = os.path.expanduser(_reranker_model)
             if os.path.exists(_reranker_path):
-                try:
-                    self.reranker = CrossEncoder(
-                        model_name_or_path=_reranker_path,
-                        device=device
-                    )
-                except Exception:
-                    import logging; logging.warning("[RAG] Reranker not available, skipping")
-                    self.reranker = None
+                _reranker_cache_key = (_reranker_path, device)
+                with _MODEL_CACHE_LOCK:
+                    self.reranker = _RERANKER_CACHE.get(_reranker_cache_key)
+                if self.reranker is not None:
+                    print("[RAG] Reusing cached reranker model.")
+                else:
+                    print(f"[RAG] Loading reranker model: {_reranker_path}")
+                    try:
+                        self.reranker = CrossEncoder(
+                            model_name_or_path=_reranker_path,
+                            device=device
+                        )
+                        with _MODEL_CACHE_LOCK:
+                            _RERANKER_CACHE[_reranker_cache_key] = self.reranker
+                    except Exception:
+                        import logging; logging.warning("[RAG] Reranker not available, skipping")
+                        self.reranker = None
             else:
                 print(f"[RAG] Reranker path not found, skipping: {_reranker_path}")
                 self.reranker = None
@@ -248,7 +273,23 @@ class EnhancedMDRAG:
         Original query: {query}
         """
 
-        result = self.llm.invoke(prompt)
+        raw_result = self.llm.invoke(prompt)
+        if isinstance(raw_result, str):
+            result = raw_result
+        else:
+            result = getattr(raw_result, "content", str(raw_result))
+            if isinstance(result, list):
+                text_parts = []
+                for item in result:
+                    if isinstance(item, str):
+                        text_parts.append(item)
+                    elif isinstance(item, dict):
+                        text_parts.append(str(item.get("text", "")))
+                    else:
+                        text_parts.append(str(item))
+                result = "\n".join(part for part in text_parts if part)
+
+        result = re.sub(r"<think>.*?</think>", "", result, flags=re.DOTALL).strip()
 
         queries = [query]
 

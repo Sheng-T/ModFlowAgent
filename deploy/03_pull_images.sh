@@ -114,6 +114,26 @@ _wget_image \
     "https://depot.galaxyproject.org/singularity/samtools:1.22.1--h96c455f_0" \
     "${SAMTOOLS_IMAGE_DIR}/samtools.img"
 
+_wget_image \
+    "https://depot.galaxyproject.org/singularity/pbjasmine:2.4.0--h9948957_1" \
+    "${PBJASMINE_IMAGE_DIR}/pbjasmine.img"
+
+_wget_image \
+    "https://depot.galaxyproject.org/singularity/ccsmeth:0.5.0--pyhdfd78af_0" \
+    "${CCSMETH_IMAGE_DIR}/ccsmeth.img"
+
+_wget_image \
+    "https://depot.galaxyproject.org/singularity/fibertools-rs:0.7.1--h3b373d1_0" \
+    "${FIBERTOOLS_IMAGE_DIR}/fibertools-rs.img"
+
+_wget_image \
+    "https://depot.galaxyproject.org/singularity/pbmm2:1.14.99--h9ee0642_0" \
+    "${PBMM2_IMAGE_DIR}/pbmm2.img"
+
+_docker_image \
+    "docker://quay.io/pacbio/pb-cpg-tools:3.0.0_build1" \
+    "${PBCPGTOOLS_IMAGE_DIR}/pb-cpg-tools.img"
+
 # ── methylong pipeline images ────────────────────────────────────────────────
 log_info "--- methylong pipeline images ---"
 
@@ -130,22 +150,6 @@ _wget_image \
     "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-pigz-2.8.img"
 
 _wget_image \
-    "https://depot.galaxyproject.org/singularity/ccsmeth:0.5.0--pyhdfd78af_0" \
-    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-ccsmeth-0.5.0--pyhdfd78af_0.img"
-
-_wget_image \
-    "https://depot.galaxyproject.org/singularity/pbjasmine:2.4.0--h9948957_1" \
-    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-pbjasmine-2.4.0--h9948957_1.img"
-
-_wget_image \
-    "https://depot.galaxyproject.org/singularity/fibertools-rs:0.7.1--h3b373d1_0" \
-    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-fibertools-rs-0.7.1--h3b373d1_0.img"
-
-_wget_image \
-    "https://depot.galaxyproject.org/singularity/pbmm2:1.14.99--h9ee0642_0" \
-    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-pbmm2-1.14.99--h9ee0642_0.img"
-
-_wget_image \
     "https://depot.galaxyproject.org/singularity/whatshap:2.6--py39h2de1943_0" \
     "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-whatshap-2.6--py39h2de1943_0.img"
 
@@ -156,10 +160,6 @@ _wget_image \
 _wget_image \
     "https://depot.galaxyproject.org/singularity/ubuntu%3A24.04" \
     "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-ubuntu%3A24.04.img"
-
-_docker_image \
-    "docker://quay.io/pacbio/pb-cpg-tools:3.0.0_build1" \
-    "${METHYLONG_IMAGE_DIR}/quay.io-pacbio-pb-cpg-tools-3.0.0_build1.img"
 
 # ── Symlink shared images into methylong cache dir ────────────────────────────
 # Rule: only symlink when the tool dir and methylong use the exact same image file.
@@ -199,6 +199,26 @@ _symlink \
 _symlink \
     "${MODKIT_IMAGE_DIR}/modkit.img" \
     "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-ont-modkit-0.5.0--hcdda2d0_2.img"
+
+_symlink \
+    "${PBJASMINE_IMAGE_DIR}/pbjasmine.img" \
+    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-pbjasmine-2.4.0--h9948957_1.img"
+
+_symlink \
+    "${CCSMETH_IMAGE_DIR}/ccsmeth.img" \
+    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-ccsmeth-0.5.0--pyhdfd78af_0.img"
+
+_symlink \
+    "${FIBERTOOLS_IMAGE_DIR}/fibertools-rs.img" \
+    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-fibertools-rs-0.7.1--h3b373d1_0.img"
+
+_symlink \
+    "${PBMM2_IMAGE_DIR}/pbmm2.img" \
+    "${METHYLONG_IMAGE_DIR}/depot.galaxyproject.org-singularity-pbmm2-1.14.99--h9ee0642_0.img"
+
+_symlink \
+    "${PBCPGTOOLS_IMAGE_DIR}/pb-cpg-tools.img" \
+    "${METHYLONG_IMAGE_DIR}/quay.io-pacbio-pb-cpg-tools-3.0.0_build1.img"
 
 
 echo ""

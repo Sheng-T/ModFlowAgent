@@ -1,16 +1,7 @@
-"""
-configs 包入口。
 
-加载顺序：
-  1. 导入各子模块（触发其默认值初始化）
-  2. 读取项目根目录的 config.yaml，将用户设置覆盖写入各子模块
-  3. star-import 导出所有名称（此时已是覆盖后的值）
-
-现有代码无需改动，继续 `from configs import XXX` 即可。
-"""
 import os as _os
 
-# ── 1. 导入子模块对象（触发各自默认值初始化）─────────────────────────────────
+# ── ─────────────────────────────────
 from . import model_config  as _mc
 from . import path_config   as _pc
 from . import runtime_config as _rc
@@ -19,7 +10,7 @@ from . import workflow_config as _wc
 from . import i18n_config   as _ic
 
 
-# ── 2. 读取并应用 config.yaml / config.local.yaml ────────────────────────────
+# ── ────────────────────────────
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge override into base (override wins on conflicts)."""
     result = base.copy()

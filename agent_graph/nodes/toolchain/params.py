@@ -13,6 +13,7 @@ from utils.nodes_utils import format_history
 from utils.user_context import get_or_create_run_dir, get_session_dir
 from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
+from utils.config_utils import format_tool_schema
 
 
 def _list_session_files(lang: str) -> str:
@@ -61,7 +62,7 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
     if workflow_type == "local" and selected_workflow:
         step_builder = get_step_builder(selected_workflow)
         if step_builder:
-            run_dir_hint = get_or_create_run_dir() or ""
+            run_dir_hint = state.get("run_dir") or get_or_create_run_dir() or ""
             if run_dir_hint:
                 state["run_dir"] = run_dir_hint
             tool_data_path = dict(DATA_PATH.get("workflow", {}))
@@ -93,6 +94,11 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
                     "tool_name":     tool_name,   # keeps step name for runner.py's step_dir logic
                     "_prebuilt_cmd": raw_cmd,      # build_command_for_call returns this directly
                     "_base_tool":    base_tool,    # runner.py uses this for Singularity image lookup
+                    "_runtime_override": (
+                        local_prereq_params.get("_caller_runtime", {})
+                        if tool_name == "modcaller_run"
+                        else {}
+                    ),
                     "tool_args":     {},
                 })
                 ui_print(f"[Param Generator] Step {i + 1} ({tool_name}): {raw_cmd[:80]}...")
@@ -293,7 +299,7 @@ def generate_tool_params_node(state: AgentState) -> AgentState:
             print(f"  [Warning] Skipping unrecognized tool: {tool_name}")
             continue
 
-        current_schema = str(TOOL_ARGS.get(tool_real_name, "{}"))
+        current_schema = format_tool_schema(TOOL_ARGS.get(tool_real_name, {}))
         current_rag = rag_suggestion.get(tool_real_name, "No relevant documentation found.")
         # Prepend tool-specific command generation rules if available
         _rules_path = TOOLS_RULES.get(tool_real_name)

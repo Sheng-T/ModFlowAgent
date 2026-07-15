@@ -155,9 +155,21 @@ def _main(run_dir: str):
             if ok:
                 _log(f"[STEP_DONE] {i+1}/{len(steps)} {tool_name}")
             else:
+                if not (out or "").strip():
+                    try:
+                        with open(cmd_script, encoding="utf-8", errors="replace") as fh:
+                            script_preview = fh.read(2000)
+                        out = "[no stdout/stderr captured]\n--- script preview ---\n" + script_preview
+                    except Exception:
+                        out = "[no stdout/stderr captured]"
                 _log(f"[STEP_FAIL] {i+1}/{len(steps)} {tool_name}\n{out}")
                 failed     = True
-                fail_error = f"Step {i+1} ({tool_name}) failed:\n{out[-800:]}"
+                fail_error = (
+                    f"Step {i+1} ({tool_name}) failed:\n"
+                    f"script: {cmd_script}\n"
+                    f"log: {log_path}\n"
+                    f"{out[-1200:]}"
+                )
                 break
 
         if failed:

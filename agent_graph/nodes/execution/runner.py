@@ -1,7 +1,9 @@
 import os
 import shutil
+import re
 
 from agent_graph.state import AgentState
+from tools.analyzers.registry import extract_output_paths
 from configs import TOOL_LIST
 from runtime.env_wrapper import EnvWrapper, cleanup_temp_scripts
 from runtime.executor import ToolExecutor
@@ -10,6 +12,21 @@ from utils.user_context import get_run_dir, get_session_dir
 
 from utils.lang_utils import get_lang
 from utils.ui_logger import ui_print
+
+
+def _make_review_command(raw_cmd: str, run_dir: str = "") -> str:
+    cmd = (raw_cmd or "").strip()
+    if not cmd:
+        return cmd
+    if run_dir:
+        cmd = cmd.replace(run_dir, "{run_dir}")
+    if "|| (" in cmd and cmd.startswith("[ -f "):
+        cmd = cmd.split("|| (", 1)[1].strip()
+        if cmd.endswith(")"):
+            cmd = cmd[:-1].rstrip()
+    cmd = re.sub(r'^\s*:\s+"[^"]+"\s*;\s*', "", cmd).strip()
+    cmd = re.sub(r'\s*&&\s*touch\s+"[^"]+"\s*$', "", cmd).strip()
+    return cmd
 
 
 
@@ -54,6 +71,26 @@ def _write_pre_files(pre_files: list, session_dir: str):
     return written
 
 
+def _collect_result_artifacts(commands: list[str], run_dir: str = "") -> list[str]:
+    artifacts: list[str] = []
+    for path in extract_output_paths(commands):
+        if os.path.isfile(path):
+            artifacts.append(path)
+            continue
+        if os.path.isdir(path):
+            try:
+                for entry in sorted(os.scandir(path), key=lambda e: e.name):
+                    if entry.is_file():
+                        artifacts.append(entry.path)
+            except OSError:
+                continue
+    if run_dir and os.path.isdir(run_dir):
+        for entry in sorted(os.scandir(run_dir), key=lambda e: e.name):
+            if entry.is_file() and entry.name.endswith((".html", ".zip", ".txt", ".tsv", ".csv")):
+                artifacts.append(entry.path)
+    return list(dict.fromkeys(artifacts))
+
+
 def execute_commands_node(state: AgentState) -> dict:
     wrapper = EnvWrapper()
     executor = ToolExecutor()
@@ -63,6 +100,7 @@ def execute_commands_node(state: AgentState) -> dict:
     history = state.get("chat_history", [])
     next_node = "summarizer"
     tool_output = []
+    result_artifacts: list[str] = []
 
     workflow_type = state.get("workflow_type", "")
     is_local_workflow = workflow_type == "local"
@@ -92,6 +130,7 @@ def execute_commands_node(state: AgentState) -> dict:
         for i, call in enumerate(tool_calls):
             tool_name = call["tool_name"]
             base_name = call.get("_base_tool") or tool_name.split("_")[0]
+            runtime_override = call.get("_runtime_override") or None
 
             step_dir = os.path.join(run_dir, f"step{i + 1:02d}_{tool_name}") if run_dir else run_dir
             if step_dir:
@@ -113,7 +152,13 @@ def execute_commands_node(state: AgentState) -> dict:
                 break
 
             # Wrap the command (Singularity / conda / plain) for this step
-            final_cmd = wrapper.wrap_command(base_name, raw_cmd, is_workflow=False, cwd=step_dir or run_dir)
+            final_cmd = wrapper.wrap_command(
+                base_name,
+                raw_cmd,
+                is_workflow=False,
+                cwd=step_dir or run_dir,
+                runtime_override=runtime_override,
+            )
 
             # Write a durable shell script inside step_dir so the worker can run
             # it independently of any temp files created by wrap_command.
@@ -125,6 +170,8 @@ def execute_commands_node(state: AgentState) -> dict:
 
             job_steps.append({
                 "tool_name":  tool_name,
+                "raw_cmd":    raw_cmd,
+                "review_cmd": _make_review_command(raw_cmd, run_dir),
                 "cmd_script": cmd_script,
                 "step_dir":   step_dir,
             })
@@ -147,6 +194,22 @@ def execute_commands_node(state: AgentState) -> dict:
             job_path = os.path.join(run_dir, "job.json")
             with open(job_path, "w", encoding="utf-8") as _jf:
                 _json.dump(job_data, _jf, ensure_ascii=False)
+
+            run_meta = {
+                "version":            1,
+                "workflow":           workflow_name,
+                "modcaller":          state.get("local_prereq_params", {}).get("modcaller", ""),
+                "caller":             state.get("local_prereq_params", {}).get("caller", ""),
+                "modification_type":  state.get("local_prereq_params", {}).get("modification_type", ""),
+                "data_file":          state.get("local_prereq_params", {}).get("data_file", ""),
+                "reference":          state.get("local_prereq_params", {}).get("reference", ""),
+                "device":             state.get("local_prereq_params", {}).get("device", ""),
+                "caller_profile_version": state.get("local_prereq_params", {}).get("_caller_profile_version", 1),
+                "resolved_step_sequence": [step["tool_name"] for step in job_steps],
+            }
+            meta_path = os.path.join(run_dir, "run_meta.json")
+            with open(meta_path, "w", encoding="utf-8") as _mf:
+                _json.dump(run_meta, _mf, ensure_ascii=False, indent=2)
 
             # Write initial pending status (worker will overwrite to "running" immediately)
             _write_status(run_dir, {
@@ -234,6 +297,7 @@ def execute_commands_node(state: AgentState) -> dict:
             if resp["status"] == "success":
                 output = resp.get("output", "")
                 tool_output.append(output)
+                result_artifacts = _collect_result_artifacts([raw_cmd], run_dir)
                 history.append({"role": "assistant", "content": _msg(
                     f"Command succeeded.\nOutput: {output[-200:]}",
                     f"命令执行成功\n输出: {output[-200:]}",
@@ -322,5 +386,6 @@ def execute_commands_node(state: AgentState) -> dict:
         "next_node": next_node,
         "tool_output": tool_output,
         "run_dir": state.get("run_dir", ""),
+        "result_artifacts": result_artifacts,
     }
 

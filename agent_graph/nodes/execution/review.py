@@ -1,9 +1,28 @@
 import os
+import re
 
 from agent_graph.state import AgentState
 from utils.nodes_utils import build_command_for_call
 from utils.user_context import get_or_create_run_dir
 from utils.ui_logger import ui_print
+
+
+def _make_review_command(raw_cmd: str, run_dir: str = "") -> str:
+    cmd = (raw_cmd or "").strip()
+    if not cmd:
+        return cmd
+
+    if run_dir:
+        cmd = cmd.replace(run_dir, "{run_dir}")
+
+    if "|| (" in cmd and cmd.startswith("[ -f "):
+        cmd = cmd.split("|| (", 1)[1].strip()
+        if cmd.endswith(")"):
+            cmd = cmd[:-1].rstrip()
+
+    cmd = re.sub(r'^\s*:\s+"[^"]+"\s*;\s*', "", cmd).strip()
+    cmd = re.sub(r'\s*&&\s*touch\s+"[^"]+"\s*$', "", cmd).strip()
+    return cmd
 
 
 def review_execution_plan_node(state: AgentState) -> dict:
@@ -12,6 +31,7 @@ def review_execution_plan_node(state: AgentState) -> dict:
     user_feedback = state.get("user_feedback", "")
     is_workflow   = state.get("workflow_type", "") == "nfcore"
     pending_commands = []
+    review_commands = []
 
     if user_feedback:
         state["user_feedback"] = ""
@@ -29,11 +49,13 @@ def review_execution_plan_node(state: AgentState) -> dict:
     for i, call in enumerate(tool_calls):
         raw_cmd = build_command_for_call(call, is_workflow=is_workflow)
         pending_commands.append(raw_cmd)
+        review_commands.append(_make_review_command(raw_cmd, run_dir))
         ui_print(f"[Review] Step {i+1}: {raw_cmd}")
 
     return {
         **state,
         "pending_commands": pending_commands,
+        "review_commands": review_commands,
         "run_dir":          run_dir,
         "next_node":        "executor",
     }

@@ -1,6 +1,7 @@
 # IDE / tooling
 .idea/
 .claude/
+.vscode/
 
 __pycache__/
 *.pyc
@@ -34,6 +35,7 @@ api_keys.py
 
 # Local config overrides — personal settings, not for repo
 config.local.yaml
+modcaller_profiles.local.yaml
 
 # Runtime logs
 *.log

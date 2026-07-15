@@ -82,4 +82,8 @@ def extract_output_paths(commands: list[str]) -> list[str]:
             p = m.group(1)
             if not p.startswith("-"):
                 paths.append(p)
+        for m in re.finditer(r'(?:^|\s)--outdir\s+([^\s"\']+)', cmd):
+            p = m.group(1)
+            if not p.startswith("-"):
+                paths.append(p)
     return list(dict.fromkeys(paths))  

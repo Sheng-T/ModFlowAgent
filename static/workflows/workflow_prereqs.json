@@ -4,22 +4,22 @@
     "nfcore_pre_params": [
       {
         "key": "method",
-        "label": "测序平台",
+        "label": "Sequencing Platform",
         "label_en": "Sequencing Platform",
         "required": true,
         "type": "select",
         "options": ["ont", "pacbio"],
-        "hint": "Oxford Nanopore (ont) 或 PacBio HiFi (pacbio)",
+        "hint": "Oxford Nanopore (ont) or PacBio HiFi (pacbio)",
         "hint_en": "Oxford Nanopore (ont) or PacBio HiFi (pacbio)"
       },
       {
         "key": "molecule",
-        "label": "分子类型",
+        "label": "Molecule Type",
         "label_en": "Molecule Type",
         "required": true,
         "type": "select",
         "options": ["DNA", "RNA"],
-        "hint": "DNA 甲基化分析 或 RNA 修饰分析",
+        "hint": "DNA methylation or RNA modification analysis",
         "hint_en": "DNA methylation or RNA modification analysis"
       }
     ],
@@ -60,26 +60,40 @@
           },
           {
             "key": "modification_type",
-            "label": "Modification type (optional, default: m6A)",
+            "label": "Modification type (optional, default: m6a)",
             "required": false,
-            "default": "m6A",
+            "default": "m6a",
             "type": "select",
             "options": [
-              "m6A",
-              "m6A_DRACH",
-              "inosine_m6A_2OmeA",
-              "pseU",
-              "m5C",
-              "2OmeG",
-              "none (basecall only)"
+              "m6adrach",
+              "m6a",
+              "inosine",
+              "2omea",
+              "pseu",
+              "m5c",
+              "2omeg",
+              "none"
             ],
-            "hint": "m6A: N6-methyladenosine, uses inosine_m6A model (recommended default). m6A_DRACH: DRACH-context m6A only. inosine_m6A_2OmeA: m6A + inosine + 2'-O-methyladenosine. pseU: pseudouridine. m5C: 5-methylcytosine. 2OmeG: 2'-O-methylguanosine. none: basecall only, no modification detection."
+            "hint": "Choose the RNA modification signal to detect. Caller selection is resolved automatically from the workflow and modification type."
+          },
+          {
+            "key": "device",
+            "label": "Device (optional, default: auto)",
+            "required": false,
+            "default": "auto",
+            "hint": "Accepted forms: auto, cpu, cuda:0, cuda:0,1. Use auto to pick a free GPU when available."
           },
           {
             "key": "reference",
             "label": "Reference FASTA (transcriptome or genome, optional)",
             "required": false,
             "hint": "If provided, modkit pileup will run to produce site-level modification statistics in bedMethyl format."
+          },
+          {
+            "key": "resume_run_dir",
+            "label": "Resume from run dir (optional, leave empty to create new)",
+            "required": false,
+            "hint": "If provided, the run metadata must match the current workflow and parameters before resume is allowed."
           }
         ]
       }
@@ -99,24 +113,86 @@
           },
           {
             "key": "modification_type",
-            "label": "Modification type (optional, default: 5mCG_5hmCG)",
+            "label": "Modification type (optional, default: 5mcpg)",
             "required": false,
-            "default": "5mCG_5hmCG",
+            "default": "5mcpg",
             "type": "select",
             "options": [
-              "5mCG_5hmCG",
-              "5mC_5hmC",
-              "6mA",
-              "4mC_5mC",
-              "none (basecall only)"
+              "5mcpg",
+              "5hmcg",
+              "5mc",
+              "5hmc",
+              "4mc",
+              "6ma",
+              "none"
             ],
-            "hint": "5mCG_5hmCG: detects both 5mC and 5hmC at CpG context — standard human methylation (default). 5mC_5hmC: detects both 5mC and 5hmC at ALL cytosine contexts (non-CpG included). 6mA: N6-methyladenine. 4mC_5mC: bacterial methylation only. none: basecall only, no modification detection."
+            "hint": "Choose the DNA modification signal to detect. Caller selection is resolved automatically from the workflow and modification type."
+          },
+          {
+            "key": "device",
+            "label": "Device (optional, default: auto)",
+            "required": false,
+            "default": "auto",
+            "hint": "Accepted forms: auto, cpu, cuda:0, cuda:0,1. Use auto to pick a free GPU when available."
           },
           {
             "key": "reference",
             "label": "Reference genome FASTA (optional)",
             "required": false,
             "hint": "Providing a reference improves pileup accuracy and enables site-level modification statistics."
+          },
+          {
+            "key": "resume_run_dir",
+            "label": "Resume from run dir (optional, leave empty to create new)",
+            "required": false,
+            "hint": "If provided, the run metadata must match the current workflow and parameters before resume is allowed."
+          }
+        ]
+      }
+    ]
+  },
+  "pacbio_dna": {
+    "needs_prereq": true,
+    "prereqs": [
+      {
+        "type": "local_params",
+        "params": [
+          {
+            "key": "data_file",
+            "label": "HiFi BAM",
+            "required": true,
+            "hint": "PacBio local workflow currently assumes BAM input only. Some callers expect unaligned HiFi BAM before pbmm2; downstream pileup steps may also need a reference."
+          },
+          {
+            "key": "modification_type",
+            "label": "Modification type (optional, default: 5mcpg)",
+            "required": false,
+            "default": "5mcpg",
+            "type": "select",
+            "options": [
+              "5mcpg",
+              "5mc",
+              "5hmc",
+              "6ma"
+            ],
+            "hint": "PacBio local callers currently expose 5mcpg, 5mc, 5hmc, and 6ma."
+          },
+          {
+            "key": "device",
+            "label": "Device (optional, default: auto)",
+            "required": false,
+            "default": "auto",
+            "hint": "Accepted forms: auto, cpu, cuda:0, cuda:0,1. Use auto to pick a free GPU when available."
+          },
+          {
+            "key": "reference",
+            "label": "Reference genome FASTA (optional)",
+            "required": false
+          },
+          {
+            "key": "resume_run_dir",
+            "label": "Resume from run dir (optional, leave empty to create new)",
+            "required": false
           }
         ]
       }

@@ -13,6 +13,22 @@ from utils.i18n import _
 from utils.auth_cookie import clear_login_state
 from utils.file_server import make_download_html, is_running
 
+_SIDEBAR_ICONS = {
+    "Supported Tools & Pipelines": "🧰",
+    "File Management": "📁",
+    "New Session": "➕",
+    "Link server path": "🔗",
+    "Clear session files": "🗑",
+    "Clean run products": "🗑",
+    "Clean all run products": "🗑",
+}
+
+
+def _icon_text(key: str) -> str:
+    icon = _SIDEBAR_ICONS.get(key, "")
+    text = _(key)
+    return f"{icon} {text}" if icon else text
+
 
 def switch_session(store, session_id: str):
     session = store.get_session(session_id)
@@ -62,7 +78,7 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         st.divider()
 
-        with st.expander(_("🧰 Supported Tools & Pipelines"), expanded=False):
+        with st.expander(_icon_text("Supported Tools & Pipelines"), expanded=False):
             st.markdown(f"**{_('Tools')}**")
             for t in TOOL_DESCIPTION:
                 if t["name"] == "workflow":
@@ -89,7 +105,7 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         st.divider()
 
-        if st.button(_("➕ New Session"), width="stretch"):
+        if st.button(_icon_text("New Session"), width="stretch"):
             new_sess = store.create_session(
                 user_id,
                 name=f"{_('Session')} {datetime.now().strftime('%m-%d %H:%M')}",
@@ -128,12 +144,13 @@ def render_sidebar(store, fm, user_id, user_uid):
                 _sz_str = (f"{_sz/1024/1024/1024:.1f} GB" if _sz >= 1024**3
                            else f"{_sz/1024/1024:.1f} MB" if _sz >= 1024**2
                            else f"{_sz/1024:.0f} KB")
-                _warn = (f"⚠️ 删除「{sess['name']}」将同时清除该会话下**所有文件**（上传文件、运行产物、分析结果，共 {_sz_str}），操作不可撤销。"
-                         if _lang != "en_US" else
-                         f"⚠️ Deleting **{sess['name']}** will permanently remove all session files (uploads, run products, results — {_sz_str}). This cannot be undone.")
+                _warn = _("Deleting {session_name} will permanently remove all session files (uploads, run products, results - {size}). This cannot be undone.").format(
+                    session_name=f"**{sess['name']}**",
+                    size=_sz_str,
+                )
                 st.warning(_warn)
                 _dc1, _dc2 = st.columns(2)
-                if _dc1.button("✓ " + ("确认删除" if _lang != "en_US" else "Delete"),
+                if _dc1.button(_("Delete"),
                                key=f"sess_del_yes_{sess['session_id']}", width="stretch"):
                     thread_id = sess.get("thread_id", "")
                     store.delete_session(sess["session_id"])
@@ -153,7 +170,7 @@ def render_sidebar(store, fm, user_id, user_uid):
                     if is_active:
                         st.session_state.current_session_id = None
                     st.rerun()
-                if _dc2.button("✗ " + ("取消" if _lang != "en_US" else "Cancel"),
+                if _dc2.button(_("Cancel"),
                                key=f"sess_del_no_{sess['session_id']}", width="stretch"):
                     st.session_state.pop("_sess_del_pending", None)
                     st.rerun()
@@ -185,10 +202,10 @@ def render_sidebar(store, fm, user_id, user_uid):
         current_sid  = st.session_state.get("current_session_id", "")
         _session_dir = fm.session_dir(user_uid, current_sid) if current_sid else ""
         _lang        = st.session_state.get("lang", DEFAULT_LANG)
-        _copy_help   = "复制 session 上传目录路径" if _lang != "en_US" else "Copy session upload directory path"
+        _copy_help   = _("Copy session upload directory path")
 
         _fc1, _fc2 = st.columns([4, 3])
-        _fc1.markdown(f"**{_('📁 File Management')}**")
+        _fc1.markdown(f"**{_icon_text('File Management')}**")
         with _fc2:
             _b1, _b2 = st.columns(2)
             with _b1:
@@ -205,7 +222,7 @@ def render_sidebar(store, fm, user_id, user_uid):
         _current_run_dir = st.session_state.get("current_run_dir", "")
         if _current_run_dir:
             _rdc1, _rdc2 = st.columns([4, 1])
-            _run_label = "上次运行目录" if _lang != "en_US" else "Last run dir"
+            _run_label = _("Last run dir")
             _rdc1.caption(f"📂 {_run_label}")
             with _rdc2:
                 if st.button("📋", key="copy_run_dir",
@@ -225,8 +242,7 @@ def render_sidebar(store, fm, user_id, user_uid):
         st.progress(pct, text=f"{fmt_size(used)} / {fmt_size(USER_QUOTA_BYTES)}")
         st.caption(f"📤 {_('Uploads')}: {up_sz}　　🧬 {_('Run products')}: {run_sz}")
 
-        _upload_help = "建议大文件（>1GB）直接上传到服务器 session 目录" if _lang != "en_US" \
-                       else "For large files (>1 GB), upload directly to the server session directory"
+        _upload_help = _("For large files (>1 GB), upload directly to the server session directory")
         st.caption(_upload_help)
         uploaded = st.file_uploader(
             _("Upload files to current session"),
@@ -325,14 +341,13 @@ def render_sidebar(store, fm, user_id, user_uid):
                     st.session_state.pop(_pdk, None)
                     st.rerun()
             else:
-                if st.button(_("🗑 Clear session files"), width="stretch"):
+                if st.button(_icon_text("Clear session files"), width="stretch"):
                     st.session_state[_pdk] = "clear_files"
                     st.rerun()
 
-        with st.expander(_("🔗 Link server path"), expanded=False):
+        with st.expander(_icon_text("Link server path"), expanded=False):
             _lang = st.session_state.get("lang", DEFAULT_LANG)
-            _ph = "/data/users/xxx/sample.bam 或目录路径" if _lang != "en_US" \
-                  else "/data/users/xxx/sample.bam or a directory"
+            _ph = _("/data/users/xxx/sample.bam or a directory")
             _path_input = st.text_input(
                 _("Server file or directory path"),
                 key=f"link_path_input_{current_sid}",
@@ -345,16 +360,16 @@ def render_sidebar(store, fm, user_id, user_uid):
                 if not _p:
                     st.warning(_("Please enter a path."))
                 elif not os.path.exists(_p):
-                    st.error(f"{'路径不存在' if _lang != 'en_US' else 'Path not found'}: `{_p}`")
+                    st.error(_("Path not found: {path}").format(path=f"`{_p}`"))
                 elif _session_dir:
                     _link_name = os.path.basename(_p.rstrip("/"))
                     _link_dst  = os.path.join(_session_dir, _link_name)
                     os.makedirs(_session_dir, exist_ok=True)
                     if os.path.lexists(_link_dst):
-                        st.info(f"{'已存在' if _lang != 'en_US' else 'Already linked'}: `{_link_name}`")
+                        st.info(_("Already linked: {name}").format(name=f"`{_link_name}`"))
                     else:
                         os.symlink(_p, _link_dst)
-                        st.success(f"{'已链接' if _lang != 'en_US' else 'Linked'}: `{_link_name}` → `{_p}`")
+                        st.success(_("Linked: {name} -> {path}").format(name=f"`{_link_name}`", path=f"`{_p}`"))
                         st.rerun()
 
             if _session_dir and os.path.isdir(_session_dir):
@@ -372,12 +387,10 @@ def render_sidebar(store, fm, user_id, user_uid):
 
         run_dirs = breakdown["run_dirs"]
         if run_dirs:
-            with st.expander(f"{_('🗑 Clean run products')}  ({run_sz})", expanded=False):
+            with st.expander(f"{_icon_text('Clean run products')}  ({run_sz})", expanded=False):
                 _lang = st.session_state.get("lang", DEFAULT_LANG)
                 st.caption(
-                    "💡 点击 **▶** 可将该目录设为续跑起点，重新提问时将跳过已完成的步骤"
-                    if _lang != "en_US" else
-                    "💡 Click **▶** to resume a workflow from this run directory — completed steps will be skipped"
+                    _("Click ▶ to resume a workflow from this run directory; completed steps will be skipped")
                 )
                 _resume_locked = st.session_state.get("resume_run_dir", "")
 
@@ -433,8 +446,7 @@ def render_sidebar(store, fm, user_id, user_uid):
                         _badge = _worker_badge(_rd_full_path)
                         _name_display = f"📌 **{rd['name']}**" if _is_locked else f"📁 {rd['name']}"
                         col_n.caption(f"{_name_display}{_badge}  `{fmt_size(rd['size'])}`")
-                        _resume_help = ("取消续跑锁定" if _lang != "en_US" else "Unlock resume") if _is_locked \
-                                  else ("设为续跑目录（跳过已完成步骤）" if _lang != "en_US" else "Resume from this dir (skip completed steps)")
+                        _resume_help = _("Unlock resume") if _is_locked else _("Resume from this dir (skip completed steps)")
                         if col_r.button("📌" if _is_locked else "▶",
                                         key=f"resume_{current_sid}_{rd['name']}",
                                         help=_resume_help,
@@ -462,7 +474,7 @@ def render_sidebar(store, fm, user_id, user_uid):
                         st.session_state.pop(_pdk, None)
                         st.rerun()
                 else:
-                    if st.button(_("🗑 Clean all run products"), width="stretch"):
+                    if st.button(_icon_text("Clean all run products"), width="stretch"):
                         st.session_state[_pdk] = "clear_runs"
                         st.rerun()
 

@@ -16,7 +16,8 @@ def fastqc(subcommand, subcommand_str, args_dict, data_path):
 
     if not subcommand or subcommand == "run":
         pos_args = [
-            os.path.join(data_dir, os.path.basename(p)) for p in pos_args
+            p if os.path.isabs(str(p)) else os.path.join(data_dir, os.path.basename(p))
+            for p in pos_args
         ]
 
         if not kwargs.get("outdir"):

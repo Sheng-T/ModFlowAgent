@@ -26,13 +26,13 @@ from ui.login   import render_login
 from ui.sidebar import render_sidebar, switch_session
 from ui.chat    import (
     render_history, render_mode_selector,
-    run_first_segment, render_review, run_second_segment,
+    run_first_segment, render_review_v2, run_second_segment,
     render_workflow_selector, run_workflow_select_segment,
     render_local_prereq_reviewer, run_local_prereq_review_segment,
     render_prereq_reviewer, run_prereq_review_segment,
     render_module_selector, run_module_select_segment,
     render_completed_if_disconnected,
-    render_worker_poller, render_worker_reconnect,
+    render_worker_poller, render_worker_reconnect, render_agent_poller,
 )
 
 # streamlit run ui/app_ui.py --server.address 0.0.0.0 --server.port 8501
@@ -67,7 +67,7 @@ if not st.session_state.get("current_session_id"):
 render_sidebar(store, fm, user_id, user_uid)
 
 # ──  ────────────────────────────────────────────────────────────────────
-st.title(_(f"🧬 {APP_DISPLAY} Analytics Platform"))
+st.title(_(f"{APP_DISPLAY} Analytics Platform"))
 st.markdown("---")
 
 current_session_id = st.session_state.current_session_id
@@ -91,6 +91,7 @@ render_completed_if_disconnected(app, store, current_session_id, current_session
 _session_dir = fm.session_dir(user_uid, current_session_id) if current_session_id else ""
 render_worker_reconnect(store, current_session_id, _session_dir)
 render_worker_poller(store, current_session_id)
+render_agent_poller(app, store, current_session_id)
 
 
 # ──  ─────────────────────────────────────────────────────────────
@@ -100,6 +101,7 @@ defaults = {
     "waiting_for_mode": False,
     "waiting_review":   False,
     "pending_commands": [],
+    "review_commands": [],
     "resume_decision":  None,
     "review_feedback":  "",
     "thinking_process": [],
@@ -134,7 +136,7 @@ render_local_prereq_reviewer(app)
 run_local_prereq_review_segment(app, store, fm, user_uid, current_session_id)
 render_prereq_reviewer(app)
 run_prereq_review_segment(app, store, fm, user_uid, current_session_id)
-render_review(app)
+render_review_v2(app)
 run_second_segment(app, store, fm, user_uid, current_session_id)
 render_module_selector(app)
 run_module_select_segment(app, store, fm, user_uid, current_session_id)

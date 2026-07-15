@@ -1,0 +1,143 @@
+version: 1
+
+# Authoring guide:
+#   docs/modcaller_profiles.md
+
+workflows:
+  ont_dna:
+    default_modification_type: 5mcpg
+    fallback_modcaller: dorado
+    modcallers:
+      dorado:
+        display_name: Dorado
+        priority: 100
+        runtime:
+          type: tool
+          tool_name: dorado
+        entrypoint: dorado
+        workdir: ""
+        supported_modification_types:
+          - 5mcpg
+          - 5hmcg
+          - 5mc
+          - 5hmc
+          - 4mc
+          - 6ma
+          - none
+        caller_steps:
+          - dorado_download
+          - dorado_basecaller
+        postprocess:
+          samtools_faidx: true
+          modkit_pileup: true
+          modkit_extract: true
+
+  ont_rna:
+    default_modification_type: m6a
+    fallback_modcaller: dorado
+    modcallers:
+      dorado:
+        display_name: Dorado
+        priority: 100
+        runtime:
+          type: tool
+          tool_name: dorado
+        entrypoint: dorado
+        workdir: ""
+        supported_modification_types:
+          - m6adrach
+          - m6a
+          - inosine
+          - 2omea
+          - pseu
+          - m5c
+          - 2omeg
+          - none
+        caller_steps:
+          - dorado_download
+          - dorado_basecaller
+        postprocess:
+          samtools_faidx: true
+          modkit_pileup: true
+          modkit_extract: true
+
+  pacbio_dna:
+    default_modification_type: 5mcpg
+    fallback_modcaller: jasmine
+    modcallers:
+      jasmine:
+        display_name: Jasmine
+        priority: 110
+        runtime:
+          type: tool
+          tool_name: pbjasmine
+        workdir: ""
+        entrypoint: jasmine
+        supported_modification_types:
+          - 5mcpg
+          - 5mc
+          - 5hmc
+          - 6ma
+        pileup_method: pb_cpg_tools
+        caller_steps:
+          - modcaller_run
+          - pbmm2_align
+          - samtools_index
+        command_example: |
+          {entrypoint} \
+            --num-threads {threads} \
+            "{bam}" \
+            "{modcaller_bam}"
+        postprocess:
+          samtools_faidx: false
+          modkit_pileup: false
+          modkit_extract: false
+      ccsmeth:
+        display_name: ccsmeth
+        priority: 100
+        runtime:
+          type: tool
+          tool_name: ccsmeth
+        workdir: ""
+        entrypoint: ccsmeth
+        modcaller_pre:
+          mode: python
+          required: false
+          code: |
+            device = "{device}".strip()
+            if device.startswith("cuda:"):
+                gpu_ids = [x for x in device.split(":", 1)[1].split(",") if x]
+                result = {
+                    "ccsmeth_cuda_prefix": f"CUDA_VISIBLE_DEVICES={','.join(gpu_ids)} ",
+                    "ccsmeth_threads_call": "2",
+                }
+            else:
+                result = {
+                    "ccsmeth_cuda_prefix": "",
+                    "ccsmeth_threads_call": "1",
+                }
+        template_vars:
+          ccsmeth_call_mods_model: "{pipeline_dir}/methylong/bin/ccsmeth_models/model_ccsmeth_5mCpG_call_mods_attbigru2s_b21.v3.ckpt"
+          ccsmeth_ag_model: "{pipeline_dir}/methylong/bin/ccsmeth_models/model_ccsmeth_5mCpG_aggregate_attbigru_b11.v2p.ckpt"
+        supported_modification_types:
+          - 5mcpg
+        pileup_method: pb_cpg_tools
+        caller_steps:
+          - modcaller_run
+          - pbmm2_align
+          - samtools_index
+        command_example: |
+          mkdir -p "{step_dir}/ccsmeth_callmods" && \
+          {ccsmeth_cuda_prefix}{entrypoint} call_mods \
+            --input "{bam}" \
+            --model_file "{ccsmeth_call_mods_model}" \
+            --output "{step_dir}/ccsmeth_callmods/calls" \
+            --threads {threads} \
+            --threads_call {ccsmeth_threads_call} \
+            --model_type attbigru2s \
+            --mode denovo && \
+          cp "{step_dir}/ccsmeth_callmods/calls.modbam.bam" "{modcaller_bam}"
+        postprocess:
+          samtools_faidx: false
+          modkit_pileup: false
+          modkit_extract: false

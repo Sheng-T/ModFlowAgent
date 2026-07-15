@@ -39,6 +39,9 @@ class ToolExecutor:
         t_out.join()
         t_err.join()
 
+        stdout_lines = [line for line in stdout_lines if line.strip().lower() != "null"]
+        stderr_lines = [line for line in stderr_lines if line.strip().lower() != "null"]
+
         stdout = "\n".join(stdout_lines)
         stderr = "\n".join(stderr_lines)
         output = (stdout + "\n" + stderr).strip()

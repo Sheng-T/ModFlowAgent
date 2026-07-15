@@ -51,7 +51,9 @@ def reset_session_state_node(state: AgentState) -> AgentState:
     lower = user_input.lower()
     _pacbio_kw = ["pacbio", "hifi", " pb ", "pb-"]
     router_hint = ""
-    if any(k in lower for k in ["fastq", ".fq", "fq.gz", "fastq.gz"]):
+    _has_fastq = any(k in lower for k in ["fastq", ".fq", "fq.gz", "fastq.gz"])
+    _has_fastqc = "fastqc" in lower
+    if _has_fastq and not _has_fastqc and user_choice != "tools":
         router_hint = _NOT_SUPPORTED_HINTS["fastq"]
     elif any(k in lower for k in _pacbio_kw) and "dorado" in lower:
         router_hint = _NOT_SUPPORTED_HINTS["pacbio_dorado"]
@@ -129,7 +131,9 @@ def classify_intent_route(state: AgentState) -> str:
 
     # Intercept inputs that should go directly to answer regardless of user_choice
     _fastq_kw = ["fastq", ".fq", "fq.gz", "fastq.gz"]
-    if any(kw in user_input for kw in _fastq_kw):
+    _has_fastq = any(kw in user_input for kw in _fastq_kw)
+    _has_fastqc = "fastqc" in user_input
+    if _has_fastq and not _has_fastqc and state.get("user_choice") != "tools":
         print("[Router] FASTQ input detected — routing to answer (not supported)")
         return "route_to_answer"
 
@@ -150,7 +154,7 @@ def classify_intent_route(state: AgentState) -> str:
     if any(k in user_input for k in _workflow_kw):
         return "route_to_tools"  # workflow 也走 tools 路由
 
-    if any(k in user_input for k in ["dorado", "samtools", "basecall", "sort", "index"]):
+    if any(k in user_input for k in ["dorado", "samtools", "modkit", "fastqc", "basecall", "sort", "index"]):
         return "route_to_tools"
 
     _pacbio_kw = ["pacbio", "hifi", " pb ", "pb-"]

@@ -6,9 +6,13 @@ secondaryBackgroundColor = "#f0f4ff"
 textColor       = "#1a1f2e"
 font            = "sans serif"
 
+[theme.sidebar]
+backgroundColor = "#f0f4ff"
+secondaryBackgroundColor = "#e7eefc"
+textColor = "#1a1f2e"
+
 [server]
 headless = true
 maxUploadSize = 10240
 address='0.0.0.0'
 port=50027
-sessionExpirationTimeout = 86400

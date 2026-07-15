@@ -7,6 +7,11 @@ local workflows   → key-value param form prereqs (type "local_params")
 import json
 import os
 
+from tools.workflow.caller_profiles import (
+    get_default_modification_type,
+    list_workflow_modification_types,
+)
+
 _JSON_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "static", "workflows", "workflow_prereqs.json"
@@ -51,7 +56,16 @@ def get_local_prereq_params(workflow: str) -> list[dict]:
     """
     for p in get_prereqs(workflow):
         if p.get("type") == "local_params":
-            return p.get("params", [])
+            params = [dict(item) for item in p.get("params", [])]
+            for param in params:
+                if param.get("key") == "modification_type":
+                    options = list_workflow_modification_types(workflow)
+                    if options:
+                        param["options"] = options
+                    default = get_default_modification_type(workflow)
+                    if default:
+                        param["default"] = default
+            return params
     return []
 
 

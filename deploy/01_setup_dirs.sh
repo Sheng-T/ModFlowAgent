@@ -16,6 +16,11 @@ _dirs=(
     "${SAMTOOLS_IMAGE_DIR}"
     "${MODKIT_IMAGE_DIR}"
     "${FASTQC_IMAGE_DIR}"
+    "${PBJASMINE_IMAGE_DIR}"
+    "${CCSMETH_IMAGE_DIR}"
+    "${FIBERTOOLS_IMAGE_DIR}"
+    "${PBMM2_IMAGE_DIR}"
+    "${PBCPGTOOLS_IMAGE_DIR}"
     # methylong Nextflow pipeline image cache
     "${METHYLONG_IMAGE_DIR}"
     # Data and model directories

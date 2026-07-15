@@ -95,21 +95,19 @@ register(WorkflowSpec(
     display_name="ONT RNA Modification (local)",
     type="local",
     description=(
-        "Generic ONT direct-RNA modification detection via per-tool Singularity images. "
-        "Supports m6A, pseU, inosine, and all RNA004-compatible modifications. "
-        "Steps: dorado download → basecall → samtools sort/index "
-        "→ modkit extract [→ modkit pileup if reference provided]."
+        "Generic ONT direct-RNA modification detection via local caller profiles. "
+        "The caller is resolved automatically from the requested modification type, "
+        "with Dorado as the current fallback."
     ),
     recommended_for=(
-        "ONT direct-RNA sequencing data (RNA004 kit) — detects any RNA base modification "
-        "at single-read and site level. Modification type is selectable (default: m6A)."
+        "ONT direct-RNA sequencing data (RNA004 kit) with automatic caller selection. "
+        "Modification type is selectable (default: m6a)."
     ),
     molecule="RNA",
-    modification="m6A / pseU / inosine / all",
+    modification="m6adrach / m6a / inosine / 2omea / pseu / m5c / 2omeg",
     input_formats=["pod5"],
-    steps=["dorado_download", "dorado_basecaller", "samtools_sort",
-           "samtools_index", "samtools_faidx", "modkit_pileup", "modkit_extract"],
-    step_tools=["dorado", "dorado", "samtools", "samtools", "samtools", "modkit", "modkit"],
+    steps=["resolve_caller"],
+    step_tools=["dorado"],
 ))
 
 register(WorkflowSpec(
@@ -117,21 +115,39 @@ register(WorkflowSpec(
     display_name="ONT DNA Modification (local)",
     type="local",
     description=(
-        "Generic ONT DNA modification detection via per-tool Singularity images. "
-        "Supports 5mCG, 5hmCG, 6mA, and other DNA modifications from ONT pod5 input. "
-        "Steps: dorado basecall → samtools sort/index → modkit pileup + extract."
+        "Generic ONT DNA modification detection via local caller profiles. "
+        "The caller is resolved automatically from the requested modification type, "
+        "with Dorado as the current fallback."
     ),
     recommended_for=(
         "Quick single-sample ONT DNA modification analysis without nf-core overhead. "
-        "Modification type is selectable (default: 5mCG). "
+        "Modification type is selectable (default: 5mcpg). "
         "ONT platform ONLY — does NOT support PacBio HiFi input. "
         "Does NOT support Fiber-seq (use methylong for Fiber-seq or PacBio analysis). "
         "Use methylong for multi-sample or production workflows."
     ),
     molecule="DNA",
-    modification="5mCpG / 5hmCpG / 6mA / all",
+    modification="5mcpg / 5hmcg / 5mc / 5hmc / 4mc / 6ma",
     input_formats=["pod5"],
-    steps=["dorado_download", "dorado_basecaller", "samtools_sort", "samtools_index",
-           "samtools_faidx", "modkit_pileup", "modkit_extract"],
-    step_tools=["dorado", "dorado", "samtools", "samtools", "samtools", "modkit", "modkit"],
+    steps=["resolve_caller"],
+    step_tools=["dorado"],
+))
+
+register(WorkflowSpec(
+    name="pacbio_dna",
+    display_name="PacBio DNA Modification (local)",
+    type="local",
+    description=(
+        "Local PacBio HiFi DNA modification workflow placeholder. "
+        "Current profile planning is BAM-first and R10-style ONT logic does not apply here."
+    ),
+    recommended_for=(
+        "PacBio local single-sample modification analysis from HiFi BAM input. "
+        "Current placeholders cover 5mcpg / 5mc / 6ma and may include pbmm2 alignment before downstream pileup or modkit."
+    ),
+    molecule="DNA",
+    modification="5mcpg / 5mc / 6ma",
+    input_formats=["bam"],
+    steps=["caller_run"],
+    step_tools=["workflow"],
 ))

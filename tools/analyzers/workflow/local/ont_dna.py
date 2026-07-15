@@ -10,6 +10,7 @@ subdirectories and generates PNG visualizations.
 from __future__ import annotations
 
 import glob
+import json
 import os
 
 from tools.analyzers.workflow.base import WorkflowAnalyzer
@@ -200,6 +201,21 @@ class OntDnaAnalyzer(WorkflowAnalyzer):
             return {"workflow": "ont_dna", "summary": summary,
                     "plot_paths": plot_paths, "warnings": warnings}
 
+        run_meta = {}
+        run_meta_path = os.path.join(outdir, "run_meta.json")
+        if os.path.isfile(run_meta_path):
+            try:
+                with open(run_meta_path, encoding="utf-8") as fh:
+                    run_meta = json.load(fh)
+            except Exception as exc:
+                warnings.append(f"Could not read run_meta.json: {exc}")
+
+        resolved_steps = run_meta.get("resolved_step_sequence") or []
+        summary["modcaller"] = run_meta.get("modcaller") or run_meta.get("caller") or None
+        summary["resolved_steps"] = resolved_steps
+        expects_pileup = "modkit_pileup" in resolved_steps
+        expects_extract = "modkit_extract" in resolved_steps
+
         # ── pileup (bedMethyl) ────────────────────────────────────────────────
         pileup_candidates = (
             glob.glob(os.path.join(outdir, "*pileup*", "*.bed"))
@@ -214,6 +230,8 @@ class OntDnaAnalyzer(WorkflowAnalyzer):
                 warnings.append(f"Could not parse pileup file: {summary['pileup_stats']['parse_error']}")
         else:
             summary["pileup_file"] = None
+            if expects_pileup:
+                warnings.append("modkit pileup output not found — pipeline may not have completed.")
 
         # ── extract (per-read TSV) ────────────────────────────────────────────
         extract_candidates = (
@@ -230,6 +248,21 @@ class OntDnaAnalyzer(WorkflowAnalyzer):
         else:
             summary["extract_file"] = None
             warnings.append("modkit extract output not found — pipeline may not have completed.")
+
+        if not expects_extract:
+            warnings = [w for w in warnings if "modkit extract output not found" not in w]
+
+        modcaller_outputs = []
+        for modcaller_dir in glob.glob(os.path.join(outdir, "*modcaller_run*")):
+            if not os.path.isdir(modcaller_dir):
+                continue
+            for entry in sorted(os.scandir(modcaller_dir), key=lambda e: e.name):
+                if entry.is_file():
+                    modcaller_outputs.append(entry.name)
+                elif entry.is_dir():
+                    modcaller_outputs.append(entry.name + "/")
+        if modcaller_outputs:
+            summary["modcaller_outputs"] = modcaller_outputs
 
         summary["completed_steps"] = sorted(
             e.name for e in os.scandir(outdir)
