@@ -26,6 +26,9 @@ db_dir/
 *.fasta
 *.fa
 
+!demo/5mC_test_200.pod5
+!demo/all_5mers.fa
+
 delete/
 
 tests/
