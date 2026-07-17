@@ -42,10 +42,10 @@ Example: `dorado basecaller dna_r10.4.1_e8.2_400bps_sup@v5.0.0 --modified-bases-
 ## RNA: m6A vs DRACH-context
 - `m6A` (--modified-bases m6A or inosine_m6A): general N6-methyladenosine across all A positions
 - `m6A_DRACH` (--modified-bases m6A_DRACH): restricts to DRACH motif (D=G/A/T, R=G/A, H=A/C/T). Use when only DRACH-context m6A is requested.
-- `inosine_m6A_2OmeA`: broader coverage (m6A + inosine + 2-O-methyladenosine)
-- `pseU`: pseudouridine detection
-- `m5C`: 5-methylcytosine (RNA)
+- Narrow RNA requests should use the narrowest compatible model when available: `pseU`, `m5C`, or the `inosine_m6A` joint model when the target is m6A or inosine.
+- Combined RNA requests should use the documented combined model: `inosine_m6A_2OmeA`, `pseU_2OmeU`, or `m5C_2OmeC`.
 - `2OmeG`: 2-O-methylguanosine
+- Do not silently replace a single-modification request such as `pseU` with `pseU_2OmeU`; the combined model changes the biological target.
 
 ## Model naming
 - Basecalling models follow: `dna_r10.4.1_e8.2_400bps_<tier>@v<version>`

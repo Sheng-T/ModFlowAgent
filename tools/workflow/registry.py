@@ -104,7 +104,10 @@ register(WorkflowSpec(
         "Modification type is selectable (default: m6a)."
     ),
     molecule="RNA",
-    modification="m6adrach / m6a / inosine / 2omea / pseu / m5c / 2omeg",
+    modification=(
+        "m6adrach / m6a / inosine / 2omea / inosinem6a2omea / "
+        "pseu / pseu2omeu / m5c / m5c2omec / 2omeg"
+    ),
     input_formats=["pod5"],
     steps=["resolve_caller"],
     step_tools=["dorado"],

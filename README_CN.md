@@ -117,6 +117,35 @@ bash deploy.sh --skip-images  # 跳过 Singularity 镜像拉取（第 3 步）
 
 > **注意**：第 3 步和第 5 步需要 Singularity 镜像和 Dorado 模型才能执行流水线。如果因为网络限制导致镜像拉取失败，这些步骤会给出警告并跳过，而不会直接报错。可以使用 `bash deploy.sh --skip-images` 或 `bash deploy.sh --from 4` 继续完成其余安装。Web 界面和基于 LLM 的规划功能无需这些镜像即可运行，但执行 Dorado、modkit 或 methylong 工作流仍然需要它们。
 
+## 测试数据与可复现示例
+
+本仓库在 [`demo/`](demo/) 目录中提供了一个小型 ONT DNA 5mC 测试数据集：
+
+- `demo/5mC_test_200.pod5`：POD5 输入子集
+- `demo/all_5mers.fa`：对应参考序列 FASTA
+- `demo/all_5mers_5mC_sites.bed`：验证参考中的预期 5mC 位点
+- `demo/test_200_ids.txt`：用于生成该子集的 read ID
+
+该 demo 子集来源于 Oxford Nanopore modified-base validation data，原始数据托管在 [ONT Open Datasets](https://registry.opendata.aws/ont-open-data/) 的 `s3://ont-open-data/modbase-validation_2024.10/` 路径下。
+
+使用内置测试数据运行 ModFlowAgent：
+
+```bash
+# 准备完整执行环境，包括工作流镜像和 Dorado 模型。
+bash deploy.sh --skip-llm
+
+# 启动 Web 界面。
+bash start.sh
+```
+
+然后打开 http://localhost:8501，并输入如下请求。请将路径替换为本机上的绝对路径：
+
+```text
+Profile 5mC methylation from ONT DNA POD5 test data at /absolute/path/to/ModFlowAgent/demo/5mC_test_200.pod5 and use reference /absolute/path/to/ModFlowAgent/demo/all_5mers.fa.
+```
+
+如果只需要轻量级验证而不实际运行外部生信工具，也可以在 Docker 或 API 模式下使用同样的请求测试工作流路由、前提条件校验和命令生成。
+
 ## 使用示例
 
 ```

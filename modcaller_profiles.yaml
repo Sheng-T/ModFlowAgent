@@ -49,8 +49,11 @@ workflows:
           - m6a
           - inosine
           - 2omea
+          - inosinem6a2omea
           - pseu
+          - pseu2omeu
           - m5c
+          - m5c2omec
           - 2omeg
           - none
         caller_steps:

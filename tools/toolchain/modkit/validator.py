@@ -85,9 +85,9 @@ def get_modkit_flags(molecule: str, modification_type: str) -> dict[str, str]:
     Keys: pileup_extra, extract_extra (flags appended to the subcommand).
 
     The deployed modkit image is currently ont-modkit 0.5.0, where pileup does
-    not support the v0.6+ --modified-bases selector. Also, --mod-code is not a
-    valid selector for pileup or extract full, so RNA filters here only constrain
-    reference/base context with --motif when that is safe.
+    not support the v0.6+ --modified-bases selector. Mod-code selectors are not
+    valid for pileup or extract full in this workflow, so RNA filters here only
+    constrain reference/base context with --motif when that is safe.
     """
     mol = molecule.strip().upper()
     mod_key = (modification_type or "").strip().lower()

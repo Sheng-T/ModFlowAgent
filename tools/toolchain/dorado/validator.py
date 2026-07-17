@@ -7,21 +7,95 @@ from tools.toolchain.command_builder import build_shell_args
 from utils.validator_utils import deduplicate_kwargs
 
 RNA_BASECALL_MODEL = "rna004_130bps_sup@v5.2.0"
+RNA_MODEL_PROFILES = {
+    "m6a": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
+        "reported_modifications": ["inosine", "m6A"],
+        "target_modifications": ["m6A"],
+    },
+    "inosine": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
+        "reported_modifications": ["inosine", "m6A"],
+        "target_modifications": ["inosine"],
+    },
+    "inosinem6a": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
+        "reported_modifications": ["inosine", "m6A"],
+        "target_modifications": ["inosine", "m6A"],
+    },
+    "drach": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_m6A_DRACH@v1",
+        "reported_modifications": ["m6A_DRACH"],
+        "target_modifications": ["m6A_DRACH"],
+    },
+    "m6adrach": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_m6A_DRACH@v1",
+        "reported_modifications": ["m6A_DRACH"],
+        "target_modifications": ["m6A_DRACH"],
+    },
+    "2omea": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_inosine_m6A_2OmeA@v1",
+        "reported_modifications": ["inosine", "m6A", "2OmeA"],
+        "target_modifications": ["2OmeA"],
+    },
+    "inosinem6a2omea": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_inosine_m6A_2OmeA@v1",
+        "reported_modifications": ["inosine", "m6A", "2OmeA"],
+        "target_modifications": ["inosine", "m6A", "2OmeA"],
+    },
+    "pseu": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_pseU@v1",
+        "reported_modifications": ["pseU"],
+        "target_modifications": ["pseU"],
+    },
+    "pseudouridine": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_pseU@v1",
+        "reported_modifications": ["pseU"],
+        "target_modifications": ["pseU"],
+    },
+    "pseu2omeu": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_pseU_2OmeU@v1",
+        "reported_modifications": ["pseU", "2OmeU"],
+        "target_modifications": ["pseU", "2OmeU"],
+    },
+    "m5c": {
+        "simplex_model": "rna004_130bps_sup@v5.1.0",
+        "modified_model": "rna004_130bps_sup@v5.1.0_m5C@v1",
+        "reported_modifications": ["m5C"],
+        "target_modifications": ["m5C"],
+    },
+    "m5c2omec": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_m5C_2OmeC@v1",
+        "reported_modifications": ["m5C", "2OmeC"],
+        "target_modifications": ["m5C", "2OmeC"],
+    },
+    "2omeg": {
+        "simplex_model": "rna004_130bps_sup@v5.2.0",
+        "modified_model": "rna004_130bps_sup@v5.2.0_2OmeG@v1",
+        "reported_modifications": ["2OmeG"],
+        "target_modifications": ["2OmeG"],
+    },
+    "all": {
+        "simplex_model": RNA_BASECALL_MODEL,
+        "modified_model": None,
+        "reported_modifications": [],
+        "target_modifications": [],
+    },
+}
 RNA_MOD_MODELS = {
-    "m6a":              "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
-    "inosine":          "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
-    "inosinem6a":       "rna004_130bps_sup@v5.1.0_inosine_m6A@v1",
-    "drach":            "rna004_130bps_sup@v5.2.0_m6A_DRACH@v1",
-    "m6adrach":         "rna004_130bps_sup@v5.2.0_m6A_DRACH@v1",
-    "2omea":            "rna004_130bps_sup@v5.2.0_inosine_m6A_2OmeA@v1",
-    "inosinem6a2omea":  "rna004_130bps_sup@v5.2.0_inosine_m6A_2OmeA@v1",
-    "pseu":             "rna004_130bps_sup@v5.1.0_pseU@v1",
-    "pseudouridine":    "rna004_130bps_sup@v5.1.0_pseU@v1",
-    "pseu2omeu":        "rna004_130bps_sup@v5.2.0_pseU_2OmeU@v1",
-    "m5c":              "rna004_130bps_sup@v5.1.0_m5C@v1",
-    "m5c2omec":         "rna004_130bps_sup@v5.2.0_m5C_2OmeC@v1",
-    "2omeg":            "rna004_130bps_sup@v5.2.0_2OmeG@v1",
-    "all":              None,
+    key: profile["modified_model"]
+    for key, profile in RNA_MODEL_PROFILES.items()
 }
 DNA_BASECALL_MODEL = "dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 DNA_MOD_MODELS = {
@@ -81,25 +155,82 @@ def resolve_models(molecule: str, modification_type: str) -> tuple[str, str | No
     mod_key = mod_key.replace("-", "").replace("_", "").replace(" ", "")
     if mol == "RNA":
         basecall = RNA_BASECALL_MODEL
-        table = RNA_MOD_MODELS
+        profiles = RNA_MODEL_PROFILES
         default = _DEFAULTS["RNA"]
     else:
         basecall = DNA_BASECALL_MODEL
+        profiles = None
         table = DNA_MOD_MODELS
         default = _DEFAULTS["DNA"]
     if mod_key in ("none", "basecallonly", "none(basecallonly)"):
         return basecall, None
+    if mol == "RNA":
+        if not mod_key or mod_key not in profiles:
+            mod_key = default
+        profile = profiles[mod_key]
+        basecall = str(profile["simplex_model"])
+        mod_model = profile["modified_model"]
+        if mod_model:
+            validate_model_pair(basecall, str(mod_model))
+        return basecall, str(mod_model) if mod_model else None
     if not mod_key or mod_key not in table:
         mod_key = default
-    return basecall, table.get(mod_key, table[default])
+    mod_model = table.get(mod_key, table[default])
+    return basecall, mod_model
+
+
+def validate_model_pair(simplex_model: str, modified_model: str) -> None:
+    """Ensure a Dorado modified-base model is paired with its simplex model."""
+    if not modified_model.startswith(f"{simplex_model}_"):
+        raise ValueError(
+            "Incompatible Dorado model pair: "
+            f"{simplex_model} + {modified_model}"
+        )
 
 
 def list_modifications(molecule: str) -> list[str]:
     """Return user-facing modification options for the given molecule."""
     mol = molecule.strip().upper()
     if mol == "RNA":
-        return ["m6adrach", "m6a", "inosine", "2omea", "pseu", "m5c", "2omeg", "none"]
+        return [
+            "m6adrach",
+            "m6a",
+            "inosine",
+            "2omea",
+            "inosinem6a2omea",
+            "pseu",
+            "pseu2omeu",
+            "m5c",
+            "m5c2omec",
+            "2omeg",
+            "none",
+        ]
     return ["5mcpg", "5hmcg", "5mc", "5hmc", "4mc", "6ma", "none"]
+
+
+def get_modification_profile(molecule: str, modification_type: str) -> dict:
+    """Return metadata describing the selected modification model."""
+    mol = molecule.strip().upper()
+    mod_key = (modification_type or "").strip().lower()
+    mod_key = mod_key.replace("-", "").replace("_", "").replace(" ", "")
+    if mol != "RNA":
+        basecall, mod_model = resolve_models(mol, mod_key)
+        return {
+            "simplex_model": basecall,
+            "modified_model": mod_model,
+            "reported_modifications": [],
+            "target_modifications": [mod_key] if mod_key else [],
+        }
+    if mod_key in ("none", "basecallonly", "none(basecallonly)"):
+        return {
+            "simplex_model": RNA_BASECALL_MODEL,
+            "modified_model": None,
+            "reported_modifications": [],
+            "target_modifications": [],
+        }
+    if not mod_key or mod_key not in RNA_MODEL_PROFILES:
+        mod_key = _DEFAULTS["RNA"]
+    return dict(RNA_MODEL_PROFILES[mod_key])
 
 
 def _normalize_mod_base_selector(molecule: str, mod_base: str) -> str:

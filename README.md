@@ -118,6 +118,35 @@ bash deploy.sh --skip-images  # skip Singularity image pull (step 3)
 ```
 > **Note**: Steps 3 and 5 require Singularity images and Dorado models for pipeline execution. If image pulling fails due to network restrictions, these steps produce warnings and skip instead of erroring. Run `bash deploy.sh --skip-images` or `bash deploy.sh --from 4` to continue setup without them. The web interface and LLM-based planning work without these images, but executing Dorado/modkit/methylong workflows requires them.
 
+## Test dataset and reproducible demo
+
+This repository includes a small ONT DNA 5mC demo dataset in [`demo/`](demo/):
+
+- `demo/5mC_test_200.pod5`: POD5 input subset
+- `demo/all_5mers.fa`: matching reference FASTA
+- `demo/all_5mers_5mC_sites.bed`: expected 5mC sites from the validation reference
+- `demo/test_200_ids.txt`: read IDs used to generate the subset
+
+The demo subset was derived from the Oxford Nanopore modified-base validation data hosted in [ONT Open Datasets](https://registry.opendata.aws/ont-open-data/) under `s3://ont-open-data/modbase-validation_2024.10/`.
+
+To run ModFlowAgent on the bundled test dataset:
+
+```bash
+# Prepare the full execution environment, including workflow images and Dorado models.
+bash deploy.sh --skip-llm
+
+# Start the web interface.
+bash start.sh
+```
+
+Then open http://localhost:8501 and use one of the following prompts, replacing the paths with the downloaded test data and matching reference FASTA:
+
+```text
+Profile 5mC methylation from ONT DNA POD5 test data at /absolute/path/to/ModFlowAgent/demo/5mC_test_200.pod5 and use reference /absolute/path/to/ModFlowAgent/demo/all_5mers.fa.
+```
+
+For lightweight review without running external bioinformatics tools, the same prompts can be used in Docker or API mode to test workflow routing, prerequisite validation, and command generation.
+
 ## Usage examples
 
 ```
