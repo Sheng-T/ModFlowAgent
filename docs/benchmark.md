@@ -12,8 +12,8 @@ Three environment variables independently disable ModFlowAgent components:
 
 | Evaluation | Cases | Score |
 |---|---|---|
-| Full ModFlowAgent | 50 | 50/50 |
-| Direct LLM (Claude Sonnet 4.6) | 20 | 16/20 |
+| Full ModFlowAgent | 60 | 60/60 |
+| Direct LLM (Claude Sonnet 4.6) | 20 | 15.5/20 |
 | ModFlowAgent (same 20 cases) | 20 | 20/20 |
 | w/o structured controller | 20 | 9/20 |
 | w/o validation | 20 | 18/20 |
